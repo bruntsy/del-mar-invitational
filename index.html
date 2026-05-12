@@ -2045,7 +2045,14 @@ function resetRound() {
   updateCTA();
   showScreen('setup');
   saveState();
-  if (_keepCode) pushToSupabase(); // broadcast fresh state to all room members
+  if (_keepCode) {
+    // Insert a new round row — the INSERT event notifies all subscribers
+    _db.from('rounds').insert({ code: _keepCode, state: APP, completed: false })
+      .select('id').single()
+      .then(({ data }) => {
+        if (data) { ROUND_ID = data.id; APP.roundId = ROUND_ID; saveState(); }
+      });
+  }
 }
 
 /* ─────────────────────────────────────────────
@@ -2294,7 +2301,8 @@ const _SUPA_URL = 'https://dhpkeueubhpmvaungjfj.supabase.co';
 const _SUPA_KEY = 'sb_publishable_O9usNlh7G_lO7s7yy0QQXQ_JlWlf_Oe';
 const _db = window.supabase.createClient(_SUPA_URL, _SUPA_KEY);
 
-let ROOM_CODE    = null;
+let ROOM_CODE    = null;  // 4-char code shared by the group
+let ROUND_ID     = null;  // uuid of the current round row
 let ROOM_CHANNEL = null;
 let _syncTimer   = null;
 let _lastPushed  = null;
@@ -2335,19 +2343,18 @@ function syncSetupAndSchedule() {
 }
 
 function scheduleSync() {
-  if (!ROOM_CODE) return;
+  if (!ROUND_ID) return;
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(pushToSupabase, 600);
 }
 
 async function pushToSupabase() {
-  if (!ROOM_CODE) return;
+  if (!ROUND_ID) return;
   const payload = JSON.stringify(APP);
   _lastPushed = payload;
-  await _db.from('rounds').upsert(
-    { code: ROOM_CODE, state: APP, completed: APP.completed || false },
-    { onConflict: 'code' }
-  );
+  await _db.from('rounds').update(
+    { state: APP, completed: APP.completed || false }
+  ).eq('id', ROUND_ID);
 }
 
 async function createRoom() {
@@ -2355,11 +2362,16 @@ async function createRoom() {
   syncSetupToApp();
   const code = generateCode();
   APP.roomCode  = code;
+  APP.roundId   = null;
   APP.completed = false;
-  saveState();
-  const { error } = await _db.from('rounds').insert({ code, state: APP, completed: false });
-  if (error) { setRoomStatus('Error: ' + error.message, true); APP.roomCode = null; saveState(); return; }
+  const { data, error } = await _db.from('rounds')
+    .insert({ code, state: APP, completed: false })
+    .select('id').single();
+  if (error || !data) { setRoomStatus('Error: ' + (error?.message || 'insert failed'), true); APP.roomCode = null; return; }
   ROOM_CODE = code;
+  ROUND_ID  = data.id;
+  APP.roundId = ROUND_ID;
+  saveState();
   _lastPushed = JSON.stringify(APP);
   setRoomActive(code);
   subscribeToRoom(code);
@@ -2369,10 +2381,19 @@ async function joinRoom() {
   const raw = (document.getElementById('join-code-input').value || '').trim().toUpperCase();
   if (raw.length !== 4) { setRoomStatus('Enter a 4-character code', true); return; }
   setRoomStatus('Joining…');
-  const { data, error } = await _db.from('rounds').select('state,completed').eq('code', raw).single();
+  // Find the most recent active (incomplete) round for this code
+  const { data, error } = await _db.from('rounds')
+    .select('id,state,completed')
+    .eq('code', raw)
+    .eq('completed', false)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
   if (error || !data) { setRoomStatus('Room not found: ' + raw, true); return; }
-  if (data.completed) { setRoomStatus('That round is already complete', true); return; }
   ROOM_CODE = raw;
+  ROUND_ID  = data.id;
+  APP.roomCode = raw;
+  APP.roundId  = ROUND_ID;
   applyRemoteState(typeof data.state === 'string' ? JSON.parse(data.state) : data.state, true);
   setRoomActive(raw);
   subscribeToRoom(raw);
@@ -2380,14 +2401,28 @@ async function joinRoom() {
 
 function subscribeToRoom(code) {
   if (ROOM_CHANNEL) { _db.removeChannel(ROOM_CHANNEL); ROOM_CHANNEL = null; }
+  // Listen to ALL changes on this room code — catches both score updates (UPDATE)
+  // and new rounds started by the host after a reset (INSERT).
   ROOM_CHANNEL = _db.channel('room-' + code)
     .on('postgres_changes', {
-      event: 'UPDATE', schema: 'public', table: 'rounds', filter: `code=eq.${code}`
+      event: '*', schema: 'public', table: 'rounds', filter: `code=eq.${code}`
     }, payload => {
       if (!payload.new || !payload.new.state) return;
-      const raw = typeof payload.new.state === 'string' ? payload.new.state : JSON.stringify(payload.new.state);
-      if (raw === _lastPushed) return;
-      applyRemoteState(typeof payload.new.state === 'string' ? JSON.parse(payload.new.state) : payload.new.state, false);
+      const row = payload.new;
+      if (payload.eventType === 'INSERT') {
+        // Host started a new round — switch to tracking the new row
+        ROUND_ID = row.id;
+        APP.roundId = ROUND_ID;
+        const st = typeof row.state === 'string' ? JSON.parse(row.state) : row.state;
+        applyRemoteState(st, false);
+        return;
+      }
+      if (payload.eventType === 'UPDATE') {
+        if (row.id !== ROUND_ID) return; // a different round in same room, ignore
+        const incoming = typeof row.state === 'string' ? row.state : JSON.stringify(row.state);
+        if (incoming === _lastPushed) return; // our own echo
+        applyRemoteState(typeof row.state === 'string' ? JSON.parse(row.state) : row.state, false);
+      }
     })
     .subscribe();
 }
@@ -2414,7 +2449,7 @@ function applyRemoteState(remoteApp, fromJoin) {
   if (APP.team1 && APP.team1.length === 3 && APP.course) {
     initScores();
     if (onScorecard) renderScorecard();
-    if (onResults)   { renderResults(); }
+    if (onResults)   renderResults();
   }
 
   if (fromJoin && APP.team1 && APP.team1.length === 3 && APP.course) {
@@ -2422,7 +2457,7 @@ function applyRemoteState(remoteApp, fromJoin) {
     showScreen('scorecard');
   }
 
-  // Remote reset — go back to setup
+  // Remote reset (new round) — go back to setup
   if (!fromJoin && (!APP.course || !APP.team1 || APP.team1.length === 0)) {
     renderSetup();
     loadBetsToInputs();
@@ -2443,7 +2478,9 @@ function setRoomActive(code) {
 function leaveRoom() {
   if (ROOM_CHANNEL) { _db.removeChannel(ROOM_CHANNEL); ROOM_CHANNEL = null; }
   ROOM_CODE = null;
+  ROUND_ID  = null;
   APP.roomCode = null;
+  APP.roundId  = null;
   saveState();
   document.getElementById('room-join-area').style.display = '';
   document.getElementById('room-active').style.display    = 'none';
@@ -2459,16 +2496,16 @@ function setRoomStatus(msg, isError) {
 }
 
 async function completeRound() {
-  if (!ROOM_CODE) return;
+  if (!ROUND_ID) return;
   if (!confirm('Mark this round as complete? It will be saved to Round History for all players.')) return;
   APP.completed = true;
   saveState();
   const { error } = await _db.from('rounds').update(
     { state: APP, completed: true, completed_at: new Date().toISOString() }
-  ).eq('code', ROOM_CODE);
+  ).eq('id', ROUND_ID);
   if (error) { alert('Error saving: ' + error.message); APP.completed = false; saveState(); return; }
-  if (ROOM_CHANNEL) { _db.removeChannel(ROOM_CHANNEL); ROOM_CHANNEL = null; }
   renderResults();
+  // Keep channel open so host reset broadcasts the new round INSERT to all devices
 }
 
 /* ─────────────────────────────────────────────
@@ -2672,8 +2709,9 @@ function _stateSkins(st) {
   }
 
   // Re-connect to room if we were in one
-  if (APP.roomCode) {
+  if (APP.roomCode && APP.roundId) {
     ROOM_CODE = APP.roomCode;
+    ROUND_ID  = APP.roundId;
     setRoomActive(ROOM_CODE);
     subscribeToRoom(ROOM_CODE);
   }
