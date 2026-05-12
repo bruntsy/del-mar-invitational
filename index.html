@@ -995,13 +995,15 @@
     .row-putts td { background: var(--bg-lighter) !important; border-top: none !important; }
     .row-putts td.name-cell { padding: 3px 10px; background: var(--bg-lighter) !important; }
 
-    .putt-cell { padding: 0; cursor: pointer; text-align: center; }
-    .putt-btn {
+    .putt-cell { padding: 0; text-align: center; }
+    .putt-inp {
       width: 100%; height: 34px; border: none; background: transparent;
-      cursor: pointer; font-size: 0.88rem; font-weight: 700;
-      color: rgba(245,240,228,0.3); transition: color 0.1s, background 0.1s; display: block;
+      text-align: center; font-family: 'Lato', sans-serif; font-size: 0.95rem; font-weight: 700;
+      color: rgba(245,240,228,0.4); -moz-appearance: textfield; cursor: pointer;
     }
-    .putt-btn:hover { background: rgba(201,168,76,0.1); }
+    .putt-inp::-webkit-outer-spin-button,
+    .putt-inp::-webkit-inner-spin-button { -webkit-appearance: none; }
+    .putt-inp:focus { outline: none; background: rgba(201,168,76,0.1); color: rgba(245,240,228,0.9); }
     .putt-1 { color: #27ae60 !important; }
     .putt-2 { color: rgba(245,240,228,0.75) !important; }
     .putt-3 { color: #e74c3c !important; background: rgba(192,57,43,0.1) !important; }
@@ -1707,18 +1709,17 @@ function togglePuttRow(player) {
   if (btn) btn.textContent = expandedPuttRows.has(player) ? '▲' : '▼';
 }
 
-function onPuttClick(player, h) {
+function onPuttInput(player, h, rawVal) {
   if (!APP.putts) APP.putts = {};
   if (!APP.putts[player]) APP.putts[player] = new Array(18).fill(null);
-  const cur = APP.putts[player][h];
-  APP.putts[player][h] = (cur === null || cur >= 3) ? 0 : cur + 1;
+  const v = rawVal === '' ? null : parseInt(rawVal, 10);
+  if (rawVal !== '' && (isNaN(v) || v < 0)) return;
+  APP.putts[player][h] = v;
   saveState();
   scheduleSync();
-  const btn = document.getElementById(`putt-btn-${player}-${h}`);
-  if (btn) {
-    const v = APP.putts[player][h];
-    btn.textContent = v || '·';
-    btn.className = `putt-btn${v === 1 ? ' putt-1' : v === 2 ? ' putt-2' : v === 3 ? ' putt-3' : ''}`;
+  const input = document.getElementById(`putt-inp-${player}-${h}`);
+  if (input) {
+    input.className = `putt-inp${v === 1 ? ' putt-1' : v === 2 ? ' putt-2' : v >= 3 ? ' putt-3' : ''}`;
   }
   updatePuttSums(player);
   renderPuttPoker();
@@ -1741,9 +1742,12 @@ function updatePuttSums(player) {
 
 function buildPuttCell(player, h) {
   const v   = APP.putts?.[player]?.[h] ?? null;
-  const cls = v === 1 ? ' putt-1' : v === 2 ? ' putt-2' : v === 3 ? ' putt-3' : '';
-  return `<td class="putt-cell" onclick="onPuttClick('${player}',${h})">
-    <button class="putt-btn${cls}" id="putt-btn-${player}-${h}">${v !== null ? v : '·'}</button>
+  const cls = v === 1 ? ' putt-1' : v === 2 ? ' putt-2' : v >= 3 ? ' putt-3' : '';
+  return `<td class="putt-cell">
+    <input type="number" min="0" max="9" class="putt-inp${cls}" id="putt-inp-${player}-${h}"
+           value="${v !== null ? v : ''}"
+           oninput="onPuttInput('${player}',${h},this.value)"
+           onfocus="this.select()">
   </td>`;
 }
 
