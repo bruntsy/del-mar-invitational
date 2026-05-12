@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -949,6 +950,45 @@
       font-weight: 400;
       font-style: italic;
     }
+
+    /* ─── Room Code ─── */
+    .room-card { background: var(--panel-white); border: 2px solid var(--panel-border); border-radius: 3px; padding: 1.1rem 1.5rem; }
+    .room-actions { display: flex; gap: 0.65rem; align-items: center; flex-wrap: wrap; }
+    .room-btn { background: var(--bg); color: var(--gold); border: 1.5px solid var(--gold); border-radius: 3px; padding: 0.5rem 1rem; font-family: 'Lato', sans-serif; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
+    .room-btn:hover { background: var(--bg-lighter); }
+    .room-btn.sm { padding: 0.38rem 0.75rem; font-size: 0.7rem; }
+    .room-divider { color: var(--text-faint); font-size: 0.72rem; }
+    .room-join-row { display: flex; gap: 0.45rem; align-items: center; }
+    .room-code-input { width: 70px; padding: 0.45rem 0.5rem; border: 1.5px solid var(--panel-border); border-radius: 3px; font-size: 1rem; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; font-family: 'Lato', sans-serif; text-align: center; background: var(--panel-white); color: var(--text-dark); }
+    .room-code-input:focus { outline: none; border-color: var(--gold); }
+    .room-active { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    .room-code-badge { font-size: 1.45rem; font-weight: 700; letter-spacing: 0.28em; color: var(--gold-dark); font-family: 'Playfair Display', serif; }
+    .room-code-meta { font-size: 0.63rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-light); }
+    .room-sync-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #27ae60; margin-right: 5px; vertical-align: middle; }
+    .room-leave-btn { background: none; border: none; color: var(--text-faint); font-size: 0.7rem; cursor: pointer; text-decoration: underline; padding: 0; }
+    .room-status-msg { font-size: 0.76rem; margin-top: 0.45rem; min-height: 1em; }
+    .nav-btns { display: flex; gap: 0.5rem; margin-bottom: 1.6rem; }
+
+    /* ─── Complete Round button ─── */
+    .btn-complete { background: #27ae60; color: #fff; border: none; border-radius: 3px; padding: 0.5rem 1rem; font-family: 'Lato', sans-serif; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.07em; cursor: pointer; transition: background 0.15s; }
+    .btn-complete:hover { background: #2ecc71; }
+    .completed-badge { background: rgba(39,174,96,0.12); color: #27ae60; border: 1px solid rgba(39,174,96,0.35); border-radius: 3px; padding: 0.35rem 0.75rem; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; display: inline-flex; align-items: center; gap: 0.35rem; }
+
+    /* ─── History / Stats Screens ─── */
+    #history-screen, #stats-screen { min-height: 100vh; padding: 1.5rem 1rem; display: flex; justify-content: center; }
+    .hist-wrap, .stats-wrap { width: 100%; max-width: 860px; }
+    .screen-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem; }
+    .screen-topbar-title { font-family: 'Playfair Display', serif; font-size: 1.3rem; font-weight: 700; color: var(--gold); letter-spacing: 0.12em; }
+    .hist-round-card { background: var(--panel); border-radius: 3px; padding: 1.1rem 1.4rem; margin-bottom: 0.9rem; box-shadow: 0 2px 12px rgba(0,0,0,0.3); border: 1px solid rgba(201,168,76,0.2); }
+    .hist-round-hdr { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.6rem; }
+    .hist-round-code { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 700; color: var(--gold-dark); letter-spacing: 0.2em; }
+    .hist-round-date { font-size: 0.7rem; color: var(--text-light); }
+    .hist-round-course { font-size: 0.76rem; color: var(--text-mid); margin-bottom: 0.5rem; }
+    .stats-player-card { background: var(--panel); border-radius: 3px; padding: 1rem 1.4rem; margin-bottom: 0.7rem; box-shadow: 0 2px 12px rgba(0,0,0,0.3); border: 1px solid rgba(201,168,76,0.18); display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+    .stats-player-name { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 700; color: var(--text-dark); min-width: 80px; }
+    .stats-stat { display: flex; flex-direction: column; align-items: center; min-width: 56px; }
+    .stats-stat-val { font-size: 1.05rem; font-weight: 700; color: var(--text-dark); }
+    .stats-stat-lbl { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-light); margin-top: 2px; }
   </style>
 </head>
 <body>
@@ -962,6 +1002,39 @@
     <div class="hdr-sub">Course Setup &amp; Team Selection</div>
   </div>
   <div class="content">
+    <!-- Nav -->
+    <div class="nav-btns">
+      <button class="room-btn sm" onclick="showHistory()">Past Rounds</button>
+      <button class="room-btn sm" onclick="showStats()">All-Time Stats</button>
+    </div>
+
+    <!-- Live Room -->
+    <div style="margin-bottom:2rem">
+      <div class="section-label">Live Room</div>
+      <div class="room-card">
+        <div id="room-active" class="room-active" style="display:none">
+          <div>
+            <div class="room-code-meta"><span class="room-sync-dot"></span>Room Active</div>
+            <div class="room-code-badge" id="room-code-display"></div>
+          </div>
+          <button class="room-leave-btn" onclick="leaveRoom()">Leave room</button>
+        </div>
+        <div id="room-join-area">
+          <div class="room-actions">
+            <button class="room-btn" onclick="createRoom()">Create Room</button>
+            <span class="room-divider">or</span>
+            <div class="room-join-row">
+              <input id="join-code-input" class="room-code-input" type="text" maxlength="4" placeholder="ABCD"
+                     oninput="this.value=this.value.toUpperCase()"
+                     onkeydown="if(event.key==='Enter')joinRoom()">
+              <button class="room-btn" onclick="joinRoom()">Join</button>
+            </div>
+          </div>
+        </div>
+        <div id="room-status" class="room-status-msg"></div>
+      </div>
+    </div>
+
     <div class="section-label">Select Course</div>
     <div class="course-grid">
       <div class="course-card" data-course="fairbanks" onclick="selectCourse(this)">
@@ -1031,7 +1104,7 @@
             <div class="bet-field">
               <span class="bet-dollar">$</span>
               <input class="bet-input" type="number" min="0" id="bet-skins" placeholder="0" oninput="saveBets()">
-              <span class="bet-unit">/ skin</span>
+              <span class="bet-unit">/ player</span>
             </div>
           </div>
         </div>
@@ -1090,6 +1163,16 @@
 <!-- ═══════════════ RESULTS SCREEN ═══════════════ -->
 <div id="results-screen">
   <div class="results-wrap" id="results-wrap"></div>
+</div>
+
+<!-- ═══════════════ HISTORY SCREEN ═══════════════ -->
+<div id="history-screen" style="display:none">
+  <div class="hist-wrap" id="history-wrap"></div>
+</div>
+
+<!-- ═══════════════ STATS SCREEN ═══════════════ -->
+<div id="stats-screen" style="display:none">
+  <div class="stats-wrap" id="stats-wrap"></div>
 </div>
 
 <script>
@@ -1159,9 +1242,11 @@ function initScores() {
    SCREEN ROUTING
 ───────────────────────────────────────────── */
 function showScreen(name) {
-  document.getElementById('setup-screen').style.display     = name === 'setup'     ? ''     : 'none';
-  document.getElementById('scorecard-screen').style.display = name === 'scorecard' ? 'flex' : 'none';
-  document.getElementById('results-screen').style.display   = name === 'results'   ? 'block': 'none';
+  document.getElementById('setup-screen').style.display     = name === 'setup'     ? ''      : 'none';
+  document.getElementById('scorecard-screen').style.display = name === 'scorecard' ? 'flex'  : 'none';
+  document.getElementById('results-screen').style.display   = name === 'results'   ? 'block' : 'none';
+  document.getElementById('history-screen').style.display   = name === 'history'   ? ''      : 'none';
+  document.getElementById('stats-screen').style.display     = name === 'stats'     ? ''      : 'none';
 }
 
 /* ─────────────────────────────────────────────
@@ -1512,6 +1597,7 @@ function onScoreInput(player, h, rawVal) {
   if (rawVal !== '' && isNaN(gross)) return;
   APP.scores[player][h] = gross;
   saveState();
+  scheduleSync();
 
   const course = COURSES[APP.course];
 
@@ -1588,9 +1674,13 @@ function renderResults() {
   let html = '';
 
   // Top bar
+  const _completeBtn = ROOM_CODE && !APP.completed
+    ? `<button class="btn-complete" onclick="completeRound()">Complete Round ✓</button>`
+    : (APP.completed ? `<span class="completed-badge">✓ Round Complete</span>` : '');
   html += `<div class="results-topbar">
     <div class="results-title">◆ Final Results</div>
-    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">
+      ${_completeBtn}
       <button class="btn-ghost" onclick="showScreen('scorecard')">← Scorecard</button>
       <button class="btn-danger" onclick="resetRound()">Reset Round</button>
     </div>
@@ -1619,7 +1709,11 @@ function renderResults() {
       const t2T = computeTeamTotals(APP.team2, st);
       const isT1 = APP.team1.includes(p);
 
-      let skinPnl = b.skins ? b.skins * (6 * sk.skinsByPlayer[p] - Object.values(sk.skinsByPlayer).reduce((a,c)=>a+c,0)) : 0;
+      let skinPnl = 0;
+      if (b.skins) {
+        const _total = Object.values(sk.skinsByPlayer).reduce((a,c)=>a+c,0);
+        if (_total > 0) skinPnl = (sk.skinsByPlayer[p] / _total) * (b.skins * 6) - b.skins;
+      }
 
       function teamDelta(t1v, t2v, amt) {
         if (!amt || t1v===null || t2v===null) return 0;
@@ -1644,7 +1738,7 @@ function renderResults() {
       const fc = v => v===0?'—':`<span class="${v>0?'pnl-pos':'pnl-neg'}">${v>0?'+':''}$${Math.abs(v)}</span>`;
       html += `<tr>
         <td><strong>${p}</strong></td>
-        <td>${fc(skinPnl)}</td><td>${fc(bbPnl)}</td><td>${fc(tbPnl)}</td><td>${fc(h2hPnl)}</td>
+        <td>${fc(Math.round(skinPnl))}</td><td>${fc(bbPnl)}</td><td>${fc(tbPnl)}</td><td>${fc(h2hPnl)}</td>
         <td>${fc(net)}</td>
       </tr>`;
     });
@@ -1753,6 +1847,13 @@ function renderResults() {
     if (pendingPot > 1) {
       html += `<div class="provisional-note">Pot of ${pendingPot} skin${pendingPot > 1 ? 's' : ''} pending on next completed hole.</div>`;
     }
+
+    if (APP.bets && APP.bets.skins) {
+      const _skinsTotal = Object.values(skinsByPlayer).reduce((a,b)=>a+b,0);
+      const _pot = APP.bets.skins * 6;
+      const _perSkin = _skinsTotal > 0 ? (_pot / _skinsTotal).toFixed(2) : '—';
+      html += `<div class="provisional-note" style="margin-top:0.5rem">Pot: $${_pot} total &bull; $${_perSkin}/skin (${_skinsTotal} skin${_skinsTotal!==1?'s':''} decided)</div>`;
+    }
   }
 
   html += '</div>'; // close skins section
@@ -1855,11 +1956,13 @@ function computePlayerPnL() {
   const pnl     = {};
   players.forEach(p => { pnl[p] = 0; });
 
-  // Skins: net = bets.skins × (6 × skins_won − total_skins_awarded)
-  // Model: each skin pays bets.skins to winner from each of the 5 other players.
+  // Skins: pot model — each player contributes bets.skins; total pot split by skins won.
   if (bets.skins) {
+    const totalPot = bets.skins * 6;
     const total = Object.values(skinsByPlayer).reduce((a,b)=>a+b,0);
-    players.forEach(p => { pnl[p] += bets.skins * (6 * skinsByPlayer[p] - total); });
+    if (total > 0) {
+      players.forEach(p => { pnl[p] += (skinsByPlayer[p] / total) * totalPot - bets.skins; });
+    }
   }
 
   // Team format helper: winning team +amt per player, losing -amt per player
@@ -1916,6 +2019,7 @@ function showResults() {
 ───────────────────────────────────────────── */
 function resetRound() {
   if (!confirm('Reset this round? All scores will be lost.')) return;
+  if (ROOM_CODE) leaveRoom();
   localStorage.removeItem('golf_scorecard_v1');
   APP = { course: null, team1: [], team2: [], scores: {} };
 
@@ -1992,6 +2096,7 @@ function selectCourse(el) {
   document.querySelectorAll('.course-card').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
   setupState.course = el.dataset.course;
+  syncSetupAndSchedule();
   updateCTA();
 }
 
@@ -2004,6 +2109,7 @@ function returnToPool(player, fromTeam) {
   setupState[fromTeam] = setupState[fromTeam].filter(p => p !== player);
   setupState.pool.push(player);
   renderSetup();
+  syncSetupAndSchedule();
   updateCTA();
 }
 
@@ -2013,6 +2119,7 @@ function moveToTeam(player, from, to) {
   else setupState[from] = setupState[from].filter(p => p !== player);
   setupState[to].push(player);
   renderSetup();
+  syncSetupAndSchedule();
   updateCTA();
 }
 
@@ -2135,6 +2242,7 @@ function swapMatchup(i, dir) {
   if (j < 0 || j >= a.length) return;
   [a[i], a[j]] = [a[j], a[i]];
   renderMatchupRows();
+  syncSetupAndSchedule();
 }
 
 function saveBets() {
@@ -2145,6 +2253,7 @@ function saveBets() {
     tbFront: g('bet-tb-front'), tbBack: g('bet-tb-back'), tbTotal: g('bet-tb-total'),
     h2h:     g('bet-h2h')
   };
+  scheduleSync();
 }
 
 function loadBetsToInputs() {
@@ -2169,10 +2278,357 @@ function startRound() {
 }
 
 /* ─────────────────────────────────────────────
+   SUPABASE CLIENT
+───────────────────────────────────────────── */
+const _SUPA_URL = 'https://dhpkeueubhpmvaungjfj.supabase.co';
+const _SUPA_KEY = 'sb_publishable_O9usNlh7G_lO7s7yy0QQXQ_JlWlf_Oe';
+const _db = window.supabase.createClient(_SUPA_URL, _SUPA_KEY);
+
+let ROOM_CODE    = null;
+let ROOM_CHANNEL = null;
+let _syncTimer   = null;
+let _lastPushed  = null;
+
+/* ─────────────────────────────────────────────
+   ROOM CODE
+───────────────────────────────────────────── */
+function generateCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let c = '';
+  for (let i = 0; i < 4; i++) c += chars[Math.floor(Math.random() * chars.length)];
+  return c;
+}
+
+function syncSetupToApp() {
+  APP.setupSnapshot = {
+    course:       setupState.course,
+    team1:        [...setupState.team1],
+    team2:        [...setupState.team2],
+    pool:         [...setupState.pool],
+    matchupOrder: [...setupState.matchupOrder]
+  };
+}
+
+function syncAppToSetup() {
+  if (!APP.setupSnapshot) return;
+  const s = APP.setupSnapshot;
+  setupState.course       = s.course || null;
+  setupState.team1        = [...(s.team1 || [])];
+  setupState.team2        = [...(s.team2 || [])];
+  setupState.pool         = [...(s.pool  || [...ALL_PLAYERS])];
+  setupState.matchupOrder = [...(s.matchupOrder || [])];
+}
+
+function syncSetupAndSchedule() {
+  syncSetupToApp();
+  scheduleSync();
+}
+
+function scheduleSync() {
+  if (!ROOM_CODE) return;
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(pushToSupabase, 600);
+}
+
+async function pushToSupabase() {
+  if (!ROOM_CODE) return;
+  const payload = JSON.stringify(APP);
+  _lastPushed = payload;
+  await _db.from('rounds').upsert(
+    { code: ROOM_CODE, state: APP, completed: APP.completed || false },
+    { onConflict: 'code' }
+  );
+}
+
+async function createRoom() {
+  setRoomStatus('Creating room…');
+  syncSetupToApp();
+  const code = generateCode();
+  APP.roomCode  = code;
+  APP.completed = false;
+  saveState();
+  const { error } = await _db.from('rounds').insert({ code, state: APP, completed: false });
+  if (error) { setRoomStatus('Error: ' + error.message, true); APP.roomCode = null; saveState(); return; }
+  ROOM_CODE = code;
+  _lastPushed = JSON.stringify(APP);
+  setRoomActive(code);
+  subscribeToRoom(code);
+}
+
+async function joinRoom() {
+  const raw = (document.getElementById('join-code-input').value || '').trim().toUpperCase();
+  if (raw.length !== 4) { setRoomStatus('Enter a 4-character code', true); return; }
+  setRoomStatus('Joining…');
+  const { data, error } = await _db.from('rounds').select('state,completed').eq('code', raw).single();
+  if (error || !data) { setRoomStatus('Room not found: ' + raw, true); return; }
+  if (data.completed) { setRoomStatus('That round is already complete', true); return; }
+  ROOM_CODE = raw;
+  applyRemoteState(typeof data.state === 'string' ? JSON.parse(data.state) : data.state, true);
+  setRoomActive(raw);
+  subscribeToRoom(raw);
+}
+
+function subscribeToRoom(code) {
+  if (ROOM_CHANNEL) { _db.removeChannel(ROOM_CHANNEL); ROOM_CHANNEL = null; }
+  ROOM_CHANNEL = _db.channel('room-' + code)
+    .on('postgres_changes', {
+      event: 'UPDATE', schema: 'public', table: 'rounds', filter: `code=eq.${code}`
+    }, payload => {
+      if (!payload.new || !payload.new.state) return;
+      const raw = typeof payload.new.state === 'string' ? payload.new.state : JSON.stringify(payload.new.state);
+      if (raw === _lastPushed) return;
+      applyRemoteState(typeof payload.new.state === 'string' ? JSON.parse(payload.new.state) : payload.new.state, false);
+    })
+    .subscribe();
+}
+
+function applyRemoteState(remoteApp, fromJoin) {
+  APP = { ...APP, ...remoteApp };
+  saveState();
+
+  if (APP.setupSnapshot) {
+    syncAppToSetup();
+    document.querySelectorAll('.course-card').forEach(c =>
+      c.classList.toggle('selected', c.dataset.course === setupState.course)
+    );
+    renderSetup();
+    loadBetsToInputs();
+    updateCTA();
+  } else {
+    loadBetsToInputs();
+  }
+
+  const onScorecard = document.getElementById('scorecard-screen').style.display !== 'none';
+  const onResults   = document.getElementById('results-screen').style.display   !== 'none';
+
+  if (APP.team1 && APP.team1.length === 3 && APP.course) {
+    initScores();
+    if (onScorecard) renderScorecard();
+    if (onResults)   { renderResults(); }
+  }
+
+  if (fromJoin && APP.team1 && APP.team1.length === 3 && APP.course) {
+    renderScorecard();
+    showScreen('scorecard');
+  }
+
+  if (APP.completed && onResults) renderResults();
+}
+
+function setRoomActive(code) {
+  document.getElementById('room-join-area').style.display = 'none';
+  document.getElementById('room-active').style.display    = '';
+  document.getElementById('room-code-display').textContent = code;
+  setRoomStatus('');
+}
+
+function leaveRoom() {
+  if (ROOM_CHANNEL) { _db.removeChannel(ROOM_CHANNEL); ROOM_CHANNEL = null; }
+  ROOM_CODE = null;
+  APP.roomCode = null;
+  saveState();
+  document.getElementById('room-join-area').style.display = '';
+  document.getElementById('room-active').style.display    = 'none';
+  document.getElementById('join-code-input').value        = '';
+  setRoomStatus('');
+}
+
+function setRoomStatus(msg, isError) {
+  const el = document.getElementById('room-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = isError ? '#c0392b' : 'var(--text-light)';
+}
+
+async function completeRound() {
+  if (!ROOM_CODE) return;
+  if (!confirm('Mark this round as complete? It will be saved to Round History for all players.')) return;
+  APP.completed = true;
+  saveState();
+  const { error } = await _db.from('rounds').update(
+    { state: APP, completed: true, completed_at: new Date().toISOString() }
+  ).eq('code', ROOM_CODE);
+  if (error) { alert('Error saving: ' + error.message); APP.completed = false; saveState(); return; }
+  if (ROOM_CHANNEL) { _db.removeChannel(ROOM_CHANNEL); ROOM_CHANNEL = null; }
+  renderResults();
+}
+
+/* ─────────────────────────────────────────────
+   HISTORY SCREEN
+───────────────────────────────────────────── */
+async function showHistory() {
+  showScreen('history');
+  const wrap = document.getElementById('history-wrap');
+  wrap.innerHTML = `<div class="screen-topbar">
+    <div class="screen-topbar-title">◆ Past Rounds</div>
+    <button class="btn-ghost" onclick="showScreen('setup')">← Back</button>
+  </div><div style="color:var(--gold);padding:1rem;opacity:0.7">Loading…</div>`;
+  const { data, error } = await _db.from('rounds')
+    .select('code,state,completed_at')
+    .eq('completed', true)
+    .order('completed_at', { ascending: false });
+  if (error) { wrap.innerHTML += `<div style="color:#c0392b">${error.message}</div>`; return; }
+  renderHistory(data || []);
+}
+
+function renderHistory(rounds) {
+  const wrap = document.getElementById('history-wrap');
+  let html = `<div class="screen-topbar">
+    <div class="screen-topbar-title">◆ Past Rounds</div>
+    <button class="btn-ghost" onclick="showScreen('setup')">← Back</button>
+  </div>`;
+  if (!rounds.length) {
+    html += '<div style="color:var(--gold);opacity:0.6;padding:1rem">No completed rounds yet.</div>';
+    wrap.innerHTML = html; return;
+  }
+  rounds.forEach(r => {
+    const st    = typeof r.state === 'string' ? JSON.parse(r.state) : r.state;
+    const crs   = COURSES[st.course];
+    const plrs  = [...(st.team1 || []), ...(st.team2 || [])];
+    const strk  = _stateStrokes(st);
+    const { skinsByPlayer } = _stateSkins(st);
+    const nets  = plrs.map(p => ({ p, net: _stateNet(st, p, strk) }))
+      .filter(x => x.net !== null).sort((a, b) => a.net - b.net);
+    const date  = r.completed_at
+      ? new Date(r.completed_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : '—';
+    html += `<div class="hist-round-card">
+      <div class="hist-round-hdr">
+        <div><div class="hist-round-code">${r.code}</div><div class="hist-round-course">${crs ? crs.name : st.course}</div></div>
+        <div class="hist-round-date">${date}</div>
+      </div>
+      <div style="overflow-x:auto"><table class="res-table" style="font-size:0.82rem">
+        <thead><tr><th>Player</th><th>Team</th><th>Net</th><th>Skins</th></tr></thead><tbody>`;
+    nets.forEach(({ p, net }) => {
+      const tm = (st.team1 || []).includes(p) ? 'T1' : 'T2';
+      html += `<tr><td><strong>${p}</strong></td><td>${tm}</td><td>${net}</td><td>${skinsByPlayer[p] > 0 ? skinsByPlayer[p] : '—'}</td></tr>`;
+    });
+    html += `</tbody></table></div></div>`;
+  });
+  wrap.innerHTML = html;
+}
+
+/* ─────────────────────────────────────────────
+   STATS SCREEN
+───────────────────────────────────────────── */
+async function showStats() {
+  showScreen('stats');
+  const wrap = document.getElementById('stats-wrap');
+  wrap.innerHTML = `<div class="screen-topbar">
+    <div class="screen-topbar-title">◆ All-Time Stats</div>
+    <button class="btn-ghost" onclick="showScreen('setup')">← Back</button>
+  </div><div style="color:var(--gold);padding:1rem;opacity:0.7">Loading…</div>`;
+  const { data, error } = await _db.from('rounds').select('state,completed_at').eq('completed', true);
+  if (error) { wrap.innerHTML += `<div style="color:#c0392b">${error.message}</div>`; return; }
+  renderStats(data || []);
+}
+
+function renderStats(rounds) {
+  const wrap = document.getElementById('stats-wrap');
+  const agg = {};
+  ALL_PLAYERS.forEach(p => { agg[p] = { rounds:0, skinsWon:0, nets:[], bestNet:Infinity, h2hW:0, h2hL:0, h2hT:0 }; });
+
+  rounds.forEach(r => {
+    const st   = typeof r.state === 'string' ? JSON.parse(r.state) : r.state;
+    const plrs = [...(st.team1 || []), ...(st.team2 || [])];
+    const strk = _stateStrokes(st);
+    const { skinsByPlayer } = _stateSkins(st);
+    plrs.forEach(p => {
+      if (!agg[p]) return;
+      agg[p].rounds++;
+      agg[p].skinsWon += skinsByPlayer[p] || 0;
+      const net = _stateNet(st, p, strk);
+      if (net !== null) { agg[p].nets.push(net); if (net < agg[p].bestNet) agg[p].bestNet = net; }
+    });
+    (st.matchups || []).forEach(m => {
+      const n1 = _stateNet(st, m.t1, strk), n2 = _stateNet(st, m.t2, strk);
+      if (n1 === null || n2 === null) return;
+      if (n1 < n2)      { if(agg[m.t1]) agg[m.t1].h2hW++; if(agg[m.t2]) agg[m.t2].h2hL++; }
+      else if (n2 < n1) { if(agg[m.t2]) agg[m.t2].h2hW++; if(agg[m.t1]) agg[m.t1].h2hL++; }
+      else              { if(agg[m.t1]) agg[m.t1].h2hT++; if(agg[m.t2]) agg[m.t2].h2hT++; }
+    });
+  });
+
+  const sorted = ALL_PLAYERS.slice().sort((a, b) =>
+    (agg[b].rounds - agg[a].rounds) || (agg[b].skinsWon - agg[a].skinsWon)
+  );
+
+  let html = `<div class="screen-topbar">
+    <div class="screen-topbar-title">◆ All-Time Stats</div>
+    <button class="btn-ghost" onclick="showScreen('setup')">← Back</button>
+  </div>`;
+
+  if (!rounds.length) {
+    html += '<div style="color:var(--gold);opacity:0.6;padding:1rem">No completed rounds yet.</div>';
+    wrap.innerHTML = html; return;
+  }
+
+  sorted.forEach(p => {
+    const a = agg[p];
+    if (!a.rounds) return;
+    const avgNet = a.nets.length ? (a.nets.reduce((s,v)=>s+v,0)/a.nets.length).toFixed(1) : '—';
+    const bestNet = a.bestNet < Infinity ? a.bestNet : '—';
+    const h2h = `${a.h2hW}-${a.h2hL}${a.h2hT ? '-'+a.h2hT : ''}`;
+    html += `<div class="stats-player-card">
+      <div class="stats-player-name">${p}</div>
+      <div class="stats-stat"><div class="stats-stat-val">${a.rounds}</div><div class="stats-stat-lbl">Rounds</div></div>
+      <div class="stats-stat"><div class="stats-stat-val">${a.skinsWon}</div><div class="stats-stat-lbl">Skins</div></div>
+      <div class="stats-stat"><div class="stats-stat-val">${avgNet}</div><div class="stats-stat-lbl">Avg Net</div></div>
+      <div class="stats-stat"><div class="stats-stat-val">${bestNet}</div><div class="stats-stat-lbl">Best Net</div></div>
+      <div class="stats-stat"><div class="stats-stat-val">${h2h}</div><div class="stats-stat-lbl">H2H (W-L)</div></div>
+    </div>`;
+  });
+  wrap.innerHTML = html;
+}
+
+/* ─────────────────────────────────────────────
+   HELPERS FOR COMPUTING FROM ARBITRARY STATE BLOB
+───────────────────────────────────────────── */
+function _stateStrokes(st) {
+  const crs = COURSES[st.course];
+  if (!crs) return {};
+  const plrs = [...(st.team1||[]), ...(st.team2||[])];
+  const minH = Math.min(...plrs.map(p => crs.hcp[p] || 0));
+  const res = {};
+  plrs.forEach(p => { res[p] = (crs.hcp[p] || 0) - minH; });
+  return res;
+}
+
+function _stateNet(st, player, strokes) {
+  const crs = COURSES[st.course];
+  if (!crs) return null;
+  const sc = (st.scores || {})[player];
+  if (!sc) return null;
+  let net = 0;
+  for (let h = 0; h < 18; h++) {
+    if (sc[h] === null || sc[h] === undefined) return null;
+    net += sc[h] - (getsStroke(strokes[player] || 0, crs.si[h]) ? 1 : 0);
+  }
+  return net;
+}
+
+function _stateSkins(st) {
+  const crs = COURSES[st.course];
+  if (!crs) return { skinsByPlayer: {} };
+  const plrs   = [...(st.team1||[]), ...(st.team2||[])];
+  const strk   = _stateStrokes(st);
+  const byPlr  = {};
+  plrs.forEach(p => { byPlr[p] = 0; });
+  let pot = 1;
+  for (let h = 0; h < 18; h++) {
+    if (!plrs.every(p => (st.scores||{})[p]?.[h] != null)) break;
+    const nets = {};
+    plrs.forEach(p => { nets[p] = st.scores[p][h] - (getsStroke(strk[p]||0, crs.si[h]) ? 1 : 0); });
+    const mn  = Math.min(...Object.values(nets));
+    const win = plrs.filter(p => nets[p] === mn);
+    if (win.length === 1) { byPlr[win[0]] += pot; pot = 1; } else { pot++; }
+  }
+  return { skinsByPlayer: byPlr };
+}
+
+/* ─────────────────────────────────────────────
    INIT
 ───────────────────────────────────────────── */
 (function init() {
-  // Show setup by default; all screens start hidden via CSS except setup
   document.getElementById('setup-screen').style.display = '';
 
   if (loadState()) {
@@ -2184,6 +2640,24 @@ function startRound() {
   } else {
     showScreen('setup');
     renderSetup();
+  }
+
+  // Restore setup UI from saved snapshot (for joining players on setup screen)
+  if (APP.setupSnapshot) {
+    syncAppToSetup();
+    document.querySelectorAll('.course-card').forEach(c =>
+      c.classList.toggle('selected', c.dataset.course === setupState.course)
+    );
+    renderSetup();
+    loadBetsToInputs();
+    updateCTA();
+  }
+
+  // Re-connect to room if we were in one
+  if (APP.roomCode) {
+    ROOM_CODE = APP.roomCode;
+    setRoomActive(ROOM_CODE);
+    subscribeToRoom(ROOM_CODE);
   }
 })();
 </script>
