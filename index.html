@@ -974,6 +974,70 @@
     .btn-complete:hover { background: #2ecc71; }
     .completed-badge { background: rgba(39,174,96,0.12); color: #27ae60; border: 1px solid rgba(39,174,96,0.35); border-radius: 3px; padding: 0.35rem 0.75rem; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; display: inline-flex; align-items: center; gap: 0.35rem; }
 
+    /* ─── Putt rows ─── */
+    .putt-toggle-btn {
+      background: none;
+      border: 1px solid rgba(201,168,76,0.3);
+      border-radius: 2px;
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--gold);
+      padding: 0.15rem 0.35rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.12s;
+      flex-shrink: 0;
+      line-height: 1.4;
+    }
+    .putt-toggle-btn:hover { background: rgba(201,168,76,0.12); }
+
+    .row-putts td { background: var(--bg-lighter) !important; border-top: none !important; }
+    .row-putts td.name-cell { padding: 3px 10px; background: var(--bg-lighter) !important; }
+
+    .putt-cell { padding: 0; cursor: pointer; text-align: center; }
+    .putt-btn {
+      width: 100%; height: 34px; border: none; background: transparent;
+      cursor: pointer; font-size: 0.88rem; font-weight: 700;
+      color: rgba(245,240,228,0.3); transition: color 0.1s, background 0.1s; display: block;
+    }
+    .putt-btn:hover { background: rgba(201,168,76,0.1); }
+    .putt-1 { color: #27ae60 !important; }
+    .putt-2 { color: rgba(245,240,228,0.75) !important; }
+    .putt-3 { color: #e74c3c !important; background: rgba(192,57,43,0.1) !important; }
+
+    /* ─── Putt Poker panel ─── */
+    .pp-section { background: var(--bg); border-top: 2px solid var(--gold); flex-shrink: 0; }
+    .pp-toggle-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.45rem 1.25rem; cursor: pointer; user-select: none; transition: background 0.12s;
+    }
+    .pp-toggle-bar:hover { background: var(--bg-lighter); }
+    .pp-toggle-title {
+      font-family: 'Playfair Display', serif; font-size: 0.78rem; font-weight: 700;
+      color: var(--gold); letter-spacing: 0.15em; text-transform: uppercase;
+    }
+    .pp-toggle-icon { color: var(--gold); font-size: 0.65rem; }
+    .pp-content { display: flex; gap: 1px; background: var(--panel-border); }
+    .pp-team { flex: 1; background: var(--bg-mid); padding: 0.65rem 1rem; }
+    .pp-team-hdr {
+      font-family: 'Playfair Display', serif; font-size: 0.68rem; font-weight: 700;
+      color: var(--gold); letter-spacing: 0.15em; text-transform: uppercase;
+      margin-bottom: 0.4rem; border-bottom: 1px solid rgba(201,168,76,0.2); padding-bottom: 0.3rem;
+    }
+    .pp-coin { font-size: 0.76rem; color: rgba(245,240,228,0.75); margin-bottom: 0.45rem; }
+    .pp-coin strong { color: var(--gold-light); }
+    .pp-cards-row { display: flex; gap: 0.4rem; margin-bottom: 0.45rem; flex-wrap: wrap; }
+    .pp-player {
+      background: rgba(201,168,76,0.07); border: 1px solid rgba(201,168,76,0.18);
+      border-radius: 2px; padding: 0.25rem 0.55rem; text-align: center; min-width: 60px;
+    }
+    .pp-player-name { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(245,240,228,0.45); margin-bottom: 0.15rem; }
+    .pp-card-count { font-family: 'Playfair Display', serif; font-size: 0.85rem; font-weight: 700; color: rgba(245,240,228,0.9); }
+    .pp-3putt-note { font-size: 0.58rem; color: #e74c3c; font-weight: 700; margin-top: 0.1rem; }
+    .pp-pot { font-size: 0.72rem; color: rgba(245,240,228,0.55); }
+    .pp-pot strong { color: var(--gold); font-size: 0.85rem; }
+
     /* ─── History / Stats Screens ─── */
     #history-screen, #stats-screen { min-height: 100vh; padding: 1.5rem 1rem; display: flex; justify-content: center; }
     .hist-wrap, .stats-wrap { width: 100%; max-width: 860px; }
@@ -1161,6 +1225,13 @@
     </div>
   </div>
   <div class="sc-table-wrap" id="sc-table-wrap"></div>
+  <div class="pp-section" id="pp-section">
+    <div class="pp-toggle-bar" onclick="togglePPPanel()">
+      <span class="pp-toggle-title">◆ Putt Poker</span>
+      <span class="pp-toggle-icon" id="pp-toggle-icon">▼</span>
+    </div>
+    <div id="pp-panel" style="display:none"></div>
+  </div>
 </div>
 
 <!-- ═══════════════ RESULTS SCREEN ═══════════════ -->
@@ -1237,6 +1308,16 @@ function initScores() {
   players.forEach(p => {
     if (!APP.scores[p] || APP.scores[p].length !== 18) {
       APP.scores[p] = new Array(18).fill(null);
+    }
+  });
+}
+
+function initPutts() {
+  if (!APP.putts) APP.putts = {};
+  const players = [...APP.team1, ...APP.team2];
+  players.forEach(p => {
+    if (!APP.putts[p] || APP.putts[p].length !== 18) {
+      APP.putts[p] = new Array(18).fill(null);
     }
   });
 }
@@ -1466,6 +1547,7 @@ function renderScorecard() {
 
     teamPlayers.forEach(p => {
       html += buildPlayerRow(p, strokes[p], skinsByPlayer[p], course);
+      html += buildPuttRow(p);
     });
 
     html += buildBestBallRow(key, teamPlayers, strokes, course);
@@ -1480,6 +1562,7 @@ function renderScorecard() {
   const wrap = document.getElementById('sc-table-wrap');
   wrap.innerHTML = '';
   wrap.appendChild(table);
+  renderPuttPoker();
 }
 
 function buildPlayerRow(player, playerStrokes, skinsWon, course) {
@@ -1495,8 +1578,14 @@ function buildPlayerRow(player, playerStrokes, skinsWon, course) {
   let html = `<tr class="row-player" data-player="${player}">`;
 
   // Name cell
+  const _pExpanded = expandedPuttRows.has(player);
   html += `<td class="name-cell">
-    <div class="cell-pname">${player}</div>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:3px">
+      <div class="cell-pname">${player}</div>
+      <button class="putt-toggle-btn" id="putts-toggle-${player}"
+              onclick="event.stopPropagation();togglePuttRow('${player}')"
+              title="Toggle putt tracking">${_pExpanded ? '▲' : '▼'}</button>
+    </div>
     <div class="cell-hcp">Hcp ${course.hcp[player]} &bull; +${playerStrokes} strokes</div>
   </td>`;
 
@@ -1592,6 +1681,152 @@ function buildScoreCell(player, h, playerStrokes, gross, course) {
       ${hasDot ? '<span class="stroke-dot">●</span>' : ''}
     </div>
   </td>`;
+}
+
+/* ─────────────────────────────────────────────
+   PUTT TRACKING
+───────────────────────────────────────────── */
+const expandedPuttRows = new Set();
+
+function togglePuttRow(player) {
+  if (expandedPuttRows.has(player)) expandedPuttRows.delete(player);
+  else expandedPuttRows.add(player);
+  const row = document.getElementById(`putts-row-${player}`);
+  if (row) row.style.display = expandedPuttRows.has(player) ? '' : 'none';
+  const btn = document.getElementById(`putts-toggle-${player}`);
+  if (btn) btn.textContent = expandedPuttRows.has(player) ? '▲' : '▼';
+}
+
+function onPuttClick(player, h) {
+  if (!APP.putts) APP.putts = {};
+  if (!APP.putts[player]) APP.putts[player] = new Array(18).fill(null);
+  const cur = APP.putts[player][h];
+  APP.putts[player][h] = (cur === null || cur >= 3) ? 0 : cur + 1;
+  saveState();
+  scheduleSync();
+  const btn = document.getElementById(`putt-btn-${player}-${h}`);
+  if (btn) {
+    const v = APP.putts[player][h];
+    btn.textContent = v || '·';
+    btn.className = `putt-btn${v === 1 ? ' putt-1' : v === 2 ? ' putt-2' : v === 3 ? ' putt-3' : ''}`;
+  }
+  updatePuttSums(player);
+  renderPuttPoker();
+}
+
+function updatePuttSums(player) {
+  const putts = APP.putts?.[player] || [];
+  const front = putts.slice(0, 9).filter(v => v !== null && v !== undefined);
+  const back  = putts.slice(9, 18).filter(v => v !== null && v !== undefined);
+  const fSum  = front.length ? front.reduce((a, b) => a + b, 0) : '—';
+  const bSum  = back.length  ? back.reduce((a, b) => a + b, 0)  : '—';
+  const tSum  = (front.length || back.length)
+    ? (front.length ? front.reduce((a, b) => a + b, 0) : 0) + (back.length ? back.reduce((a, b) => a + b, 0) : 0)
+    : '—';
+  const el = id => document.getElementById(id);
+  if (el(`putt-out-${player}`))   el(`putt-out-${player}`).textContent   = fSum;
+  if (el(`putt-in-${player}`))    el(`putt-in-${player}`).textContent    = bSum;
+  if (el(`putt-total-${player}`)) el(`putt-total-${player}`).textContent = tSum;
+}
+
+function buildPuttCell(player, h) {
+  const v   = APP.putts?.[player]?.[h] ?? null;
+  const cls = v === 1 ? ' putt-1' : v === 2 ? ' putt-2' : v === 3 ? ' putt-3' : '';
+  return `<td class="putt-cell" onclick="onPuttClick('${player}',${h})">
+    <button class="putt-btn${cls}" id="putt-btn-${player}-${h}">${v !== null ? v : '·'}</button>
+  </td>`;
+}
+
+function buildPuttRow(player) {
+  const expanded = expandedPuttRows.has(player);
+  const putts    = APP.putts?.[player] || new Array(18).fill(null);
+  const front    = putts.slice(0, 9).filter(v => v !== null);
+  const back     = putts.slice(9, 18).filter(v => v !== null);
+  const fSum     = front.length ? front.reduce((a, b) => a + b, 0) : '—';
+  const bSum     = back.length  ? back.reduce((a, b) => a + b, 0)  : '—';
+  const tSum     = (front.length || back.length)
+    ? (front.length ? front.reduce((a, b) => a + b, 0) : 0) + (back.length ? back.reduce((a, b) => a + b, 0) : 0)
+    : '—';
+
+  let html = `<tr class="row-putts" id="putts-row-${player}" style="${expanded ? '' : 'display:none'}">`;
+  html += `<td class="name-cell" style="background:var(--bg-lighter)!important">
+    <div style="font-size:0.58rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);opacity:0.75">Putts &mdash; tap to cycle</div>
+  </td>`;
+  for (let h = 0;  h < 9;  h++) html += buildPuttCell(player, h);
+  html += `<td class="sum-cell out-col"   id="putt-out-${player}"   style="background:var(--bg-lighter)!important;color:rgba(245,240,228,0.65);font-size:0.82rem">${fSum}</td>`;
+  for (let h = 9;  h < 18; h++) html += buildPuttCell(player, h);
+  html += `<td class="sum-cell in-col"    id="putt-in-${player}"    style="background:var(--bg-lighter)!important;color:rgba(245,240,228,0.65);font-size:0.82rem">${bSum}</td>`;
+  html += `<td class="sum-cell total-col" id="putt-total-${player}" style="background:var(--bg-lighter)!important;color:rgba(245,240,228,0.65);font-size:0.82rem">${tSum}</td>`;
+  html += `<td class="sum-cell" style="background:var(--bg-lighter)!important"></td>`;
+  html += `<td class="sum-cell" style="background:var(--bg-lighter)!important"></td>`;
+  html += '</tr>';
+  return html;
+}
+
+/* ─────────────────────────────────────────────
+   PUTT POKER
+───────────────────────────────────────────── */
+function computePuttPoker(teamPlayers) {
+  const cards          = {};
+  const threePuttCount = {};
+  teamPlayers.forEach(p => { cards[p] = 2; threePuttCount[p] = 0; });
+  let coinHolder = null;
+  let pot        = 0;
+
+  for (let h = 0; h < 18; h++) {
+    teamPlayers.forEach(p => {
+      const v = APP.putts?.[p]?.[h] ?? null;
+      if (v === null) return;
+      if (v === 1) cards[p] += 1;
+      if (v === 3) { coinHolder = p; pot += 5; threePuttCount[p]++; }
+    });
+  }
+  return { cards, coinHolder, pot, threePuttCount };
+}
+
+function _renderPuttPokerContent(panel) {
+  const teams = [
+    { label: 'Team 1', players: APP.team1 || [] },
+    { label: 'Team 2', players: APP.team2 || [] }
+  ];
+  let html = '<div class="pp-content">';
+  teams.forEach(({ label, players }) => {
+    if (!players.length) return;
+    const { cards, coinHolder, pot, threePuttCount } = computePuttPoker(players);
+    html += `<div class="pp-team">
+      <div class="pp-team-hdr">${label}</div>
+      <div class="pp-coin">🪙 Coin: ${coinHolder
+        ? `<strong>${coinHolder}</strong>`
+        : '<em style="opacity:0.45;font-style:italic;font-size:0.7rem">no 3-putts yet</em>'
+      }</div>
+      <div class="pp-cards-row">
+        ${players.map(p => `<div class="pp-player">
+          <div class="pp-player-name">${p}</div>
+          <div class="pp-card-count">🃏&nbsp;&times;&nbsp;${cards[p]}</div>
+          ${threePuttCount[p] > 0 ? `<div class="pp-3putt-note">${threePuttCount[p]}&times; 3-putt</div>` : ''}
+        </div>`).join('')}
+      </div>
+      <div class="pp-pot">Pot: <strong>$${pot}</strong></div>
+    </div>`;
+  });
+  html += '</div>';
+  panel.innerHTML = html;
+}
+
+function renderPuttPoker() {
+  const panel = document.getElementById('pp-panel');
+  if (!panel || panel.style.display === 'none') return;
+  _renderPuttPokerContent(panel);
+}
+
+function togglePPPanel() {
+  const panel = document.getElementById('pp-panel');
+  const icon  = document.getElementById('pp-toggle-icon');
+  if (!panel) return;
+  const opening = panel.style.display === 'none';
+  panel.style.display = opening ? '' : 'none';
+  if (icon) icon.textContent = opening ? '▲' : '▼';
+  if (opening) _renderPuttPokerContent(panel);
 }
 
 /* ─────────────────────────────────────────────
@@ -2029,7 +2264,8 @@ function resetRound() {
   if (!confirm('Reset this round? All scores will be lost.')) return;
   const _keepCode = ROOM_CODE;
   localStorage.removeItem('golf_scorecard_v1');
-  APP = { course: null, team1: [], team2: [], scores: {}, bets: { ...DEFAULT_BETS },
+  expandedPuttRows.clear();
+  APP = { course: null, team1: [], team2: [], scores: {}, putts: {}, bets: { ...DEFAULT_BETS },
           roomCode: _keepCode || null, completed: false };
 
   // Reset setup UI
@@ -2289,6 +2525,7 @@ function startRound() {
   APP.matchups = setupState.team1.map((t1p, i) => ({ t1: t1p, t2: setupState.matchupOrder[i] }));
   saveBets();
   initScores();
+  initPutts();
   saveState();
   renderScorecard();
   showScreen('scorecard');
@@ -2448,6 +2685,7 @@ function applyRemoteState(remoteApp, fromJoin) {
 
   if (APP.team1 && APP.team1.length === 3 && APP.course) {
     initScores();
+    initPutts();
     if (onScorecard) renderScorecard();
     if (onResults)   renderResults();
   }
@@ -2688,6 +2926,7 @@ function _stateSkins(st) {
 
   if (loadState()) {
     initScores();
+    initPutts();
     if (!APP.bets) APP.bets = { ...DEFAULT_BETS };
     loadBetsToInputs();
     renderScorecard();
