@@ -1198,6 +1198,16 @@
             </div>
           </div>
         </div>
+        <div class="bet-row">
+          <span class="bet-label">Putt Poker</span>
+          <div class="bet-inputs-group">
+            <div class="bet-field">
+              <span class="bet-dollar">$</span>
+              <input class="bet-input" type="number" min="0" id="bet-pp" placeholder="0" oninput="saveBets()">
+              <span class="bet-unit">/ person (starting pot)</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1277,7 +1287,7 @@ const ALL_PLAYERS = ['Robbie', 'Jack', 'Brunts', 'Michael', 'Cole', 'Tom'];
 /* ─────────────────────────────────────────────
    APP STATE + PERSISTENCE
 ───────────────────────────────────────────── */
-const DEFAULT_BETS = { skins:0, bbFront:0, bbBack:0, bbTotal:0, tbFront:0, tbBack:0, tbTotal:0, h2h:0 };
+const DEFAULT_BETS = { skins:0, bbFront:0, bbBack:0, bbTotal:0, tbFront:0, tbBack:0, tbTotal:0, h2h:0, pp:0 };
 
 let APP = {
   course: null,
@@ -1771,7 +1781,7 @@ function computePuttPoker(teamPlayers) {
   const threePuttCount = {};
   teamPlayers.forEach(p => { cards[p] = 2; threePuttCount[p] = 0; });
   let coinHolder = null;
-  let pot        = 0;
+  let pot        = (APP.bets?.pp || 0) * teamPlayers.length;
 
   for (let h = 0; h < 18; h++) {
     teamPlayers.forEach(p => {
@@ -2504,7 +2514,8 @@ function saveBets() {
     skins:   g('bet-skins'),
     bbFront: g('bet-bb-front'), bbBack: g('bet-bb-back'), bbTotal: g('bet-bb-total'),
     tbFront: g('bet-tb-front'), tbBack: g('bet-tb-back'), tbTotal: g('bet-tb-total'),
-    h2h:     g('bet-h2h')
+    h2h:     g('bet-h2h'),
+    pp:      g('bet-pp')
   };
   scheduleSync();
 }
@@ -2512,7 +2523,7 @@ function saveBets() {
 function loadBetsToInputs() {
   const b = APP.bets || DEFAULT_BETS;
   const s = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
-  s('bet-skins', b.skins); s('bet-h2h', b.h2h);
+  s('bet-skins', b.skins); s('bet-h2h', b.h2h); s('bet-pp', b.pp);
   s('bet-bb-front', b.bbFront); s('bet-bb-back', b.bbBack); s('bet-bb-total', b.bbTotal);
   s('bet-tb-front', b.tbFront); s('bet-tb-back', b.tbBack); s('bet-tb-total', b.tbTotal);
 }
