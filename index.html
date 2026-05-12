@@ -1764,7 +1764,7 @@ function buildPuttRow(player) {
 
   let html = `<tr class="row-putts" id="putts-row-${player}" style="${expanded ? '' : 'display:none'}">`;
   html += `<td class="name-cell" style="background:var(--bg-lighter)!important">
-    <div style="font-size:0.58rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);opacity:0.75">Putts &mdash; tap to cycle</div>
+    <div style="font-size:0.58rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);opacity:0.75">Putts</div>
   </td>`;
   for (let h = 0;  h < 9;  h++) html += buildPuttCell(player, h);
   html += `<td class="sum-cell out-col"   id="putt-out-${player}"   style="background:var(--bg-lighter)!important;color:rgba(245,240,228,0.65);font-size:0.82rem">${fSum}</td>`;
