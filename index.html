@@ -1152,9 +1152,12 @@
       <div class="sc-course-title" id="sc-course-title"></div>
       <div class="sc-course-sub" id="sc-course-sub"></div>
     </div>
-    <div class="sc-topbar-btns">
-      <button class="btn-ghost" onclick="showResults()">Results &rarr;</button>
-      <button class="btn-danger" onclick="resetRound()">Reset</button>
+    <div style="text-align:right">
+      <div class="sc-topbar-btns">
+        <button class="btn-ghost" onclick="showResults()">Results &rarr;</button>
+        <button class="btn-danger" onclick="resetRound()">Reset</button>
+      </div>
+      <div id="sc-room-code" style="display:none;font-size:0.62rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);opacity:0.75;margin-top:0.3rem;text-align:right"></div>
     </div>
   </div>
   <div class="sc-table-wrap" id="sc-table-wrap"></div>
@@ -1388,6 +1391,8 @@ function renderScorecard() {
   // Top bar
   document.getElementById('sc-course-title').textContent = course.name;
   document.getElementById('sc-course-sub').textContent = course.loc;
+  const _rcEl = document.getElementById('sc-room-code');
+  if (_rcEl) { _rcEl.textContent = ROOM_CODE ? `Room: ${ROOM_CODE}` : ''; _rcEl.style.display = ROOM_CODE ? '' : 'none'; }
 
   // Par sums
   const outPar   = course.par.slice(0,9).reduce((a,b)=>a+b,0);
@@ -1678,7 +1683,10 @@ function renderResults() {
     ? `<button class="btn-complete" onclick="completeRound()">Complete Round ✓</button>`
     : (APP.completed ? `<span class="completed-badge">✓ Round Complete</span>` : '');
   html += `<div class="results-topbar">
-    <div class="results-title">◆ Final Results</div>
+    <div>
+      <div class="results-title">◆ Final Results</div>
+      ${ROOM_CODE ? `<div style="font-size:0.62rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);opacity:0.75;margin-top:0.2rem">Room: ${ROOM_CODE}</div>` : ''}
+    </div>
     <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">
       ${_completeBtn}
       <button class="btn-ghost" onclick="showScreen('scorecard')">← Scorecard</button>
@@ -2019,9 +2027,10 @@ function showResults() {
 ───────────────────────────────────────────── */
 function resetRound() {
   if (!confirm('Reset this round? All scores will be lost.')) return;
-  if (ROOM_CODE) leaveRoom();
+  const _keepCode = ROOM_CODE;
   localStorage.removeItem('golf_scorecard_v1');
-  APP = { course: null, team1: [], team2: [], scores: {} };
+  APP = { course: null, team1: [], team2: [], scores: {}, bets: { ...DEFAULT_BETS },
+          roomCode: _keepCode || null, completed: false };
 
   // Reset setup UI
   document.querySelectorAll('.course-card').forEach(c => c.classList.remove('selected'));
@@ -2031,11 +2040,12 @@ function resetRound() {
   setupState.pool = [...ALL_PLAYERS];
   setupState.drag = null;
   setupState.matchupOrder = [];
-  APP.bets = { ...DEFAULT_BETS };
   loadBetsToInputs();
   renderSetup();
   updateCTA();
   showScreen('setup');
+  saveState();
+  if (_keepCode) pushToSupabase(); // broadcast fresh state to all room members
 }
 
 /* ─────────────────────────────────────────────
@@ -2410,6 +2420,14 @@ function applyRemoteState(remoteApp, fromJoin) {
   if (fromJoin && APP.team1 && APP.team1.length === 3 && APP.course) {
     renderScorecard();
     showScreen('scorecard');
+  }
+
+  // Remote reset — go back to setup
+  if (!fromJoin && (!APP.course || !APP.team1 || APP.team1.length === 0)) {
+    renderSetup();
+    loadBetsToInputs();
+    updateCTA();
+    showScreen('setup');
   }
 
   if (APP.completed && onResults) renderResults();
