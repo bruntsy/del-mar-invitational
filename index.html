@@ -1,0 +1,2191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Del Mar Invitational</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #16302a;
+      --bg-mid:       #1e3d30;
+      --bg-lighter:   #2a5240;
+      --panel:        #f5f0e4;
+      --panel-white:  #ffffff;
+      --panel-border: #ddd5be;
+      --cream-mid:    #e8e0cc;
+      --gold:         #c9a84c;
+      --gold-light:   #e5c96e;
+      --gold-dark:    #a07830;
+      --gold-muted:   rgba(201,168,76,0.35);
+      --text-dark:    #1c1410;
+      --text-mid:     #4a3f2e;
+      --text-light:   #7d6f56;
+      --text-faint:   #b0a48e;
+      --slot-bg:      rgba(201,168,76,0.08);
+      --slot-border:  rgba(201,168,76,0.3);
+      /* score colors */
+      --eagle-bg:  #c9a84c;
+      --birdie-bg: #c0392b;
+      --bogey-bg:  #aed6f1;
+      --double-bg: #2e86c1;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse 80% 60% at 15% 80%, rgba(30,61,48,0.8) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 85% 10%, rgba(13,28,22,0.6) 0%, transparent 55%);
+      font-family: 'Lato', sans-serif;
+      color: var(--text-dark);
+    }
+
+    /* ═══════════════════════════════════════════════════
+       SETUP SCREEN
+    ═══════════════════════════════════════════════════ */
+
+    #setup-screen {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    .card {
+      background: var(--panel);
+      border-radius: 3px;
+      max-width: 860px;
+      width: 100%;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.55), 0 0 0 1px rgba(201,168,76,0.25),
+                  inset 0 1px 0 rgba(255,255,255,0.6);
+      overflow: hidden;
+    }
+
+    .hdr {
+      background: var(--bg);
+      padding: 2rem 2.5rem 1.75rem;
+      text-align: center;
+      border-bottom: 2px solid var(--gold);
+      position: relative;
+    }
+    .hdr-ornament { color: var(--gold); font-size: 0.7rem; letter-spacing: 0.5em; opacity: 0.7; margin-bottom: 0.5rem; }
+    .hdr-title { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; color: var(--gold); letter-spacing: 0.18em; text-transform: uppercase; line-height: 1; }
+    .hdr-sub { font-family: 'Playfair Display', serif; font-style: italic; font-size: 0.85rem; color: rgba(245,240,228,0.45); letter-spacing: 0.2em; margin-top: 0.4rem; }
+    .hdr::before, .hdr::after { content: '◆'; position: absolute; top: 50%; transform: translateY(-50%); color: var(--gold); font-size: 0.6rem; opacity: 0.5; }
+    .hdr::before { left: 1.5rem; }
+    .hdr::after  { right: 1.5rem; }
+
+    .content { padding: 2.25rem 2.5rem 2.5rem; }
+
+    .section-label { display: flex; align-items: center; gap: 0.85rem; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.28em; text-transform: uppercase; color: var(--text-light); margin-bottom: 1.1rem; }
+    .section-label::after { content: ''; flex: 1; height: 1px; background: var(--panel-border); }
+
+    .course-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2.5rem; }
+
+    .course-card { background: var(--panel-white); border: 2px solid var(--panel-border); border-radius: 3px; padding: 1.4rem 1.5rem; cursor: pointer; transition: border-color 0.18s, box-shadow 0.18s, transform 0.15s; position: relative; text-align: center; }
+    .course-card:hover { border-color: var(--gold); transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.1); }
+    .course-card.selected { border-color: var(--gold); background: linear-gradient(150deg, #fffce8 0%, #ffffff 100%); box-shadow: 0 0 0 1px var(--gold-dark), 0 6px 20px rgba(201,168,76,0.18); }
+    .course-check { display: none; position: absolute; top: 0.6rem; right: 0.6rem; width: 1.4rem; height: 1.4rem; background: var(--gold); border-radius: 50%; font-size: 0.65rem; color: white; font-weight: 700; align-items: center; justify-content: center; }
+    .course-card.selected .course-check { display: flex; }
+    .course-glyph { font-size: 1.75rem; margin-bottom: 0.6rem; line-height: 1; }
+    .course-name { font-family: 'Playfair Display', serif; font-size: 1.05rem; font-weight: 700; color: var(--text-dark); margin-bottom: 0.2rem; }
+    .course-loc { font-size: 0.72rem; color: var(--text-light); letter-spacing: 0.06em; }
+
+    .team-builder { display: grid; grid-template-columns: 1fr 160px 1fr; gap: 1.25rem; align-items: start; }
+
+    .team-panel { border: 1px solid var(--panel-border); border-radius: 3px; overflow: hidden; transition: box-shadow 0.15s; }
+    .team-panel.drag-over { box-shadow: 0 0 0 2px var(--gold), 0 4px 16px rgba(201,168,76,0.2); }
+    .team-panel.drag-over-full { box-shadow: 0 0 0 2px #c0392b; }
+
+    .team-hdr { background: var(--bg); padding: 0.65rem 1rem; text-align: center; border-bottom: 2px solid var(--gold); }
+    .team-title { font-family: 'Playfair Display', serif; font-size: 0.9rem; font-weight: 700; color: var(--gold); letter-spacing: 0.15em; text-transform: uppercase; }
+    .team-ct { font-size: 0.62rem; color: rgba(245,240,228,0.4); letter-spacing: 0.08em; margin-top: 0.1rem; }
+
+    .team-slots { padding: 0.75rem; min-height: 178px; display: flex; flex-direction: column; gap: 0.5rem; background: var(--panel); transition: background 0.15s; }
+    .team-panel.drag-over .team-slots { background: rgba(201,168,76,0.06); }
+
+    .slot { height: 44px; border-radius: 2px; display: flex; align-items: center; }
+    .slot-empty { border: 1.5px dashed var(--slot-border); background: var(--slot-bg); justify-content: center; color: var(--text-faint); font-size: 0.68rem; font-style: italic; letter-spacing: 0.08em; }
+    .slot-filled { border: 1.5px solid rgba(160,120,48,0.5); background: var(--panel-white); padding: 0 0.75rem; justify-content: space-between; cursor: grab; transition: background 0.12s; user-select: none; }
+    .slot-filled:hover { background: #fffae8; }
+    .slot-filled:active { cursor: grabbing; }
+    .slot-filled.dragging { opacity: 0.35; }
+    .slot-name { font-family: 'Playfair Display', serif; font-size: 0.95rem; font-weight: 600; color: var(--text-dark); }
+    .slot-x { font-size: 0.7rem; color: var(--text-faint); transition: color 0.12s; pointer-events: none; }
+    .slot-filled:hover .slot-x { color: #c0392b; }
+
+    .pool-wrap { display: flex; flex-direction: column; gap: 0.4rem; }
+    .pool-label { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-light); text-align: center; margin-bottom: 0.15rem; }
+    .pool-hint { font-size: 0.62rem; color: var(--text-faint); text-align: center; font-style: italic; margin-bottom: 0.4rem; }
+
+    .pool-drop-zone { display: flex; flex-direction: column; gap: 0.4rem; min-height: 80px; border-radius: 3px; padding: 2px; transition: background 0.15s; }
+    .pool-drop-zone.drag-over { background: rgba(201,168,76,0.08); outline: 1.5px dashed var(--gold-muted); }
+
+    .player-chip { background: var(--panel-white); border: 1.5px solid var(--panel-border); border-radius: 2px; padding: 0.5rem 0.75rem; cursor: grab; text-align: center; transition: border-color 0.14s, transform 0.12s, box-shadow 0.12s; font-family: 'Playfair Display', serif; font-size: 0.92rem; font-weight: 600; color: var(--text-dark); user-select: none; }
+    .player-chip:hover { border-color: var(--gold); transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,0.1); }
+    .player-chip:active { cursor: grabbing; }
+    .player-chip.dragging { opacity: 0.35; }
+    .pool-empty { font-size: 0.72rem; color: var(--text-faint); text-align: center; font-style: italic; padding: 1.5rem 0; }
+
+    .start-section { margin-top: 2.25rem; text-align: center; }
+    .start-btn { font-family: 'Playfair Display', serif; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--bg); background: var(--gold); border: none; padding: 0.95rem 3.5rem; border-radius: 2px; cursor: pointer; transition: background 0.18s, transform 0.15s, box-shadow 0.18s; box-shadow: 0 2px 10px rgba(201,168,76,0.35); }
+    .start-btn:hover:not(:disabled) { background: var(--gold-light); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(201,168,76,0.45); }
+    .start-btn:active:not(:disabled) { transform: translateY(0); }
+    .start-btn:disabled { background: var(--cream-mid); color: var(--text-faint); cursor: not-allowed; box-shadow: none; }
+    .val-msg { margin-top: 0.75rem; font-size: 0.75rem; color: var(--text-faint); font-style: italic; min-height: 1.1em; }
+
+    /* ── Matchup selector ───────────────────────────── */
+    #matchup-section { margin-bottom: 2rem; }
+
+    /* ── Bets card ──────────────────────────────────── */
+    #bets-section { margin-bottom: 2.5rem; }
+
+    .bets-card {
+      background: var(--panel-white);
+      border: 1px solid var(--panel-border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .bet-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      padding: 0.7rem 1.25rem;
+      border-bottom: 1px solid var(--panel-border);
+    }
+    .bet-row:last-child { border-bottom: none; }
+
+    .bet-label {
+      font-family: 'Playfair Display', serif;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      min-width: 78px;
+      flex-shrink: 0;
+    }
+
+    .bet-inputs-group {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      flex: 1;
+    }
+
+    .bet-field {
+      display: flex;
+      align-items: center;
+      gap: 0.2rem;
+    }
+
+    .bet-sublabel {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      min-width: 30px;
+    }
+
+    .bet-dollar {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text-mid);
+    }
+
+    .bet-unit {
+      font-size: 0.68rem;
+      color: var(--text-faint);
+      white-space: nowrap;
+    }
+
+    .bet-input {
+      width: 62px;
+      height: 40px;
+      border: 1.5px solid var(--panel-border);
+      border-radius: 2px;
+      text-align: center;
+      font-family: 'Lato', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      background: var(--panel);
+      -moz-appearance: textfield;
+      transition: border-color 0.15s, background 0.15s;
+      touch-action: manipulation;
+    }
+    .bet-input:focus { outline: none; border-color: var(--gold); background: #fffce8; }
+    .bet-input::-webkit-outer-spin-button,
+    .bet-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+    /* ── Settlement (results) ───────────────────────── */
+    .settlement-list {
+      padding: 0.75rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .settlement-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 0.75rem;
+      background: var(--panel-white);
+      border: 1px solid var(--panel-border);
+      border-radius: 2px;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .settle-names {
+      font-family: 'Playfair Display', serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-dark);
+    }
+    .settle-arrow { color: var(--text-faint); font-size: 0.8rem; }
+    .settle-amount {
+      font-family: 'Lato', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--gold-dark);
+    }
+    .settle-no-bets {
+      padding: 1rem 1.25rem;
+      font-size: 0.8rem;
+      color: var(--text-faint);
+      font-style: italic;
+      text-align: center;
+    }
+    .pnl-table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
+    .pnl-table td, .pnl-table th {
+      padding: 0.4rem 0.75rem;
+      font-size: 0.82rem;
+      text-align: center;
+      border-bottom: 1px solid var(--panel-border);
+    }
+    .pnl-table th {
+      background: var(--bg-lighter);
+      color: rgba(245,240,228,0.55);
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .pnl-table td:first-child { text-align: left; }
+    .pnl-table tr:last-child td { border-bottom: none; }
+    .pnl-pos { color: #27ae60; font-weight: 700; }
+    .pnl-neg { color: #c0392b; font-weight: 700; }
+    .settle-header {
+      padding: 0.5rem 1.25rem 0.25rem;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-light);
+    }
+
+    .matchup-card {
+      background: var(--panel-white);
+      border: 1px solid var(--panel-border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .matchup-hint {
+      background: var(--bg-mid);
+      border-bottom: 1px solid rgba(201,168,76,0.2);
+      padding: 0.5rem 1.25rem;
+      font-size: 0.68rem;
+      color: rgba(245,240,228,0.45);
+      font-style: italic;
+      text-align: center;
+    }
+
+    .matchup-row {
+      display: flex;
+      align-items: center;
+      padding: 0.6rem 1.25rem;
+      gap: 0.75rem;
+      border-bottom: 1px solid var(--panel-border);
+    }
+    .matchup-row:last-child { border-bottom: none; }
+
+    .matchup-num {
+      font-size: 0.62rem;
+      font-weight: 700;
+      color: var(--text-faint);
+      letter-spacing: 0.1em;
+      width: 1.2rem;
+      flex-shrink: 0;
+      text-align: center;
+    }
+
+    .matchup-player {
+      flex: 1;
+      font-family: 'Playfair Display', serif;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      padding: 0.4rem 0.75rem;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 2px;
+      text-align: center;
+    }
+
+    .matchup-vs {
+      font-family: 'Playfair Display', serif;
+      font-size: 0.78rem;
+      font-style: italic;
+      color: var(--text-faint);
+      flex-shrink: 0;
+    }
+
+    .matchup-t2-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .matchup-t2-name {
+      flex: 1;
+      font-family: 'Playfair Display', serif;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      padding: 0.4rem 0.75rem;
+      background: linear-gradient(135deg, #fffce8 0%, white 100%);
+      border: 1.5px solid rgba(201,168,76,0.45);
+      border-radius: 2px;
+      text-align: center;
+    }
+
+    .matchup-arrows {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+
+    .matchup-btn {
+      background: none;
+      border: 1px solid var(--panel-border);
+      border-radius: 2px;
+      width: 1.5rem;
+      height: 1.25rem;
+      font-size: 0.6rem;
+      color: var(--text-light);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      line-height: 1;
+    }
+    .matchup-btn:hover:not(:disabled) { background: var(--gold); color: white; border-color: var(--gold); }
+    .matchup-btn:disabled { opacity: 0.2; cursor: not-allowed; }
+
+    @media (max-width: 600px) {
+      /* Setup */
+      .content { padding: 1.25rem 1rem; }
+      .team-builder { grid-template-columns: 1fr; }
+      .team-builder > :nth-child(2) { order: -1; }
+      .pool-drop-zone { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+      .player-chip { flex: 0 0 calc(50% - 0.2rem); }
+      .course-grid { grid-template-columns: 1fr; }
+      .hdr-title { font-size: 1.5rem; letter-spacing: 0.1em; }
+      .hdr { padding: 1.25rem 1rem 1rem; }
+
+      /* Matchup */
+      .matchup-row { padding: 0.6rem 0.75rem; }
+
+      /* Bets */
+      .bet-row { padding: 0.65rem 0.75rem; }
+      .bet-label { min-width: 64px; font-size: 0.82rem; }
+      .bet-inputs-group { gap: 0.4rem; }
+      .bet-input { width: 54px; height: 44px; font-size: 0.9rem; }
+
+      /* Results */
+      .results-wrap { gap: 1rem; }
+      #results-screen { padding: 1rem 0.75rem 2rem; }
+      .team-score-grid { grid-template-columns: 1fr; }
+      .team-score-vs { padding: 0.3rem; font-size: 0.75rem; }
+      .tsb-score { font-size: 1.75rem; }
+      .format-comp-grid { grid-template-columns: 1fr; }
+      .format-comp-vs { padding: 0.25rem; font-size: 0.75rem; }
+      .fcb-score { font-size: 1.5rem; }
+      .results-section-hdr { font-size: 0.72rem; padding: 0.5rem 0.75rem; }
+      .res-table { font-size: 0.82rem; }
+      .res-table th, .res-table td { padding: 0.5rem 0.5rem; }
+      .settlement-row { padding: 0.5rem; }
+      .settle-names { font-size: 0.82rem; }
+
+      /* Scorecard topbar */
+      .sc-course-title { font-size: 0.9rem; }
+      .sc-topbar { padding: 0.6rem 0.75rem; }
+      .btn-ghost, .btn-danger, .btn-solid { padding: 0.5rem 0.6rem; font-size: 0.65rem; }
+    }
+
+    /* ═══════════════════════════════════════════════════
+       SCORECARD SCREEN
+    ═══════════════════════════════════════════════════ */
+
+    #scorecard-screen { display: none; flex-direction: column; min-height: 100vh; }
+
+    .sc-topbar {
+      background: var(--bg);
+      border-bottom: 2px solid var(--gold);
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      flex-shrink: 0;
+    }
+
+    .sc-course-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.1em;
+    }
+
+    .sc-course-sub {
+      font-size: 0.7rem;
+      color: rgba(245,240,228,0.45);
+      letter-spacing: 0.08em;
+      margin-top: 0.1rem;
+    }
+
+    .sc-topbar-btns { display: flex; gap: 0.75rem; }
+
+    .btn-ghost {
+      font-family: 'Lato', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      border: 1.5px solid rgba(201,168,76,0.4);
+      background: transparent;
+      color: var(--gold);
+      padding: 0.45rem 1rem;
+      border-radius: 2px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn-ghost:hover { background: rgba(201,168,76,0.12); border-color: var(--gold); }
+
+    .btn-solid {
+      font-family: 'Lato', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      border: none;
+      background: var(--gold);
+      color: var(--bg);
+      padding: 0.45rem 1.1rem;
+      border-radius: 2px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-solid:hover { background: var(--gold-light); }
+
+    .btn-danger {
+      font-family: 'Lato', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      border: 1.5px solid rgba(192,57,43,0.5);
+      background: transparent;
+      color: #e74c3c;
+      padding: 0.45rem 1rem;
+      border-radius: 2px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-danger:hover { background: rgba(192,57,43,0.1); }
+
+    .sc-table-wrap {
+      flex: 1;
+      overflow-x: auto;
+      overflow-y: auto;
+      background: var(--panel);
+    }
+
+    /* Scorecard table */
+    table.sc-table {
+      border-collapse: collapse;
+      table-layout: fixed;
+      min-width: max-content;
+      background: var(--panel);
+    }
+
+    /* Column widths */
+    table.sc-table col.col-name   { width: 130px; }
+    table.sc-table col.col-hole   { width: 50px; }
+    table.sc-table col.col-sum    { width: 58px; }
+    table.sc-table col.col-out    { width: 58px; }
+    table.sc-table col.col-net    { width: 60px; }
+    table.sc-table col.col-skins  { width: 60px; }
+
+    table.sc-table td, table.sc-table th {
+      border: 1px solid var(--panel-border);
+      text-align: center;
+      vertical-align: middle;
+      white-space: nowrap;
+      padding: 0;
+    }
+
+    /* Sticky first column */
+    table.sc-table td:first-child,
+    table.sc-table th:first-child {
+      position: sticky;
+      left: 0;
+      z-index: 3;
+      text-align: left;
+      border-right: 2px solid var(--panel-border);
+    }
+
+    /* Header rows */
+    .row-holes th {
+      background: var(--bg);
+      color: rgba(245,240,228,0.5);
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      height: 28px;
+      padding: 0 4px;
+    }
+    .row-holes th:first-child { background: var(--bg); }
+    .row-holes th.col-out-h, .row-holes th.col-in-h { color: var(--gold); }
+
+    .row-par td {
+      background: var(--bg-mid);
+      color: rgba(245,240,228,0.85);
+      font-size: 0.8rem;
+      font-weight: 700;
+      height: 32px;
+      padding: 0 4px;
+    }
+    .row-par td:first-child { padding: 0 8px; color: var(--gold); font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
+
+    .row-ydg td {
+      background: var(--bg-mid);
+      color: rgba(245,240,228,0.4);
+      font-size: 0.72rem;
+      height: 26px;
+      padding: 0 4px;
+    }
+    .row-ydg td:first-child { padding: 0 8px; color: rgba(245,240,228,0.35); font-size: 0.65rem; letter-spacing: 0.08em; text-transform: uppercase; }
+
+    .row-si td {
+      background: var(--bg-lighter);
+      color: rgba(245,240,228,0.6);
+      font-size: 0.72rem;
+      height: 26px;
+      padding: 0 4px;
+    }
+    .row-si td:first-child { padding: 0 8px; color: rgba(245,240,228,0.5); font-size: 0.65rem; letter-spacing: 0.08em; text-transform: uppercase; }
+
+    /* Team divider row */
+    .row-team-divider td {
+      background: var(--bg);
+      color: var(--gold);
+      font-family: 'Playfair Display', serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      height: 30px;
+      padding: 0 10px;
+      border-top: 2px solid var(--gold);
+      border-bottom: 1px solid rgba(201,168,76,0.3);
+    }
+
+    /* Player rows */
+    .row-player { height: 52px; }
+    .row-player:nth-child(odd) td { background: var(--panel-white); }
+    .row-player:nth-child(even) td { background: var(--panel); }
+
+    /* Sticky name cell overrides for player rows */
+    .row-player td.name-cell {
+      padding: 6px 10px;
+      background: var(--panel-white);
+      border-right: 2px solid var(--panel-border);
+    }
+    .row-player:nth-child(even) td.name-cell { background: #ede8d8; }
+
+    .cell-pname {
+      font-family: 'Playfair Display', serif;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      line-height: 1.2;
+    }
+    .cell-hcp {
+      font-size: 0.62rem;
+      color: var(--text-faint);
+      letter-spacing: 0.05em;
+    }
+
+    /* Score input cells */
+    td.score-cell {
+      padding: 0;
+      position: relative;
+    }
+
+    .sc-cell-inner {
+      position: relative;
+      width: 100%;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    td.score-cell input[type="number"] {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: transparent;
+      text-align: center;
+      font-family: 'Lato', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      cursor: pointer;
+      -moz-appearance: textfield;
+      position: relative;
+      z-index: 1;
+    }
+    td.score-cell input[type="number"]::-webkit-outer-spin-button,
+    td.score-cell input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    td.score-cell input[type="number"]:focus { outline: none; background: rgba(201,168,76,0.12); }
+
+    .stroke-dot {
+      position: absolute;
+      bottom: 4px;
+      right: 5px;
+      font-size: 0.5rem;
+      color: var(--gold-dark);
+      line-height: 1;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Score color coding */
+    td.score-eagle { background: var(--eagle-bg) !important; }
+    td.score-eagle input { color: #fff !important; }
+    td.score-birdie { background: var(--birdie-bg) !important; }
+    td.score-birdie input { color: #fff !important; }
+    td.score-par { /* default */ }
+    td.score-bogey { background: var(--bogey-bg) !important; }
+    td.score-double { background: var(--double-bg) !important; }
+    td.score-double input { color: #fff !important; }
+
+    /* Sum cells */
+    td.sum-cell {
+      font-family: 'Lato', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-mid);
+      background: var(--cream-mid) !important;
+      padding: 0 4px;
+    }
+    td.sum-cell.out-col, td.sum-cell.in-col {
+      border-left: 2px solid var(--panel-border);
+      border-right: 2px solid var(--panel-border);
+    }
+    td.sum-cell.total-col { border-left: 2px solid var(--panel-border); }
+    td.sum-cell.net-col { color: var(--bg); font-weight: 700; }
+    td.sum-cell.skins-col { color: var(--gold-dark); font-weight: 700; }
+
+    /* Par row sum cells */
+    .row-par td.out-col, .row-par td.in-col, .row-par td.total-col,
+    .row-par td.net-col, .row-par td.skins-col {
+      color: var(--gold);
+      font-weight: 700;
+    }
+
+    /* ═══════════════════════════════════════════════════
+       RESULTS SCREEN
+    ═══════════════════════════════════════════════════ */
+
+    #results-screen { display: none; padding: 2rem 1rem 3rem; }
+
+    .results-wrap {
+      max-width: 860px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .results-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg);
+      border: 1px solid rgba(201,168,76,0.3);
+      border-radius: 3px;
+      padding: 0.75rem 1.25rem;
+    }
+
+    .results-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .results-section {
+      background: var(--panel);
+      border-radius: 3px;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    }
+
+    .results-section-hdr {
+      background: var(--bg-mid);
+      padding: 0.6rem 1.25rem;
+      border-bottom: 2px solid var(--gold);
+      font-family: 'Playfair Display', serif;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    table.res-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    table.res-table thead th {
+      background: var(--bg-lighter);
+      color: rgba(245,240,228,0.6);
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 0.5rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid rgba(201,168,76,0.2);
+    }
+    table.res-table thead th:not(:first-child) { text-align: center; }
+
+    table.res-table tbody tr { border-bottom: 1px solid var(--panel-border); }
+    table.res-table tbody tr:last-child { border-bottom: none; }
+    table.res-table tbody tr:nth-child(even) td { background: #ede8d8; }
+
+    table.res-table tbody td {
+      padding: 0.65rem 1rem;
+      font-size: 0.9rem;
+      color: var(--text-dark);
+      text-align: center;
+    }
+    table.res-table tbody td:first-child { text-align: left; }
+
+    .res-rank { font-size: 0.7rem; color: var(--text-faint); margin-right: 0.4rem; }
+    .res-player-name { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 0.95rem; }
+    .res-winner { color: var(--gold-dark); }
+    .res-net-val { font-weight: 700; color: var(--bg); }
+    .res-skins-val { font-weight: 700; color: var(--gold-dark); }
+
+    .team-score-grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 1px;
+      background: var(--panel-border);
+    }
+
+    .team-score-box {
+      background: var(--panel);
+      padding: 1.5rem;
+      text-align: center;
+    }
+    .team-score-box.winner { background: linear-gradient(135deg, #fffce8 0%, var(--panel) 100%); }
+
+    .tsb-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 0.4rem; }
+    .tsb-score { font-family: 'Playfair Display', serif; font-size: 2.5rem; font-weight: 700; color: var(--text-dark); line-height: 1; }
+    .tsb-score.winner-score { color: var(--gold-dark); }
+    .tsb-tag { font-size: 0.7rem; color: var(--text-faint); margin-top: 0.3rem; font-style: italic; }
+    .tsb-tag.winner-tag { color: var(--gold-dark); font-weight: 700; font-style: normal; letter-spacing: 0.05em; }
+
+    .team-score-vs {
+      background: var(--bg-mid);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 1rem;
+      font-family: 'Playfair Display', serif;
+      font-size: 1rem;
+      color: rgba(245,240,228,0.3);
+      font-style: italic;
+    }
+
+    /* Skins breakdown */
+    .skins-carry-row td { color: var(--text-faint) !important; font-style: italic; }
+    .skins-winner-name { font-family: 'Playfair Display', serif; font-weight: 700; }
+    .skins-pot-badge {
+      display: inline-block;
+      background: var(--gold);
+      color: var(--bg);
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.15rem 0.4rem;
+      border-radius: 2px;
+      letter-spacing: 0.05em;
+    }
+
+    .res-footer { text-align: center; padding-top: 0.5rem; }
+
+    .provisional-note {
+      text-align: center;
+      font-size: 0.72rem;
+      color: rgba(245,240,228,0.4);
+      font-style: italic;
+      padding: 0.5rem 1.25rem 0.75rem;
+      background: var(--bg-mid);
+    }
+
+    /* Best Ball / 2-Ball team format rows */
+    .row-best-ball td, .row-two-ball td {
+      font-weight: 700;
+      font-size: 0.88rem;
+      color: var(--text-mid);
+    }
+    .row-best-ball td { background: #ddd6c0 !important; }
+    .row-two-ball td  { background: #d4cdb6 !important; }
+    .row-best-ball td.name-cell, .row-two-ball td.name-cell {
+      text-align: left;
+      padding: 5px 10px;
+      border-right: 2px solid var(--panel-border);
+    }
+    .row-best-ball td.sum-cell, .row-two-ball td.sum-cell {
+      background: #c8c0a8 !important;
+      color: var(--text-dark);
+    }
+    .fmt-row-label {
+      font-family: 'Playfair Display', serif;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      line-height: 1.2;
+    }
+    .fmt-row-sub {
+      font-size: 0.6rem;
+      color: var(--text-light);
+      letter-spacing: 0.04em;
+      font-weight: 400;
+    }
+    td.fmt-cell {
+      text-align: center;
+      vertical-align: middle;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-mid);
+    }
+
+    /* Results: format competition */
+    .format-comp-grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 1px;
+      background: var(--panel-border);
+    }
+    .format-comp-box {
+      background: var(--panel);
+      padding: 1rem 1.5rem;
+      text-align: center;
+    }
+    .format-comp-box.winner { background: linear-gradient(135deg, #fffce8 0%, var(--panel) 100%); }
+    .fcb-label { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 0.6rem; }
+    .fcb-breakdown { display: flex; justify-content: center; gap: 1.5rem; margin-bottom: 0.6rem; border-bottom: 1px solid var(--panel-border); padding-bottom: 0.6rem; }
+    .fcb-bd-item { text-align: center; }
+    .fcb-bd-label { font-size: 0.55rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-faint); }
+    .fcb-bd-val { font-family: 'Lato', sans-serif; font-size: 1rem; font-weight: 700; color: var(--text-mid); line-height: 1.3; }
+    .fcb-total-label { font-size: 0.55rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 0.15rem; }
+    .fcb-score { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; color: var(--text-dark); line-height: 1; }
+    .fcb-score.winner-score { color: var(--gold-dark); }
+    .fcb-tag { font-size: 0.68rem; color: var(--text-faint); margin-top: 0.3rem; font-style: italic; }
+    .fcb-tag.winner-tag { color: var(--gold-dark); font-weight: 700; font-style: normal; }
+    .format-comp-vs {
+      background: var(--bg-mid);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 0.75rem;
+      font-family: 'Playfair Display', serif;
+      font-size: 0.9rem;
+      color: rgba(245,240,228,0.3);
+      font-style: italic;
+    }
+    .format-section-sub {
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(245,240,228,0.45);
+      margin-left: 0.75rem;
+      font-weight: 400;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════ SETUP SCREEN ═══════════════ -->
+<div id="setup-screen">
+<div class="card">
+  <div class="hdr">
+    <div class="hdr-ornament">◆ &nbsp; ◆ &nbsp; ◆</div>
+    <div class="hdr-title">Del Mar Invitational</div>
+    <div class="hdr-sub">Course Setup &amp; Team Selection</div>
+  </div>
+  <div class="content">
+    <div class="section-label">Select Course</div>
+    <div class="course-grid">
+      <div class="course-card" data-course="fairbanks" onclick="selectCourse(this)">
+        <div class="course-check">✓</div>
+        <div class="course-glyph">⛳</div>
+        <div class="course-name">Fairbanks Ranch</div>
+        <div class="course-loc">Rancho Santa Fe, California</div>
+      </div>
+      <div class="course-card" data-course="torrey" onclick="selectCourse(this)">
+        <div class="course-check">✓</div>
+        <div class="course-glyph">🌊</div>
+        <div class="course-name">Torrey Pines South</div>
+        <div class="course-loc">La Jolla, California</div>
+      </div>
+    </div>
+
+    <div class="section-label">Build Your Teams</div>
+    <div class="team-builder">
+      <div class="team-panel" id="team1-panel"
+           ondragover="onTeamDragOver(event,'team1')"
+           ondragleave="onTeamDragLeave(event,'team1')"
+           ondrop="onTeamDrop(event,'team1')">
+        <div class="team-hdr">
+          <div class="team-title">Team 1</div>
+          <div class="team-ct" id="team1-ct">0 of 3</div>
+        </div>
+        <div class="team-slots" id="team1-slots"></div>
+      </div>
+
+      <div class="pool-wrap">
+        <div class="pool-label">Players</div>
+        <div class="pool-hint">drag or click to assign</div>
+        <div class="pool-drop-zone" id="pool-zone"
+             ondragover="onPoolDragOver(event)"
+             ondragleave="onPoolDragLeave(event)"
+             ondrop="onPoolDrop(event)"></div>
+      </div>
+
+      <div class="team-panel" id="team2-panel"
+           ondragover="onTeamDragOver(event,'team2')"
+           ondragleave="onTeamDragLeave(event,'team2')"
+           ondrop="onTeamDrop(event,'team2')">
+        <div class="team-hdr">
+          <div class="team-title">Team 2</div>
+          <div class="team-ct" id="team2-ct">0 of 3</div>
+        </div>
+        <div class="team-slots" id="team2-slots"></div>
+      </div>
+    </div>
+
+    <!-- Matchup selector (shown once both teams are full) -->
+    <div id="matchup-section" style="display:none">
+      <div class="section-label">Head-to-Head Matchups</div>
+      <div class="matchup-card">
+        <div class="matchup-hint">Reorder Team 2 with ▲▼ to set who plays who</div>
+        <div id="matchup-rows"></div>
+      </div>
+    </div>
+
+    <!-- Bet amounts -->
+    <div id="bets-section">
+      <div class="section-label">Bet Amounts</div>
+      <div class="bets-card">
+        <div class="bet-row">
+          <span class="bet-label">Skins</span>
+          <div class="bet-inputs-group">
+            <div class="bet-field">
+              <span class="bet-dollar">$</span>
+              <input class="bet-input" type="number" min="0" id="bet-skins" placeholder="0" oninput="saveBets()">
+              <span class="bet-unit">/ skin</span>
+            </div>
+          </div>
+        </div>
+        <div class="bet-row">
+          <span class="bet-label">Best Ball</span>
+          <div class="bet-inputs-group">
+            <div class="bet-field"><span class="bet-sublabel">Front</span><span class="bet-dollar">$</span><input class="bet-input" type="number" min="0" id="bet-bb-front" placeholder="0" oninput="saveBets()"></div>
+            <div class="bet-field"><span class="bet-sublabel">Back</span><span class="bet-dollar">$</span><input class="bet-input" type="number" min="0" id="bet-bb-back" placeholder="0" oninput="saveBets()"></div>
+            <div class="bet-field"><span class="bet-sublabel">Total</span><span class="bet-dollar">$</span><input class="bet-input" type="number" min="0" id="bet-bb-total" placeholder="0" oninput="saveBets()"></div>
+          </div>
+        </div>
+        <div class="bet-row">
+          <span class="bet-label">2-Ball</span>
+          <div class="bet-inputs-group">
+            <div class="bet-field"><span class="bet-sublabel">Front</span><span class="bet-dollar">$</span><input class="bet-input" type="number" min="0" id="bet-tb-front" placeholder="0" oninput="saveBets()"></div>
+            <div class="bet-field"><span class="bet-sublabel">Back</span><span class="bet-dollar">$</span><input class="bet-input" type="number" min="0" id="bet-tb-back" placeholder="0" oninput="saveBets()"></div>
+            <div class="bet-field"><span class="bet-sublabel">Total</span><span class="bet-dollar">$</span><input class="bet-input" type="number" min="0" id="bet-tb-total" placeholder="0" oninput="saveBets()"></div>
+          </div>
+        </div>
+        <div class="bet-row">
+          <span class="bet-label">H2H</span>
+          <div class="bet-inputs-group">
+            <div class="bet-field">
+              <span class="bet-dollar">$</span>
+              <input class="bet-input" type="number" min="0" id="bet-h2h" placeholder="0" oninput="saveBets()">
+              <span class="bet-unit">/ matchup</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="start-section">
+      <button class="start-btn" id="start-btn" onclick="startRound()" disabled>Begin Round &rarr;</button>
+      <div class="val-msg" id="val-msg">Select a course and assign all 6 players to begin</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════ SCORECARD SCREEN ═══════════════ -->
+<div id="scorecard-screen">
+  <div class="sc-topbar">
+    <div>
+      <div class="sc-course-title" id="sc-course-title"></div>
+      <div class="sc-course-sub" id="sc-course-sub"></div>
+    </div>
+    <div class="sc-topbar-btns">
+      <button class="btn-ghost" onclick="showResults()">Results &rarr;</button>
+      <button class="btn-danger" onclick="resetRound()">Reset</button>
+    </div>
+  </div>
+  <div class="sc-table-wrap" id="sc-table-wrap"></div>
+</div>
+
+<!-- ═══════════════ RESULTS SCREEN ═══════════════ -->
+<div id="results-screen">
+  <div class="results-wrap" id="results-wrap"></div>
+</div>
+
+<script>
+/* ─────────────────────────────────────────────
+   COURSE DATA
+───────────────────────────────────────────── */
+const COURSES = {
+  fairbanks: {
+    name: 'Fairbanks Ranch',
+    loc:  'Rancho Santa Fe, CA',
+    par:  [5,4,5,4,4,3,4,3,4, 4,4,3,5,5,4,3,4,4],
+    si:   [9,13,5,1,7,17,3,15,11, 4,10,16,8,2,12,18,14,6],
+    yds:  [520,424,541,441,423,193,417,209,434, 391,433,210,545,475,456,232,457,395],
+    hcp:  { Robbie:8, Michael:9, Cole:10, Jack:12, Brunts:14, Tom:16 }
+  },
+  torrey: {
+    name: 'Torrey Pines South',
+    loc:  'La Jolla, CA',
+    par:  [4,4,3,4,4,5,4,3,5, 4,3,4,5,4,4,3,4,5],
+    si:   [5,15,13,3,11,9,1,17,7, 16,14,2,6,8,12,18,4,10],
+    yds:  [451,389,201,490,454,564,462,177,615, 454,225,505,621,437,517,227,443,570],
+    hcp:  { Robbie:11, Michael:11, Cole:13, Jack:16, Brunts:17, Tom:20 }
+  }
+};
+
+const ALL_PLAYERS = ['Robbie', 'Jack', 'Brunts', 'Michael', 'Cole', 'Tom'];
+
+/* ─────────────────────────────────────────────
+   APP STATE + PERSISTENCE
+───────────────────────────────────────────── */
+const DEFAULT_BETS = { skins:0, bbFront:0, bbBack:0, bbTotal:0, tbFront:0, tbBack:0, tbTotal:0, h2h:0 };
+
+let APP = {
+  course: null,
+  team1: [],
+  team2: [],
+  matchups: [],
+  bets: { ...DEFAULT_BETS },
+  scores: {}
+};
+
+function saveState() {
+  localStorage.setItem('golf_scorecard_v1', JSON.stringify(APP));
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem('golf_scorecard_v1');
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    if (!s.course || !s.team1.length || !s.team2.length) return false;
+    APP = s;
+    return true;
+  } catch (e) { return false; }
+}
+
+function initScores() {
+  const players = [...APP.team1, ...APP.team2];
+  players.forEach(p => {
+    if (!APP.scores[p] || APP.scores[p].length !== 18) {
+      APP.scores[p] = new Array(18).fill(null);
+    }
+  });
+}
+
+/* ─────────────────────────────────────────────
+   SCREEN ROUTING
+───────────────────────────────────────────── */
+function showScreen(name) {
+  document.getElementById('setup-screen').style.display     = name === 'setup'     ? ''     : 'none';
+  document.getElementById('scorecard-screen').style.display = name === 'scorecard' ? 'flex' : 'none';
+  document.getElementById('results-screen').style.display   = name === 'results'   ? 'block': 'none';
+}
+
+/* ─────────────────────────────────────────────
+   SCORING CALCULATIONS
+───────────────────────────────────────────── */
+function getPlayerStrokes() {
+  const course = COURSES[APP.course];
+  const players = [...APP.team1, ...APP.team2];
+  const minHcp = Math.min(...players.map(p => course.hcp[p]));
+  const result = {};
+  players.forEach(p => { result[p] = course.hcp[p] - minHcp; });
+  return result;
+}
+
+function getsStroke(playerStrokes, si) {
+  return si <= playerStrokes;
+}
+
+function getColorClass(gross, par) {
+  const d = gross - par;
+  if (d <= -2) return 'score-eagle';
+  if (d === -1) return 'score-birdie';
+  if (d === 0)  return 'score-par';
+  if (d === 1)  return 'score-bogey';
+  return 'score-double';
+}
+
+function computeSkins() {
+  const course = COURSES[APP.course];
+  const players = [...APP.team1, ...APP.team2];
+  const strokes = getPlayerStrokes();
+  const skinsByPlayer = {};
+  players.forEach(p => { skinsByPlayer[p] = 0; });
+
+  const holeResults = [];
+  let pot = 1;
+
+  for (let h = 0; h < 18; h++) {
+    const allEntered = players.every(p => APP.scores[p][h] !== null && APP.scores[p][h] !== undefined);
+    if (!allEntered) {
+      // Stop processing — carryover depends on sequential completion
+      break;
+    }
+
+    const nets = {};
+    players.forEach(p => {
+      const gross = APP.scores[p][h];
+      const stroke = getsStroke(strokes[p], course.si[h]) ? 1 : 0;
+      nets[p] = gross - stroke;
+    });
+
+    const minNet = Math.min(...Object.values(nets));
+    const winners = players.filter(p => nets[p] === minNet);
+
+    if (winners.length === 1) {
+      const w = winners[0];
+      skinsByPlayer[w] += pot;
+      holeResults.push({ hole: h + 1, winner: w, pot, nets, tied: false });
+      pot = 1;
+    } else {
+      holeResults.push({ hole: h + 1, winner: null, pot, nets, tied: true, tiedPlayers: winners });
+      pot++;
+    }
+  }
+
+  return { skinsByPlayer, holeResults, pendingPot: pot > 1 ? pot - 1 : 0 };
+}
+
+function computeNetTotal(player, strokes) {
+  const course = COURSES[APP.course];
+  const scores = APP.scores[player];
+  let net = 0;
+  let hasAny = false;
+  for (let h = 0; h < 18; h++) {
+    if (scores[h] === null || scores[h] === undefined) continue;
+    hasAny = true;
+    const stroke = getsStroke(strokes[player], course.si[h]) ? 1 : 0;
+    net += scores[h] - stroke;
+  }
+  return hasAny ? net : null;
+}
+
+function sumRange(player, start, end) {
+  const scores = APP.scores[player];
+  let s = 0, hasAny = false;
+  for (let h = start; h < end; h++) {
+    if (scores[h] !== null && scores[h] !== undefined) { s += scores[h]; hasAny = true; }
+  }
+  return hasAny ? s : null;
+}
+
+/* ─────────────────────────────────────────────
+   TEAM FORMAT CALCULATIONS (Best Ball / 2-Ball)
+───────────────────────────────────────────── */
+function computeTeamHoleStats(teamPlayers, strokes, h) {
+  const course = COURSES[APP.course];
+  const nets = teamPlayers
+    .filter(p => APP.scores[p][h] !== null && APP.scores[p][h] !== undefined)
+    .map(p => APP.scores[p][h] - (getsStroke(strokes[p], course.si[h]) ? 1 : 0))
+    .sort((a, b) => a - b);
+  return {
+    bestBall: nets.length >= 1 ? nets[0] : null,
+    twoBall:  nets.length >= 2 ? nets[0] + nets[1] : null
+  };
+}
+
+function computeTeamTotals(teamPlayers, strokes) {
+  let bbOut = 0, bbOutAny = false, bbIn = 0, bbInAny = false;
+  let tbOut = 0, tbOutAny = false, tbIn = 0, tbInAny = false;
+  for (let h = 0; h < 18; h++) {
+    const { bestBall, twoBall } = computeTeamHoleStats(teamPlayers, strokes, h);
+    if (h < 9) {
+      if (bestBall !== null) { bbOut += bestBall; bbOutAny = true; }
+      if (twoBall  !== null) { tbOut += twoBall;  tbOutAny = true; }
+    } else {
+      if (bestBall !== null) { bbIn += bestBall; bbInAny = true; }
+      if (twoBall  !== null) { tbIn += twoBall;  tbInAny = true; }
+    }
+  }
+  return {
+    bbOut:   bbOutAny ? bbOut : null,
+    bbIn:    bbInAny  ? bbIn  : null,
+    bbTotal: (bbOutAny || bbInAny) ? (bbOutAny ? bbOut : 0) + (bbInAny ? bbIn : 0) : null,
+    tbOut:   tbOutAny ? tbOut : null,
+    tbIn:    tbInAny  ? tbIn  : null,
+    tbTotal: (tbOutAny || tbInAny) ? (tbOutAny ? tbOut : 0) + (tbInAny ? tbIn : 0) : null
+  };
+}
+
+/* ─────────────────────────────────────────────
+   SCORECARD RENDER
+───────────────────────────────────────────── */
+function renderScorecard() {
+  const course = COURSES[APP.course];
+  const players = [...APP.team1, ...APP.team2];
+  const strokes = getPlayerStrokes();
+  const { skinsByPlayer } = computeSkins();
+
+  // Top bar
+  document.getElementById('sc-course-title').textContent = course.name;
+  document.getElementById('sc-course-sub').textContent = course.loc;
+
+  // Par sums
+  const outPar   = course.par.slice(0,9).reduce((a,b)=>a+b,0);
+  const inPar    = course.par.slice(9,18).reduce((a,b)=>a+b,0);
+  const totalPar = outPar + inPar;
+
+  let html = '';
+
+  // colgroup
+  html += '<colgroup>';
+  html += '<col class="col-name">';
+  for (let i = 0; i < 9; i++)  html += '<col class="col-hole">';
+  html += '<col class="col-out">';
+  for (let i = 0; i < 9; i++)  html += '<col class="col-hole">';
+  html += '<col class="col-sum"><col class="col-sum"><col class="col-net"><col class="col-skins">';
+  html += '</colgroup>';
+
+  // THEAD
+  html += '<thead>';
+
+  // Hole number row
+  html += '<tr class="row-holes">';
+  html += '<th></th>';
+  for (let h = 1; h <= 9; h++)  html += `<th>${h}</th>`;
+  html += '<th class="col-out-h">OUT</th>';
+  for (let h = 10; h <= 18; h++) html += `<th>${h}</th>`;
+  html += '<th class="col-in-h">IN</th><th>TOT</th><th>NET</th><th>SKN</th>';
+  html += '</tr>';
+
+  // Par row
+  html += '<tr class="row-par">';
+  html += '<td>Par</td>';
+  for (let h = 0; h < 9; h++)  html += `<td>${course.par[h]}</td>`;
+  html += `<td class="out-col">${outPar}</td>`;
+  for (let h = 9; h < 18; h++) html += `<td>${course.par[h]}</td>`;
+  html += `<td class="in-col">${inPar}</td><td class="total-col">${totalPar}</td><td class="net-col">—</td><td class="skins-col">—</td>`;
+  html += '</tr>';
+
+  // Yardage row
+  const outYds   = course.yds.slice(0,9).reduce((a,b)=>a+b,0);
+  const inYds    = course.yds.slice(9,18).reduce((a,b)=>a+b,0);
+  const totalYds = outYds + inYds;
+  html += '<tr class="row-ydg">';
+  html += '<td>Yds</td>';
+  for (let h = 0; h < 9; h++)  html += `<td>${course.yds[h]}</td>`;
+  html += `<td class="out-col">${outYds}</td>`;
+  for (let h = 9; h < 18; h++) html += `<td>${course.yds[h]}</td>`;
+  html += `<td class="in-col">${inYds}</td><td class="total-col">${totalYds}</td><td class="net-col"></td><td class="skins-col"></td>`;
+  html += '</tr>';
+
+  // Handicap (stroke index) row
+  html += '<tr class="row-si">';
+  html += '<td>Handicap</td>';
+  for (let h = 0; h < 9; h++)  html += `<td>${course.si[h]}</td>`;
+  html += '<td class="out-col">—</td>';
+  for (let h = 9; h < 18; h++) html += `<td>${course.si[h]}</td>`;
+  html += '<td class="in-col">—</td><td class="total-col">—</td><td class="net-col"></td><td class="skins-col"></td>';
+  html += '</tr>';
+
+  html += '</thead>';
+
+  // TBODY
+  html += '<tbody>';
+
+  const teams = [{ key: 'team1', label: 'Team 1', players: APP.team1 },
+                 { key: 'team2', label: 'Team 2', players: APP.team2 }];
+
+  teams.forEach(({ key, label, players: teamPlayers }) => {
+    const memberNames = teamPlayers.join(' &middot; ');
+    html += `<tr class="row-team-divider"><td colspan="24">${label} &mdash; ${memberNames}</td></tr>`;
+
+    teamPlayers.forEach(p => {
+      html += buildPlayerRow(p, strokes[p], skinsByPlayer[p], course);
+    });
+
+    html += buildBestBallRow(key, teamPlayers, strokes, course);
+    html += build2BallRow(key, teamPlayers, strokes, course);
+  });
+
+  html += '</tbody>';
+
+  const table = document.createElement('table');
+  table.className = 'sc-table';
+  table.innerHTML = html;
+  const wrap = document.getElementById('sc-table-wrap');
+  wrap.innerHTML = '';
+  wrap.appendChild(table);
+}
+
+function buildPlayerRow(player, playerStrokes, skinsWon, course) {
+  const scores = APP.scores[player];
+  const { skinsByPlayer } = computeSkins();
+  skinsWon = skinsByPlayer[player];
+
+  const outVal   = sumRange(player, 0, 9);
+  const inVal    = sumRange(player, 9, 18);
+  const totalVal = (outVal !== null || inVal !== null) ? (outVal || 0) + (inVal || 0) : null;
+  const netVal   = computeNetTotal(player, getPlayerStrokes());
+
+  let html = `<tr class="row-player" data-player="${player}">`;
+
+  // Name cell
+  html += `<td class="name-cell">
+    <div class="cell-pname">${player}</div>
+    <div class="cell-hcp">Hcp ${course.hcp[player]} &bull; +${playerStrokes} strokes</div>
+  </td>`;
+
+  // Holes 1-9
+  for (let h = 0; h < 9; h++) html += buildScoreCell(player, h, playerStrokes, scores[h], course);
+
+  // Out
+  html += `<td class="sum-cell out-col" id="out-${player}">${outVal !== null ? outVal : '—'}</td>`;
+
+  // Holes 10-18
+  for (let h = 9; h < 18; h++) html += buildScoreCell(player, h, playerStrokes, scores[h], course);
+
+  // In, Total, Net, Skins
+  html += `<td class="sum-cell in-col"    id="in-${player}">${inVal    !== null ? inVal    : '—'}</td>`;
+  html += `<td class="sum-cell total-col" id="total-${player}">${totalVal !== null ? totalVal : '—'}</td>`;
+  html += `<td class="sum-cell net-col"   id="net-${player}">${netVal   !== null ? netVal   : '—'}</td>`;
+  html += `<td class="sum-cell skins-col" id="skins-${player}">${skinsWon > 0 ? skinsWon : '—'}</td>`;
+
+  html += '</tr>';
+  return html;
+}
+
+function buildFormatRow(rowClass, teamKey, teamPlayers, strokes, course, label, sublabel, valKey) {
+  const fmt = v => v !== null ? v : '<span style="color:var(--text-faint);font-weight:400">—</span>';
+  const totals = computeTeamTotals(teamPlayers, strokes);
+  const outKey = valKey === 'bestBall' ? 'bbOut' : 'tbOut';
+  const inKey  = valKey === 'bestBall' ? 'bbIn'  : 'tbIn';
+  const totKey = valKey === 'bestBall' ? 'bbTotal' : 'tbTotal';
+  const prefix = valKey === 'bestBall' ? 'bb' : 'tb';
+
+  let html = `<tr class="${rowClass}">`;
+  html += `<td class="name-cell"><div class="fmt-row-label">${label}</div><div class="fmt-row-sub">${sublabel}</div></td>`;
+
+  for (let h = 0; h < 9; h++) {
+    const v = computeTeamHoleStats(teamPlayers, strokes, h)[valKey];
+    html += `<td class="fmt-cell" id="${prefix}-${teamKey}-h${h}">${fmt(v)}</td>`;
+  }
+  html += `<td class="sum-cell out-col" id="${prefix}-${teamKey}-out">${fmt(totals[outKey])}</td>`;
+  for (let h = 9; h < 18; h++) {
+    const v = computeTeamHoleStats(teamPlayers, strokes, h)[valKey];
+    html += `<td class="fmt-cell" id="${prefix}-${teamKey}-h${h}">${fmt(v)}</td>`;
+  }
+  html += `<td class="sum-cell in-col" id="${prefix}-${teamKey}-in">${fmt(totals[inKey])}</td>`;
+  html += `<td class="sum-cell total-col" id="${prefix}-${teamKey}-total">${fmt(totals[totKey])}</td>`;
+  html += `<td class="sum-cell net-col">—</td><td class="sum-cell skins-col">—</td>`;
+  html += '</tr>';
+  return html;
+}
+
+function buildBestBallRow(teamKey, teamPlayers, strokes, course) {
+  return buildFormatRow('row-best-ball', teamKey, teamPlayers, strokes, course,
+    'Best Ball', 'low net per hole', 'bestBall');
+}
+
+function build2BallRow(teamKey, teamPlayers, strokes, course) {
+  return buildFormatRow('row-two-ball', teamKey, teamPlayers, strokes, course,
+    '2-Ball', 'sum of 2 low nets', 'twoBall');
+}
+
+function updateTeamFormatRows(teamKey) {
+  const teamPlayers = APP[teamKey];
+  const strokes = getPlayerStrokes();
+  const totals = computeTeamTotals(teamPlayers, strokes);
+  const fmt = v => v !== null ? String(v) : '—';
+  const el = id => document.getElementById(id);
+
+  for (let h = 0; h < 18; h++) {
+    const { bestBall, twoBall } = computeTeamHoleStats(teamPlayers, strokes, h);
+    const bbCell = el(`bb-${teamKey}-h${h}`);
+    const tbCell = el(`tb-${teamKey}-h${h}`);
+    if (bbCell) bbCell.textContent = bestBall !== null ? bestBall : '—';
+    if (tbCell) tbCell.textContent = twoBall  !== null ? twoBall  : '—';
+  }
+
+  ['bb','tb'].forEach(p => {
+    const [outK, inK, totK] = p === 'bb'
+      ? ['bbOut','bbIn','bbTotal'] : ['tbOut','tbIn','tbTotal'];
+    if (el(`${p}-${teamKey}-out`))   el(`${p}-${teamKey}-out`).textContent   = fmt(totals[outK]);
+    if (el(`${p}-${teamKey}-in`))    el(`${p}-${teamKey}-in`).textContent    = fmt(totals[inK]);
+    if (el(`${p}-${teamKey}-total`)) el(`${p}-${teamKey}-total`).textContent = fmt(totals[totK]);
+  });
+}
+
+function buildScoreCell(player, h, playerStrokes, gross, course) {
+  const colorClass = gross !== null ? getColorClass(gross, course.par[h]) : '';
+  const hasDot = getsStroke(playerStrokes, course.si[h]);
+  return `<td class="score-cell ${colorClass}" data-player="${player}" data-hole="${h}">
+    <div class="sc-cell-inner">
+      <input type="number" min="1" max="20"
+             value="${gross !== null && gross !== undefined ? gross : ''}"
+             oninput="onScoreInput('${player}',${h},this.value)"
+             onfocus="this.select()">
+      ${hasDot ? '<span class="stroke-dot">●</span>' : ''}
+    </div>
+  </td>`;
+}
+
+/* ─────────────────────────────────────────────
+   SCORE INPUT HANDLER
+───────────────────────────────────────────── */
+function onScoreInput(player, h, rawVal) {
+  const gross = rawVal === '' ? null : parseInt(rawVal, 10);
+  if (rawVal !== '' && isNaN(gross)) return;
+  APP.scores[player][h] = gross;
+  saveState();
+
+  const course = COURSES[APP.course];
+
+  // Update cell color class
+  const cell = document.querySelector(`td.score-cell[data-player="${player}"][data-hole="${h}"]`);
+  if (cell) {
+    cell.className = 'score-cell' + (gross !== null ? ' ' + getColorClass(gross, course.par[h]) : '');
+  }
+
+  // Update sums for this player
+  updatePlayerSums(player);
+
+  // Recompute skins for all players
+  updateAllSkins();
+
+  // Update team format rows (Best Ball / 2-Ball)
+  const teamKey = APP.team1.includes(player) ? 'team1' : 'team2';
+  updateTeamFormatRows(teamKey);
+}
+
+function updatePlayerSums(player) {
+  const strokes = getPlayerStrokes();
+  const outVal   = sumRange(player, 0, 9);
+  const inVal    = sumRange(player, 9, 18);
+  const totalVal = (outVal !== null || inVal !== null) ? (outVal || 0) + (inVal || 0) : null;
+  const netVal   = computeNetTotal(player, strokes);
+
+  const el = id => document.getElementById(id);
+  const fmt = v => v !== null ? v : '—';
+  if (el(`out-${player}`))   el(`out-${player}`).textContent   = fmt(outVal);
+  if (el(`in-${player}`))    el(`in-${player}`).textContent    = fmt(inVal);
+  if (el(`total-${player}`)) el(`total-${player}`).textContent = fmt(totalVal);
+  if (el(`net-${player}`))   el(`net-${player}`).textContent   = fmt(netVal);
+}
+
+function updateAllSkins() {
+  const { skinsByPlayer } = computeSkins();
+  const players = [...APP.team1, ...APP.team2];
+  players.forEach(p => {
+    const el = document.getElementById(`skins-${p}`);
+    if (el) el.textContent = skinsByPlayer[p] > 0 ? skinsByPlayer[p] : '—';
+  });
+}
+
+/* ─────────────────────────────────────────────
+   RESULTS RENDER
+───────────────────────────────────────────── */
+function renderResults() {
+  const course  = COURSES[APP.course];
+  const players = [...APP.team1, ...APP.team2];
+  const strokes = getPlayerStrokes();
+  const { skinsByPlayer, holeResults, pendingPot } = computeSkins();
+
+  // Build individual leaderboard sorted by net
+  const board = players.map(p => {
+    const gross = players.reduce((_, _p) => _, 0); // placeholder
+    const grossTotal = sumRange(p, 0, 18);
+    const netTotal   = computeNetTotal(p, strokes);
+    const team = APP.team1.includes(p) ? 'Team 1' : 'Team 2';
+    return { player: p, team, gross: grossTotal, strokes: strokes[p], net: netTotal, skins: skinsByPlayer[p] };
+  }).sort((a, b) => {
+    if (a.net === null && b.net === null) return 0;
+    if (a.net === null) return 1;
+    if (b.net === null) return -1;
+    return a.net - b.net;
+  });
+
+  // Team totals
+  const team1Net = APP.team1.reduce((s, p) => s + (computeNetTotal(p, strokes) || 0), 0);
+  const team2Net = APP.team2.reduce((s, p) => s + (computeNetTotal(p, strokes) || 0), 0);
+  const team1HasAll = APP.team1.every(p => computeNetTotal(p, strokes) !== null);
+  const team2HasAll = APP.team2.every(p => computeNetTotal(p, strokes) !== null);
+
+  let html = '';
+
+  // Top bar
+  html += `<div class="results-topbar">
+    <div class="results-title">◆ Final Results</div>
+    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+      <button class="btn-ghost" onclick="showScreen('scorecard')">← Scorecard</button>
+      <button class="btn-danger" onclick="resetRound()">Reset Round</button>
+    </div>
+  </div>`;
+
+  // 0. Settlement
+  const pnl = computePlayerPnL();
+  const hasBets = Object.values(APP.bets || {}).some(v => v > 0);
+  const allPlayers2 = [...APP.team1, ...APP.team2];
+  html += `<div class="results-section">
+    <div class="results-section-hdr">Settlement</div>`;
+  if (!hasBets) {
+    html += `<div class="settle-no-bets">No bet amounts entered — set them on the setup screen.</div>`;
+  } else {
+    const transfers = computeSettlement(pnl);
+    // P&L summary table
+    html += `<div style="overflow-x:auto"><table class="pnl-table">
+      <thead><tr><th>Player</th><th>Skins</th><th>Best Ball</th><th>2-Ball</th><th>H2H</th><th>Net</th></tr></thead>
+      <tbody>`;
+    const b = APP.bets;
+    allPlayers2.forEach(p => {
+      // Recompute per-format breakdown
+      const sk = computeSkins();
+      const st = getPlayerStrokes();
+      const t1T = computeTeamTotals(APP.team1, st);
+      const t2T = computeTeamTotals(APP.team2, st);
+      const isT1 = APP.team1.includes(p);
+
+      let skinPnl = b.skins ? b.skins * (6 * sk.skinsByPlayer[p] - Object.values(sk.skinsByPlayer).reduce((a,c)=>a+c,0)) : 0;
+
+      function teamDelta(t1v, t2v, amt) {
+        if (!amt || t1v===null || t2v===null) return 0;
+        if (isT1) return t1v < t2v ? amt : t1v > t2v ? -amt : 0;
+        return t2v < t1v ? amt : t2v > t1v ? -amt : 0;
+      }
+      const bbPnl = teamDelta(t1T.bbOut,t2T.bbOut,b.bbFront)+teamDelta(t1T.bbIn,t2T.bbIn,b.bbBack)+teamDelta(t1T.bbTotal,t2T.bbTotal,b.bbTotal);
+      const tbPnl = teamDelta(t1T.tbOut,t2T.tbOut,b.tbFront)+teamDelta(t1T.tbIn,t2T.tbIn,b.tbBack)+teamDelta(t1T.tbTotal,t2T.tbTotal,b.tbTotal);
+
+      let h2hPnl = 0;
+      if (b.h2h && APP.matchups) {
+        const myM = APP.matchups.find(m => m.t1===p||m.t2===p);
+        if (myM) {
+          const n1=computeNetTotal(myM.t1,st), n2=computeNetTotal(myM.t2,st);
+          if (n1!==null&&n2!==null) {
+            if (myM.t1===p) h2hPnl = n1<n2?b.h2h:n2<n1?-b.h2h:0;
+            else            h2hPnl = n2<n1?b.h2h:n1<n2?-b.h2h:0;
+          }
+        }
+      }
+      const net = skinPnl + bbPnl + tbPnl + h2hPnl;
+      const fc = v => v===0?'—':`<span class="${v>0?'pnl-pos':'pnl-neg'}">${v>0?'+':''}$${Math.abs(v)}</span>`;
+      html += `<tr>
+        <td><strong>${p}</strong></td>
+        <td>${fc(skinPnl)}</td><td>${fc(bbPnl)}</td><td>${fc(tbPnl)}</td><td>${fc(h2hPnl)}</td>
+        <td>${fc(net)}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+
+    if (transfers.length) {
+      html += `<div class="settle-header">Who pays who</div>
+        <div class="settlement-list">`;
+      transfers.forEach(t => {
+        html += `<div class="settlement-row">
+          <span class="settle-names">${t.from} <span class="settle-arrow">pays</span> ${t.to}</span>
+          <span class="settle-amount">$${Math.round(t.amount)}</span>
+        </div>`;
+      });
+      html += `</div>`;
+    } else {
+      html += `<div class="settle-no-bets" style="padding:0.75rem">All square — no money changes hands.</div>`;
+    }
+  }
+  html += `</div>`;
+
+  // 1. Individual Leaderboard
+  html += `<div class="results-section">
+    <div class="results-section-hdr">Individual Leaderboard</div>
+    <div style="overflow-x:auto"><table class="res-table">
+      <thead><tr>
+        <th>Player</th><th>Team</th><th>Gross</th><th>Strokes</th><th>Net</th><th>Skins</th>
+      </tr></thead>
+      <tbody>`;
+
+  board.forEach((row, i) => {
+    const isLeader = i === 0 && row.net !== null;
+    html += `<tr>
+      <td><span class="res-rank">${i+1}.</span><span class="res-player-name ${isLeader ? 'res-winner' : ''}">${row.player}</span></td>
+      <td>${row.team}</td>
+      <td>${row.gross !== null ? row.gross : '—'}</td>
+      <td>${row.strokes > 0 ? '+' + row.strokes : '—'}</td>
+      <td class="res-net-val">${row.net !== null ? row.net : '—'}</td>
+      <td class="res-skins-val">${row.skins > 0 ? row.skins : '—'}</td>
+    </tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+
+  // 2. Team Scores
+  const t1Win = team1HasAll && team2HasAll && team1Net < team2Net;
+  const t2Win = team1HasAll && team2HasAll && team2Net < team1Net;
+  const tied  = team1HasAll && team2HasAll && team1Net === team2Net;
+
+  html += `<div class="results-section">
+    <div class="results-section-hdr">Team Scores</div>
+    <div class="team-score-grid">
+      <div class="team-score-box ${t1Win ? 'winner' : ''}">
+        <div class="tsb-label">Team 1 &bull; ${APP.team1.join(', ')}</div>
+        <div class="tsb-score ${t1Win ? 'winner-score' : ''}">${team1HasAll ? team1Net : '—'}</div>
+        <div class="tsb-tag ${t1Win ? 'winner-tag' : ''}">${t1Win ? '🏆 Winners' : (team1HasAll ? '' : 'In progress')}</div>
+      </div>
+      <div class="team-score-vs">vs</div>
+      <div class="team-score-box ${t2Win ? 'winner' : ''}">
+        <div class="tsb-label">Team 2 &bull; ${APP.team2.join(', ')}</div>
+        <div class="tsb-score ${t2Win ? 'winner-score' : ''}">${team2HasAll ? team2Net : '—'}</div>
+        <div class="tsb-tag ${t2Win ? 'winner-tag' : ''}">${t2Win ? '🏆 Winners' : (team2HasAll ? '' : 'In progress')}${tied ? 'All square' : ''}</div>
+      </div>
+    </div>
+  </div>`;
+
+  // 3. Skins Breakdown
+  html += `<div class="results-section">
+    <div class="results-section-hdr">Skins Breakdown</div>`;
+
+  if (!holeResults.length) {
+    html += `<div class="provisional-note">No complete holes yet — skins will appear as scores are entered.</div>`;
+  } else {
+    html += `<table class="res-table">
+      <thead><tr>
+        <th>Hole</th><th>Par</th><th>Handicap</th><th>Result</th><th>Winner</th><th>Gross</th><th>Net</th><th>Pot</th>
+      </tr></thead>
+      <tbody>`;
+
+    holeResults.forEach(r => {
+      const par = course.par[r.hole - 1];
+      const si  = course.si[r.hole - 1];
+      if (r.tied) {
+        html += `<tr class="skins-carry-row">
+          <td>${r.hole}</td><td>${par}</td><td>${si}</td>
+          <td style="font-style:italic;color:var(--text-faint)">Carry →</td>
+          <td style="font-size:0.75rem;color:var(--text-faint)">${r.tiedPlayers.join(', ')}</td>
+          <td>—</td><td>—</td>
+          <td><span class="skins-pot-badge">${r.pot} → ${r.pot+1}</span></td>
+        </tr>`;
+      } else {
+        const gross = APP.scores[r.winner][r.hole - 1];
+        const net   = r.nets[r.winner];
+        html += `<tr>
+          <td>${r.hole}</td><td>${par}</td><td>${si}</td>
+          <td style="color:var(--gold-dark);font-weight:700">Won</td>
+          <td><span class="skins-winner-name">${r.winner}</span></td>
+          <td>${gross}</td><td>${net}</td>
+          <td><span class="skins-pot-badge">${r.pot}</span></td>
+        </tr>`;
+      }
+    });
+
+    html += '</tbody></table>';
+
+    if (pendingPot > 1) {
+      html += `<div class="provisional-note">Pot of ${pendingPot} skin${pendingPot > 1 ? 's' : ''} pending on next completed hole.</div>`;
+    }
+  }
+
+  html += '</div>'; // close skins section
+
+  // 4. Best Ball & 2-Ball Competition
+  const t1Totals = computeTeamTotals(APP.team1, strokes);
+  const t2Totals = computeTeamTotals(APP.team2, strokes);
+  const f = v => v !== null ? v : '—';
+
+  function formatCompSection(label, ruleLine, t1Out, t1In, t1Total, t2Out, t2In, t2Total) {
+    const bothDone = t1Total !== null && t2Total !== null;
+    const t1Wins   = bothDone && t1Total < t2Total;
+    const t2Wins   = bothDone && t2Total < t1Total;
+    const allSquare = bothDone && t1Total === t2Total;
+    const teamBox = (teamNum, players, out, inp, total, wins) => `
+      <div class="format-comp-box ${wins ? 'winner' : ''}">
+        <div class="fcb-label">Team ${teamNum} &bull; ${players.join(', ')}</div>
+        <div class="fcb-breakdown">
+          <div class="fcb-bd-item"><div class="fcb-bd-label">Out</div><div class="fcb-bd-val">${f(out)}</div></div>
+          <div class="fcb-bd-item"><div class="fcb-bd-label">In</div><div class="fcb-bd-val">${f(inp)}</div></div>
+        </div>
+        <div class="fcb-total-label">Total</div>
+        <div class="fcb-score ${wins ? 'winner-score' : ''}">${f(total)}</div>
+        <div class="fcb-tag ${wins ? 'winner-tag' : ''}">${wins ? '🏆 Winners' : allSquare ? 'All Square' : (total !== null ? '' : 'In progress')}</div>
+      </div>`;
+    return `
+      <div style="border-top:1px solid var(--panel-border);padding:0.55rem 1.25rem 0.35rem;background:var(--bg-lighter);display:flex;align-items:baseline;gap:0.75rem;">
+        <span style="font-family:'Playfair Display',serif;font-size:0.8rem;font-weight:700;color:var(--gold);letter-spacing:0.12em;text-transform:uppercase;">${label}</span>
+        <span class="format-section-sub">${ruleLine}</span>
+      </div>
+      <div class="format-comp-grid">
+        ${teamBox(1, APP.team1, t1Out, t1In, t1Total, t1Wins)}
+        <div class="format-comp-vs">vs</div>
+        ${teamBox(2, APP.team2, t2Out, t2In, t2Total, t2Wins)}
+      </div>`;
+  }
+
+  // 4. Head-to-Head Matchup Results
+  if (APP.matchups && APP.matchups.length) {
+    html += `<div class="results-section">
+      <div class="results-section-hdr">Head-to-Head Matchups</div>
+      <table class="res-table">
+        <thead><tr>
+          <th>#</th><th>Team 1</th><th>Net</th><th></th><th>Net</th><th>Team 2</th><th>Result</th>
+        </tr></thead>
+        <tbody>`;
+
+    APP.matchups.forEach((m, i) => {
+      const n1 = computeNetTotal(m.t1, strokes);
+      const n2 = computeNetTotal(m.t2, strokes);
+      const t1Wins = n1 !== null && n2 !== null && n1 < n2;
+      const t2Wins = n1 !== null && n2 !== null && n2 < n1;
+      const square = n1 !== null && n2 !== null && n1 === n2;
+      const result = t1Wins ? `${m.t1} wins` : t2Wins ? `${m.t2} wins` : square ? 'All Square' : 'In progress';
+      const resultColor = (t1Wins || t2Wins) ? 'var(--gold-dark)' : 'var(--text-faint)';
+      html += `<tr>
+        <td style="color:var(--text-faint);font-size:0.75rem">${i + 1}</td>
+        <td style="text-align:left"><span class="res-player-name ${t1Wins ? 'res-winner' : ''}">${m.t1}</span></td>
+        <td class="res-net-val">${n1 !== null ? n1 : '—'}</td>
+        <td style="color:var(--text-faint);font-style:italic;font-size:0.78rem">vs</td>
+        <td class="res-net-val">${n2 !== null ? n2 : '—'}</td>
+        <td style="text-align:right"><span class="res-player-name ${t2Wins ? 'res-winner' : ''}">${m.t2}</span></td>
+        <td style="font-weight:700;font-size:0.82rem;color:${resultColor}">${result}</td>
+      </tr>`;
+    });
+
+    html += `</tbody></table></div>`;
+  }
+
+  // 5. Best Ball & 2-Ball Competition
+  html += `<div class="results-section">
+    <div class="results-section-hdr">Best Ball &amp; 2-Ball Competition</div>
+    ${formatCompSection(
+        'Best Ball',
+        'Each hole: 1 best net score counts — lowest team total wins',
+        t1Totals.bbOut, t1Totals.bbIn, t1Totals.bbTotal,
+        t2Totals.bbOut, t2Totals.bbIn, t2Totals.bbTotal
+    )}
+    ${formatCompSection(
+        '2-Ball',
+        'Each hole: sum of 2 best net scores counts — lowest team total wins',
+        t1Totals.tbOut, t1Totals.tbIn, t1Totals.tbTotal,
+        t2Totals.tbOut, t2Totals.tbIn, t2Totals.tbTotal
+    )}
+  </div>`;
+
+  document.getElementById('results-wrap').innerHTML = html;
+}
+
+/* ─────────────────────────────────────────────
+   MONEY / SETTLEMENT
+───────────────────────────────────────────── */
+function computePlayerPnL() {
+  const bets    = APP.bets || DEFAULT_BETS;
+  const strokes = getPlayerStrokes();
+  const { skinsByPlayer } = computeSkins();
+  const players = [...APP.team1, ...APP.team2];
+  const t1Tot   = computeTeamTotals(APP.team1, strokes);
+  const t2Tot   = computeTeamTotals(APP.team2, strokes);
+  const pnl     = {};
+  players.forEach(p => { pnl[p] = 0; });
+
+  // Skins: net = bets.skins × (6 × skins_won − total_skins_awarded)
+  // Model: each skin pays bets.skins to winner from each of the 5 other players.
+  if (bets.skins) {
+    const total = Object.values(skinsByPlayer).reduce((a,b)=>a+b,0);
+    players.forEach(p => { pnl[p] += bets.skins * (6 * skinsByPlayer[p] - total); });
+  }
+
+  // Team format helper: winning team +amt per player, losing -amt per player
+  function applyTeam(t1Val, t2Val, amt) {
+    if (!amt || t1Val === null || t2Val === null) return;
+    if (t1Val < t2Val)      { APP.team1.forEach(p => { pnl[p] += amt; }); APP.team2.forEach(p => { pnl[p] -= amt; }); }
+    else if (t2Val < t1Val) { APP.team2.forEach(p => { pnl[p] += amt; }); APP.team1.forEach(p => { pnl[p] -= amt; }); }
+  }
+
+  applyTeam(t1Tot.bbOut,   t2Tot.bbOut,   bets.bbFront);
+  applyTeam(t1Tot.bbIn,    t2Tot.bbIn,    bets.bbBack);
+  applyTeam(t1Tot.bbTotal, t2Tot.bbTotal, bets.bbTotal);
+  applyTeam(t1Tot.tbOut,   t2Tot.tbOut,   bets.tbFront);
+  applyTeam(t1Tot.tbIn,    t2Tot.tbIn,    bets.tbBack);
+  applyTeam(t1Tot.tbTotal, t2Tot.tbTotal, bets.tbTotal);
+
+  // H2H matchups
+  if (bets.h2h && APP.matchups) {
+    APP.matchups.forEach(m => {
+      const n1 = computeNetTotal(m.t1, strokes);
+      const n2 = computeNetTotal(m.t2, strokes);
+      if (n1 !== null && n2 !== null) {
+        if (n1 < n2)      { pnl[m.t1] += bets.h2h; pnl[m.t2] -= bets.h2h; }
+        else if (n2 < n1) { pnl[m.t2] += bets.h2h; pnl[m.t1] -= bets.h2h; }
+      }
+    });
+  }
+  return pnl;
+}
+
+function computeSettlement(pnl) {
+  const debtors   = Object.entries(pnl).filter(([,v])=>v<0).map(([n,v])=>({name:n,amt:-v})).sort((a,b)=>b.amt-a.amt);
+  const creditors = Object.entries(pnl).filter(([,v])=>v>0).map(([n,v])=>({name:n,amt:v})).sort((a,b)=>b.amt-a.amt);
+  const transfers = [];
+  let di = 0, ci = 0;
+  while (di < debtors.length && ci < creditors.length) {
+    const pay = Math.min(debtors[di].amt, creditors[ci].amt);
+    if (pay > 0) transfers.push({ from: debtors[di].name, to: creditors[ci].name, amount: pay });
+    debtors[di].amt   -= pay;
+    creditors[ci].amt -= pay;
+    if (debtors[di].amt   < 0.01) di++;
+    if (creditors[ci].amt < 0.01) ci++;
+  }
+  return transfers;
+}
+
+function showResults() {
+  renderResults();
+  showScreen('results');
+}
+
+/* ─────────────────────────────────────────────
+   RESET
+───────────────────────────────────────────── */
+function resetRound() {
+  if (!confirm('Reset this round? All scores will be lost.')) return;
+  localStorage.removeItem('golf_scorecard_v1');
+  APP = { course: null, team1: [], team2: [], scores: {} };
+
+  // Reset setup UI
+  document.querySelectorAll('.course-card').forEach(c => c.classList.remove('selected'));
+  setupState.course = null;
+  setupState.team1 = [];
+  setupState.team2 = [];
+  setupState.pool = [...ALL_PLAYERS];
+  setupState.drag = null;
+  setupState.matchupOrder = [];
+  APP.bets = { ...DEFAULT_BETS };
+  loadBetsToInputs();
+  renderSetup();
+  updateCTA();
+  showScreen('setup');
+}
+
+/* ─────────────────────────────────────────────
+   SETUP SCREEN LOGIC
+───────────────────────────────────────────── */
+const setupState = {
+  course: null,
+  team1: [],
+  team2: [],
+  pool: [...ALL_PLAYERS],
+  drag: null,
+  matchupOrder: [],  // Team 2 players in pairing order
+};
+
+function renderPool() {
+  const zone = document.getElementById('pool-zone');
+  if (!setupState.pool.length) {
+    zone.innerHTML = '<div class="pool-empty">All players assigned</div>';
+    return;
+  }
+  zone.innerHTML = setupState.pool.map(p => `
+    <div class="player-chip" draggable="true" data-player="${p}"
+         ondragstart="onChipDragStart(event,'${p}','pool')"
+         ondragend="onDragEnd(event)"
+         onclick="clickAssign('${p}')">${p}</div>
+  `).join('');
+}
+
+function renderTeam(t) {
+  const members = setupState[t];
+  const slots = document.getElementById(`${t}-slots`);
+  const ct    = document.getElementById(`${t}-ct`);
+  let html = '';
+  for (let i = 0; i < 3; i++) {
+    if (members[i]) {
+      const p = members[i];
+      html += `<div class="slot slot-filled" draggable="true" data-player="${p}"
+                    ondragstart="onChipDragStart(event,'${p}','${t}')"
+                    ondragend="onDragEnd(event)"
+                    onclick="returnToPool('${p}','${t}')">
+                 <span class="slot-name">${p}</span><span class="slot-x">✕</span>
+               </div>`;
+    } else {
+      html += `<div class="slot slot-empty">open</div>`;
+    }
+  }
+  slots.innerHTML = html;
+  ct.textContent = `${members.length} of 3`;
+}
+
+function renderSetup() {
+  renderPool();
+  renderTeam('team1');
+  renderTeam('team2');
+}
+
+function selectCourse(el) {
+  document.querySelectorAll('.course-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  setupState.course = el.dataset.course;
+  updateCTA();
+}
+
+function clickAssign(player) {
+  if (setupState.team1.length < 3) moveToTeam(player, 'pool', 'team1');
+  else if (setupState.team2.length < 3) moveToTeam(player, 'pool', 'team2');
+}
+
+function returnToPool(player, fromTeam) {
+  setupState[fromTeam] = setupState[fromTeam].filter(p => p !== player);
+  setupState.pool.push(player);
+  renderSetup();
+  updateCTA();
+}
+
+function moveToTeam(player, from, to) {
+  if (setupState[to].length >= 3) return;
+  if (from === 'pool') setupState.pool = setupState.pool.filter(p => p !== player);
+  else setupState[from] = setupState[from].filter(p => p !== player);
+  setupState[to].push(player);
+  renderSetup();
+  updateCTA();
+}
+
+function onChipDragStart(event, player, source) {
+  setupState.drag = { player, source };
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', player);
+  setTimeout(() => {
+    const el = document.querySelector(`[data-player="${player}"]`);
+    if (el) el.classList.add('dragging');
+  }, 0);
+}
+
+function onDragEnd() {
+  document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
+  document.querySelectorAll('.team-panel').forEach(p => p.classList.remove('drag-over','drag-over-full'));
+  document.getElementById('pool-zone').classList.remove('drag-over');
+  setupState.drag = null;
+}
+
+function onTeamDragOver(event, team) {
+  event.preventDefault();
+  if (!setupState.drag) return;
+  const panel = document.getElementById(`${team}-panel`);
+  if (setupState[team].includes(setupState.drag.player)) return;
+  if (setupState[team].length >= 3) panel.classList.add('drag-over-full');
+  else panel.classList.add('drag-over');
+  event.dataTransfer.dropEffect = setupState[team].length < 3 ? 'move' : 'none';
+}
+
+function onTeamDragLeave(event, team) {
+  const panel = document.getElementById(`${team}-panel`);
+  if (!panel.contains(event.relatedTarget)) panel.classList.remove('drag-over','drag-over-full');
+}
+
+function onTeamDrop(event, team) {
+  event.preventDefault();
+  document.getElementById(`${team}-panel`).classList.remove('drag-over','drag-over-full');
+  if (!setupState.drag) return;
+  const { player, source } = setupState.drag;
+  if (setupState[team].includes(player) || setupState[team].length >= 3) return;
+  moveToTeam(player, source, team);
+}
+
+function onPoolDragOver(event) {
+  event.preventDefault();
+  if (!setupState.drag || setupState.drag.source === 'pool') return;
+  document.getElementById('pool-zone').classList.add('drag-over');
+  event.dataTransfer.dropEffect = 'move';
+}
+
+function onPoolDragLeave(event) {
+  const z = document.getElementById('pool-zone');
+  if (!z.contains(event.relatedTarget)) z.classList.remove('drag-over');
+}
+
+function onPoolDrop(event) {
+  event.preventDefault();
+  document.getElementById('pool-zone').classList.remove('drag-over');
+  if (!setupState.drag || setupState.drag.source === 'pool') return;
+  returnToPool(setupState.drag.player, setupState.drag.source);
+}
+
+function updateCTA() {
+  const btn = document.getElementById('start-btn');
+  const msg = document.getElementById('val-msg');
+  const ready = setupState.course && setupState.team1.length === 3 && setupState.team2.length === 3;
+  btn.disabled = !ready;
+  if (!setupState.course && setupState.pool.length === ALL_PLAYERS.length) {
+    msg.textContent = 'Select a course and assign all 6 players to begin';
+  } else if (!setupState.course) {
+    msg.textContent = 'Select a course to begin';
+  } else if (setupState.pool.length > 0) {
+    const n = setupState.pool.length;
+    msg.textContent = `Assign ${n} more player${n > 1 ? 's' : ''} to begin`;
+  } else {
+    msg.textContent = '';
+  }
+  renderMatchups();
+}
+
+function renderMatchups() {
+  const section = document.getElementById('matchup-section');
+  if (setupState.team1.length !== 3 || setupState.team2.length !== 3) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+  // Reset order if team composition changed
+  if (setupState.matchupOrder.length !== 3 ||
+      !setupState.matchupOrder.every(p => setupState.team2.includes(p))) {
+    setupState.matchupOrder = [...setupState.team2];
+  }
+  renderMatchupRows();
+}
+
+function renderMatchupRows() {
+  document.getElementById('matchup-rows').innerHTML =
+    setupState.team1.map((t1p, i) => {
+      const t2p = setupState.matchupOrder[i];
+      const n   = setupState.team1.length;
+      return `<div class="matchup-row">
+        <div class="matchup-num">${i + 1}</div>
+        <div class="matchup-player">${t1p}</div>
+        <div class="matchup-vs">vs</div>
+        <div class="matchup-t2-wrap">
+          <div class="matchup-t2-name">${t2p}</div>
+          <div class="matchup-arrows">
+            <button class="matchup-btn" onclick="swapMatchup(${i},-1)" ${i === 0 ? 'disabled' : ''}>▲</button>
+            <button class="matchup-btn" onclick="swapMatchup(${i}, 1)" ${i === n - 1 ? 'disabled' : ''}>▼</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+}
+
+function swapMatchup(i, dir) {
+  const j = i + dir;
+  const a = setupState.matchupOrder;
+  if (j < 0 || j >= a.length) return;
+  [a[i], a[j]] = [a[j], a[i]];
+  renderMatchupRows();
+}
+
+function saveBets() {
+  const g = id => { const v = parseInt(document.getElementById(id)?.value || '0', 10); return isNaN(v) ? 0 : Math.max(0, v); };
+  APP.bets = {
+    skins:   g('bet-skins'),
+    bbFront: g('bet-bb-front'), bbBack: g('bet-bb-back'), bbTotal: g('bet-bb-total'),
+    tbFront: g('bet-tb-front'), tbBack: g('bet-tb-back'), tbTotal: g('bet-tb-total'),
+    h2h:     g('bet-h2h')
+  };
+}
+
+function loadBetsToInputs() {
+  const b = APP.bets || DEFAULT_BETS;
+  const s = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+  s('bet-skins', b.skins); s('bet-h2h', b.h2h);
+  s('bet-bb-front', b.bbFront); s('bet-bb-back', b.bbBack); s('bet-bb-total', b.bbTotal);
+  s('bet-tb-front', b.tbFront); s('bet-tb-back', b.tbBack); s('bet-tb-total', b.tbTotal);
+}
+
+function startRound() {
+  if (!setupState.course || setupState.team1.length !== 3 || setupState.team2.length !== 3) return;
+  APP.course   = setupState.course;
+  APP.team1    = [...setupState.team1];
+  APP.team2    = [...setupState.team2];
+  APP.matchups = setupState.team1.map((t1p, i) => ({ t1: t1p, t2: setupState.matchupOrder[i] }));
+  saveBets();
+  initScores();
+  saveState();
+  renderScorecard();
+  showScreen('scorecard');
+}
+
+/* ─────────────────────────────────────────────
+   INIT
+───────────────────────────────────────────── */
+(function init() {
+  // Show setup by default; all screens start hidden via CSS except setup
+  document.getElementById('setup-screen').style.display = '';
+
+  if (loadState()) {
+    initScores();
+    if (!APP.bets) APP.bets = { ...DEFAULT_BETS };
+    loadBetsToInputs();
+    renderScorecard();
+    showScreen('scorecard');
+  } else {
+    showScreen('setup');
+    renderSetup();
+  }
+})();
+</script>
+</body>
+</html>
