@@ -552,7 +552,6 @@
       left: 0;
       z-index: 3;
       text-align: left;
-      background: var(--panel);
       border-right: 2px solid var(--panel-border);
     }
 
@@ -577,7 +576,7 @@
       height: 32px;
       padding: 0 4px;
     }
-    .row-par td:first-child { padding: 0 8px; color: #2d7a50; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
+    .row-par td:first-child { padding: 0 8px; background: var(--bg-mid); color: var(--gold); font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
 
     .row-ydg td {
       background: var(--bg-mid);
@@ -586,7 +585,7 @@
       height: 26px;
       padding: 0 4px;
     }
-    .row-ydg td:first-child { padding: 0 8px; color: #2d7a50; font-size: 0.65rem; letter-spacing: 0.08em; text-transform: uppercase; }
+    .row-ydg td:first-child { padding: 0 8px; background: var(--bg-mid); color: rgba(245,240,228,0.35); font-size: 0.65rem; letter-spacing: 0.08em; text-transform: uppercase; }
 
     .row-si td {
       background: var(--bg-lighter);
@@ -595,7 +594,7 @@
       height: 26px;
       padding: 0 4px;
     }
-    .row-si td:first-child { padding: 0 8px; color: #2d7a50; font-size: 0.65rem; letter-spacing: 0.08em; text-transform: uppercase; }
+    .row-si td:first-child { padding: 0 8px; background: var(--bg-lighter); color: rgba(245,240,228,0.5); font-size: 0.65rem; letter-spacing: 0.08em; text-transform: uppercase; }
 
     /* Team divider row */
     .row-team-divider td {
@@ -2637,8 +2636,11 @@ function applyRemoteState(remoteApp, fromJoin) {
   if (APP.team1 && APP.team1.length === 3 && APP.course) {
     initScores();
     initPutts();
-    if (onScorecard) renderScorecard();
-    if (onResults)   renderResults();
+    if (onScorecard) {
+      const sc = document.getElementById('scorecard-screen');
+      if (!sc.contains(document.activeElement)) renderScorecard();
+    }
+    if (onResults) renderResults();
   }
 
   if (fromJoin && APP.team1 && APP.team1.length === 3 && APP.course) {
