@@ -1115,6 +1115,12 @@
         <div class="course-name">Torrey Pines South</div>
         <div class="course-loc">La Jolla, California</div>
       </div>
+      <div class="course-card" data-course="riverwalk" onclick="selectCourse(this)">
+        <div class="course-check">✓</div>
+        <div class="course-glyph">🌿</div>
+        <div class="course-name">Riverwalk GC</div>
+        <div class="course-loc">San Diego, California</div>
+      </div>
     </div>
 
     <div class="section-label">Build Your Teams</div>
@@ -1281,6 +1287,14 @@ const COURSES = {
     si:   [5,15,13,3,11,9,1,17,7, 16,14,2,6,8,12,18,4,10],
     yds:  [451,389,201,490,454,564,462,177,615, 454,225,505,621,437,517,227,443,570],
     hcp:  { Robbie:11, Michael:11, Cole:13, Jack:11, Brunts:17, Tom:20 }
+  },
+  riverwalk: {
+    name: 'Riverwalk GC',
+    loc:  'San Diego, CA',
+    par:  [4,4,4,5,3,4,3,4,5, 4,3,5,4,4,5,4,3,4],
+    si:   [5,17,7,11,9,15,3,13,1, 6,12,14,4,2,16,8,18,10],
+    yds:  [380,296,309,525,179,350,191,378,542, 397,174,512,440,396,538,374,147,412],
+    hcp:  { Robbie:7, Michael:8, Cole:9, Jack:8, Brunts:13, Tom:15 }
   }
 };
 
