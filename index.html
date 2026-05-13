@@ -101,23 +101,18 @@
 
     .team-builder { display: grid; grid-template-columns: 1fr 160px 1fr; gap: 1.25rem; align-items: start; }
 
-    .team-panel { border: 1px solid var(--panel-border); border-radius: 3px; overflow: hidden; transition: box-shadow 0.15s; }
-    .team-panel.drag-over { box-shadow: 0 0 0 2px var(--gold), 0 4px 16px rgba(201,168,76,0.2); }
-    .team-panel.drag-over-full { box-shadow: 0 0 0 2px #c0392b; }
+    .team-panel { border: 1px solid var(--panel-border); border-radius: 3px; overflow: hidden; }
 
     .team-hdr { background: var(--bg); padding: 0.65rem 1rem; text-align: center; border-bottom: 2px solid var(--gold); }
     .team-title { font-family: 'Playfair Display', serif; font-size: 0.9rem; font-weight: 700; color: var(--gold); letter-spacing: 0.15em; text-transform: uppercase; }
     .team-ct { font-size: 0.62rem; color: rgba(245,240,228,0.4); letter-spacing: 0.08em; margin-top: 0.1rem; }
 
-    .team-slots { padding: 0.75rem; min-height: 178px; display: flex; flex-direction: column; gap: 0.5rem; background: var(--panel); transition: background 0.15s; }
-    .team-panel.drag-over .team-slots { background: rgba(201,168,76,0.06); }
+    .team-slots { padding: 0.75rem; min-height: 178px; display: flex; flex-direction: column; gap: 0.5rem; background: var(--panel); }
 
     .slot { height: 44px; border-radius: 2px; display: flex; align-items: center; }
     .slot-empty { border: 1.5px dashed var(--slot-border); background: var(--slot-bg); justify-content: center; color: var(--text-faint); font-size: 0.68rem; font-style: italic; letter-spacing: 0.08em; }
-    .slot-filled { border: 1.5px solid rgba(160,120,48,0.5); background: var(--panel-white); padding: 0 0.75rem; justify-content: space-between; cursor: grab; transition: background 0.12s; user-select: none; }
+    .slot-filled { border: 1.5px solid rgba(160,120,48,0.5); background: var(--panel-white); padding: 0 0.75rem; justify-content: space-between; cursor: pointer; transition: background 0.12s; user-select: none; }
     .slot-filled:hover { background: #fffae8; }
-    .slot-filled:active { cursor: grabbing; }
-    .slot-filled.dragging { opacity: 0.35; }
     .slot-name { font-family: 'Playfair Display', serif; font-size: 0.95rem; font-weight: 600; color: var(--text-dark); }
     .slot-x { font-size: 0.7rem; color: var(--text-faint); transition: color 0.12s; pointer-events: none; }
     .slot-filled:hover .slot-x { color: #c0392b; }
@@ -126,13 +121,10 @@
     .pool-label { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-light); text-align: center; margin-bottom: 0.15rem; }
     .pool-hint { font-size: 0.62rem; color: var(--text-faint); text-align: center; font-style: italic; margin-bottom: 0.4rem; }
 
-    .pool-drop-zone { display: flex; flex-direction: column; gap: 0.4rem; min-height: 80px; border-radius: 3px; padding: 2px; transition: background 0.15s; }
-    .pool-drop-zone.drag-over { background: rgba(201,168,76,0.08); outline: 1.5px dashed var(--gold-muted); }
+    .pool-drop-zone { display: flex; flex-direction: column; gap: 0.4rem; min-height: 80px; border-radius: 3px; padding: 2px; }
 
-    .player-chip { background: var(--panel-white); border: 1.5px solid var(--panel-border); border-radius: 2px; padding: 0.5rem 0.75rem; cursor: grab; text-align: center; transition: border-color 0.14s, transform 0.12s, box-shadow 0.12s; font-family: 'Playfair Display', serif; font-size: 0.92rem; font-weight: 600; color: var(--text-dark); user-select: none; }
+    .player-chip { background: var(--panel-white); border: 1.5px solid var(--panel-border); border-radius: 2px; padding: 0.5rem 0.75rem; cursor: pointer; text-align: center; transition: border-color 0.14s, transform 0.12s, box-shadow 0.12s; font-family: 'Playfair Display', serif; font-size: 0.92rem; font-weight: 600; color: var(--text-dark); user-select: none; }
     .player-chip:hover { border-color: var(--gold); transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,0.1); }
-    .player-chip:active { cursor: grabbing; }
-    .player-chip.dragging { opacity: 0.35; }
     .pool-empty { font-size: 0.72rem; color: var(--text-faint); text-align: center; font-style: italic; padding: 1.5rem 0; }
 
     .start-section { margin-top: 2.25rem; text-align: center; }
@@ -1125,10 +1117,7 @@
 
     <div class="section-label">Build Your Teams</div>
     <div class="team-builder">
-      <div class="team-panel" id="team1-panel"
-           ondragover="onTeamDragOver(event,'team1')"
-           ondragleave="onTeamDragLeave(event,'team1')"
-           ondrop="onTeamDrop(event,'team1')">
+      <div class="team-panel" id="team1-panel">
         <div class="team-hdr">
           <div class="team-title">Team 1</div>
           <div class="team-ct" id="team1-ct">0 of 3</div>
@@ -1138,17 +1127,11 @@
 
       <div class="pool-wrap">
         <div class="pool-label">Players</div>
-        <div class="pool-hint">drag or click to assign</div>
-        <div class="pool-drop-zone" id="pool-zone"
-             ondragover="onPoolDragOver(event)"
-             ondragleave="onPoolDragLeave(event)"
-             ondrop="onPoolDrop(event)"></div>
+        <div class="pool-hint">tap to assign</div>
+        <div class="pool-drop-zone" id="pool-zone"></div>
       </div>
 
-      <div class="team-panel" id="team2-panel"
-           ondragover="onTeamDragOver(event,'team2')"
-           ondragleave="onTeamDragLeave(event,'team2')"
-           ondrop="onTeamDrop(event,'team2')">
+      <div class="team-panel" id="team2-panel">
         <div class="team-hdr">
           <div class="team-title">Team 2</div>
           <div class="team-ct" id="team2-ct">0 of 3</div>
@@ -2303,7 +2286,6 @@ function resetRound() {
   setupState.team1 = [];
   setupState.team2 = [];
   setupState.pool = [...ALL_PLAYERS];
-  setupState.drag = null;
   setupState.matchupOrder = [];
   loadBetsToInputs();
   renderSetup();
@@ -2328,8 +2310,7 @@ const setupState = {
   team1: [],
   team2: [],
   pool: [...ALL_PLAYERS],
-  drag: null,
-  matchupOrder: [],  // Team 2 players in pairing order
+  matchupOrder: [],
 };
 
 function renderPool() {
@@ -2339,10 +2320,7 @@ function renderPool() {
     return;
   }
   zone.innerHTML = setupState.pool.map(p => `
-    <div class="player-chip" draggable="true" data-player="${p}"
-         ondragstart="onChipDragStart(event,'${p}','pool')"
-         ondragend="onDragEnd(event)"
-         ontouchend="onChipTouchEnd(event,'${p}','pool')"
+    <div class="player-chip" data-player="${p}"
          onclick="clickAssign('${p}')">${p}</div>
   `).join('');
 }
@@ -2355,10 +2333,7 @@ function renderTeam(t) {
   for (let i = 0; i < 3; i++) {
     if (members[i]) {
       const p = members[i];
-      html += `<div class="slot slot-filled" draggable="true" data-player="${p}"
-                    ondragstart="onChipDragStart(event,'${p}','${t}')"
-                    ondragend="onDragEnd(event)"
-                    ontouchend="onChipTouchEnd(event,'${p}','${t}')"
+      html += `<div class="slot slot-filled" data-player="${p}"
                     onclick="returnToPool('${p}','${t}')">
                  <span class="slot-name">${p}</span><span class="slot-x">✕</span>
                </div>`;
@@ -2385,26 +2360,16 @@ function selectCourse(el) {
 }
 
 function clickAssign(player) {
-  setupState.drag = null;
   if (setupState.team1.length < 3) moveToTeam(player, 'pool', 'team1');
   else if (setupState.team2.length < 3) moveToTeam(player, 'pool', 'team2');
 }
 
 function returnToPool(player, fromTeam) {
-  setupState.drag = null;
   setupState[fromTeam] = setupState[fromTeam].filter(p => p !== player);
   setupState.pool.push(player);
   renderSetup();
   syncSetupAndSchedule();
   updateCTA();
-}
-
-function onChipTouchEnd(event, player, source) {
-  // On touch devices draggable suppresses click; handle assignment here instead
-  if (event.cancelable) event.preventDefault();
-  onDragEnd();
-  if (source === 'pool') clickAssign(player);
-  else returnToPool(player, source);
 }
 
 function moveToTeam(player, from, to) {
@@ -2417,65 +2382,6 @@ function moveToTeam(player, from, to) {
   updateCTA();
 }
 
-function onChipDragStart(event, player, source) {
-  setupState.drag = { player, source };
-  event.dataTransfer.effectAllowed = 'move';
-  event.dataTransfer.setData('text/plain', player);
-  setTimeout(() => {
-    const el = document.querySelector(`[data-player="${player}"]`);
-    if (el) el.classList.add('dragging');
-  }, 0);
-}
-
-function onDragEnd() {
-  document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
-  document.querySelectorAll('.team-panel').forEach(p => p.classList.remove('drag-over','drag-over-full'));
-  document.getElementById('pool-zone').classList.remove('drag-over');
-  setupState.drag = null;
-}
-
-function onTeamDragOver(event, team) {
-  event.preventDefault();
-  if (!setupState.drag) return;
-  const panel = document.getElementById(`${team}-panel`);
-  if (setupState[team].includes(setupState.drag.player)) return;
-  if (setupState[team].length >= 3) panel.classList.add('drag-over-full');
-  else panel.classList.add('drag-over');
-  event.dataTransfer.dropEffect = setupState[team].length < 3 ? 'move' : 'none';
-}
-
-function onTeamDragLeave(event, team) {
-  const panel = document.getElementById(`${team}-panel`);
-  if (!panel.contains(event.relatedTarget)) panel.classList.remove('drag-over','drag-over-full');
-}
-
-function onTeamDrop(event, team) {
-  event.preventDefault();
-  document.getElementById(`${team}-panel`).classList.remove('drag-over','drag-over-full');
-  if (!setupState.drag) return;
-  const { player, source } = setupState.drag;
-  if (setupState[team].includes(player) || setupState[team].length >= 3) return;
-  moveToTeam(player, source, team);
-}
-
-function onPoolDragOver(event) {
-  event.preventDefault();
-  if (!setupState.drag || setupState.drag.source === 'pool') return;
-  document.getElementById('pool-zone').classList.add('drag-over');
-  event.dataTransfer.dropEffect = 'move';
-}
-
-function onPoolDragLeave(event) {
-  const z = document.getElementById('pool-zone');
-  if (!z.contains(event.relatedTarget)) z.classList.remove('drag-over');
-}
-
-function onPoolDrop(event) {
-  event.preventDefault();
-  document.getElementById('pool-zone').classList.remove('drag-over');
-  if (!setupState.drag || setupState.drag.source === 'pool') return;
-  returnToPool(setupState.drag.player, setupState.drag.source);
-}
 
 function updateCTA() {
   const btn = document.getElementById('start-btn');
