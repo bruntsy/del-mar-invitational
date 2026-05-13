@@ -1733,7 +1733,7 @@ function onPuttInput(player, h, rawVal) {
   scheduleSync();
   const input = document.getElementById(`putt-inp-${player}-${h}`);
   if (input) {
-    input.className = `putt-inp${v === 1 ? ' putt-1' : v === 2 ? ' putt-2' : v >= 3 ? ' putt-3' : ''}`;
+    input.className = `putt-inp${v === 0 ? ' putt-1' : v === 1 ? ' putt-1' : v === 2 ? ' putt-2' : v >= 3 ? ' putt-3' : ''}`;
   }
   updatePuttSums(player);
   renderPuttPoker();
@@ -1756,7 +1756,7 @@ function updatePuttSums(player) {
 
 function buildPuttCell(player, h) {
   const v   = APP.putts?.[player]?.[h] ?? null;
-  const cls = v === 1 ? ' putt-1' : v === 2 ? ' putt-2' : v >= 3 ? ' putt-3' : '';
+  const cls = v === 0 ? ' putt-1' : v === 1 ? ' putt-1' : v === 2 ? ' putt-2' : v >= 3 ? ' putt-3' : '';
   return `<td class="putt-cell">
     <input type="number" min="0" max="9" class="putt-inp${cls}" id="putt-inp-${player}-${h}"
            value="${v !== null ? v : ''}"
@@ -1805,6 +1805,7 @@ function computePuttPoker(teamPlayers) {
     teamPlayers.forEach(p => {
       const v = APP.putts?.[p]?.[h] ?? null;
       if (v === null) return;
+      if (v === 0) cards[p] += 2;
       if (v === 1) cards[p] += 1;
       if (v === 3) { coinHolder = p; pot += 5; threePuttCount[p]++; }
     });
@@ -2341,6 +2342,7 @@ function renderPool() {
     <div class="player-chip" draggable="true" data-player="${p}"
          ondragstart="onChipDragStart(event,'${p}','pool')"
          ondragend="onDragEnd(event)"
+         ontouchend="onChipTouchEnd(event,'${p}','pool')"
          onclick="clickAssign('${p}')">${p}</div>
   `).join('');
 }
@@ -2356,6 +2358,7 @@ function renderTeam(t) {
       html += `<div class="slot slot-filled" draggable="true" data-player="${p}"
                     ondragstart="onChipDragStart(event,'${p}','${t}')"
                     ondragend="onDragEnd(event)"
+                    ontouchend="onChipTouchEnd(event,'${p}','${t}')"
                     onclick="returnToPool('${p}','${t}')">
                  <span class="slot-name">${p}</span><span class="slot-x">✕</span>
                </div>`;
@@ -2382,16 +2385,26 @@ function selectCourse(el) {
 }
 
 function clickAssign(player) {
+  setupState.drag = null;
   if (setupState.team1.length < 3) moveToTeam(player, 'pool', 'team1');
   else if (setupState.team2.length < 3) moveToTeam(player, 'pool', 'team2');
 }
 
 function returnToPool(player, fromTeam) {
+  setupState.drag = null;
   setupState[fromTeam] = setupState[fromTeam].filter(p => p !== player);
   setupState.pool.push(player);
   renderSetup();
   syncSetupAndSchedule();
   updateCTA();
+}
+
+function onChipTouchEnd(event, player, source) {
+  // On touch devices draggable suppresses click; handle assignment here instead
+  if (event.cancelable) event.preventDefault();
+  onDragEnd();
+  if (source === 'pool') clickAssign(player);
+  else returnToPool(player, source);
 }
 
 function moveToTeam(player, from, to) {
