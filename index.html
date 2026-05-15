@@ -2419,7 +2419,7 @@ function selectCourse(el) {
   const family = el.dataset.course;
   if (family === 'fairbanks') {
     document.getElementById('fairbanks-nines').classList.add('visible');
-    setupState.course = null; // finalized only when a nine combo is picked
+    setupState.course = 'fairbanks'; // sentinel: card selected, nine not yet chosen
   } else {
     document.getElementById('fairbanks-nines').classList.remove('visible');
     document.querySelectorAll('.nine-btn').forEach(b => b.classList.remove('selected'));
@@ -2439,7 +2439,7 @@ function selectNines(el) {
 
 function restoreCourseUI() {
   const c = setupState.course;
-  const isFairbanks = c && c.startsWith('fairbanks_');
+  const isFairbanks = c === 'fairbanks' || (c && c.startsWith('fairbanks_'));
   document.querySelectorAll('.course-card').forEach(card =>
     card.classList.toggle('selected',
       c === card.dataset.course || (isFairbanks && card.dataset.course === 'fairbanks'))
@@ -2482,10 +2482,12 @@ function moveToTeam(player, from, to) {
 function updateCTA() {
   const btn = document.getElementById('start-btn');
   const msg = document.getElementById('val-msg');
-  const ready = setupState.course && setupState.team1.length === 3 && setupState.team2.length === 3;
+  const ready = !!COURSES[setupState.course] && setupState.team1.length === 3 && setupState.team2.length === 3;
   btn.disabled = !ready;
   if (!setupState.course && setupState.pool.length === ALL_PLAYERS.length) {
     msg.textContent = 'Select a course and assign all 6 players to begin';
+  } else if (setupState.course === 'fairbanks') {
+    msg.textContent = setupState.pool.length > 0 ? 'Choose your nines and assign all 6 players to begin' : 'Choose your nines to begin';
   } else if (!setupState.course) {
     msg.textContent = 'Select a course to begin';
   } else if (setupState.pool.length > 0) {
@@ -2562,7 +2564,7 @@ function loadBetsToInputs() {
 }
 
 function startRound() {
-  if (!setupState.course || setupState.team1.length !== 3 || setupState.team2.length !== 3) return;
+  if (!COURSES[setupState.course] || setupState.team1.length !== 3 || setupState.team2.length !== 3) return;
   APP.course   = setupState.course;
   APP.team1    = [...setupState.team1];
   APP.team2    = [...setupState.team2];
