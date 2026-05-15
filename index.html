@@ -98,6 +98,13 @@
     .course-glyph { font-size: 1.75rem; margin-bottom: 0.6rem; line-height: 1; }
     .course-name { font-family: 'Playfair Display', serif; font-size: 1.05rem; font-weight: 700; color: var(--text-dark); margin-bottom: 0.2rem; }
     .course-loc { font-size: 0.72rem; color: var(--text-light); letter-spacing: 0.06em; }
+    .fairbanks-nines { display: none; margin: -1rem 0 2.5rem; }
+    .fairbanks-nines.visible { display: block; }
+    .nines-hint { font-size: 0.72rem; color: var(--text-light); letter-spacing: 0.04em; margin-bottom: 0.75rem; }
+    .nines-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; }
+    .nine-btn { background: var(--panel-white); border: 2px solid var(--panel-border); border-radius: 3px; padding: 0.55rem 0.4rem; cursor: pointer; font-size: 0.78rem; font-weight: 600; color: var(--text-dark); text-align: center; line-height: 1.35; transition: border-color 0.18s, background 0.18s; }
+    .nine-btn:hover { border-color: var(--gold); }
+    .nine-btn.selected { border-color: var(--gold); background: linear-gradient(150deg,#fffce8 0%,#ffffff 100%); color: var(--gold-dark); box-shadow: 0 0 0 1px var(--gold-dark); }
 
     .team-builder { display: grid; grid-template-columns: 1fr 160px 1fr; gap: 1.25rem; align-items: start; }
 
@@ -1117,6 +1124,18 @@
       </div>
     </div>
 
+    <div class="fairbanks-nines" id="fairbanks-nines">
+      <div class="nines-hint">Which nines are you playing? (front → back)</div>
+      <div class="nines-grid">
+        <button class="nine-btn" data-combo="fairbanks_vl" onclick="selectNines(this)">Valley<br>→ Lakes</button>
+        <button class="nine-btn" data-combo="fairbanks_lv" onclick="selectNines(this)">Lakes<br>→ Valley</button>
+        <button class="nine-btn" data-combo="fairbanks_lo" onclick="selectNines(this)">Lakes<br>→ Ocean</button>
+        <button class="nine-btn" data-combo="fairbanks_ol" onclick="selectNines(this)">Ocean<br>→ Lakes</button>
+        <button class="nine-btn" data-combo="fairbanks_ov" onclick="selectNines(this)">Ocean<br>→ Valley</button>
+        <button class="nine-btn" data-combo="fairbanks_vo" onclick="selectNines(this)">Valley<br>→ Ocean</button>
+      </div>
+    </div>
+
     <div class="section-label">Build Your Teams</div>
     <div class="team-builder">
       <div class="team-panel" id="team1-panel">
@@ -1257,12 +1276,50 @@
    COURSE DATA
 ───────────────────────────────────────────── */
 const COURSES = {
-  fairbanks: {
-    name: 'Fairbanks Ranch',
-    loc:  'Rancho Santa Fe, CA',
+  // Fairbanks Ranch — 6 ordered permutations of Valley / Lakes / Ocean nines
+  // SI uses the interleaved odd/even system: front nine gets odd slots (1,3,5…17),
+  // back nine gets even slots (2,4,6…18), ordered by within-nine difficulty rank.
+  // V/L and L/O combos are USGA-rated; remaining four are derived from the same ranking.
+  fairbanks_vl: {
+    name: 'Fairbanks Ranch', nines: 'Valley → Lakes', loc: 'Rancho Santa Fe, CA',
     par:  [5,4,5,4,4,3,4,3,4, 4,4,3,5,5,4,3,4,4],
     si:   [9,13,5,1,7,17,3,15,11, 4,10,16,8,2,12,18,14,6],
     yds:  [520,424,541,441,423,193,417,209,434, 391,433,210,545,475,456,232,457,395],
+    hcp:  { Robbie:8, Michael:9, Cole:10, Jack:9, Brunts:14, Tom:16 }
+  },
+  fairbanks_lv: {
+    name: 'Fairbanks Ranch', nines: 'Lakes → Valley', loc: 'Rancho Santa Fe, CA',
+    par:  [4,4,3,5,5,4,3,4,4, 5,4,5,4,4,3,4,3,4],
+    si:   [3,9,15,7,1,11,17,13,5, 10,14,6,2,8,18,4,16,12],
+    yds:  [391,433,210,545,475,456,232,457,395, 520,424,541,441,423,193,417,209,434],
+    hcp:  { Robbie:8, Michael:9, Cole:10, Jack:9, Brunts:14, Tom:16 }
+  },
+  fairbanks_lo: {
+    name: 'Fairbanks Ranch', nines: 'Lakes → Ocean', loc: 'Rancho Santa Fe, CA',
+    par:  [4,4,3,5,5,4,3,4,4, 4,5,4,4,3,4,5,3,4],
+    si:   [3,9,15,7,1,11,17,13,5, 6,2,14,12,16,4,10,18,8],
+    yds:  [391,433,210,545,475,456,232,457,395, 381,520,428,278,221,410,627,180,422],
+    hcp:  { Robbie:8, Michael:9, Cole:10, Jack:9, Brunts:14, Tom:16 }
+  },
+  fairbanks_ol: {
+    name: 'Fairbanks Ranch', nines: 'Ocean → Lakes', loc: 'Rancho Santa Fe, CA',
+    par:  [4,5,4,4,3,4,5,3,4, 4,4,3,5,5,4,3,4,4],
+    si:   [5,1,13,11,15,3,9,17,7, 4,10,16,8,2,12,18,14,6],
+    yds:  [381,520,428,278,221,410,627,180,422, 391,433,210,545,475,456,232,457,395],
+    hcp:  { Robbie:8, Michael:9, Cole:10, Jack:9, Brunts:14, Tom:16 }
+  },
+  fairbanks_ov: {
+    name: 'Fairbanks Ranch', nines: 'Ocean → Valley', loc: 'Rancho Santa Fe, CA',
+    par:  [4,5,4,4,3,4,5,3,4, 5,4,5,4,4,3,4,3,4],
+    si:   [5,1,13,11,15,3,9,17,7, 10,14,6,2,8,18,4,16,12],
+    yds:  [381,520,428,278,221,410,627,180,422, 520,424,541,441,423,193,417,209,434],
+    hcp:  { Robbie:8, Michael:9, Cole:10, Jack:9, Brunts:14, Tom:16 }
+  },
+  fairbanks_vo: {
+    name: 'Fairbanks Ranch', nines: 'Valley → Ocean', loc: 'Rancho Santa Fe, CA',
+    par:  [5,4,5,4,4,3,4,3,4, 4,5,4,4,3,4,5,3,4],
+    si:   [9,13,5,1,7,17,3,15,11, 6,2,14,12,16,4,10,18,8],
+    yds:  [520,424,541,441,423,193,417,209,434, 381,520,428,278,221,410,627,180,422],
     hcp:  { Robbie:8, Michael:9, Cole:10, Jack:9, Brunts:14, Tom:16 }
   },
   torrey: {
@@ -1309,6 +1366,7 @@ function loadState() {
     if (!raw) return false;
     const s = JSON.parse(raw);
     if (!s.course || !s.team1.length || !s.team2.length) return false;
+    if (s.course === 'fairbanks') s.course = 'fairbanks_vl'; // backwards compat
     APP = s;
     return true;
   } catch (e) { return false; }
@@ -1481,7 +1539,7 @@ function renderScorecard() {
   const { skinsByPlayer } = computeSkins();
 
   // Top bar
-  document.getElementById('sc-course-title').textContent = course.name;
+  document.getElementById('sc-course-title').textContent = course.nines ? `${course.name} — ${course.nines}` : course.name;
   document.getElementById('sc-course-sub').textContent = course.loc;
   const _rcEl = document.getElementById('sc-room-code');
   if (_rcEl) { _rcEl.textContent = ROOM_CODE ? `Room: ${ROOM_CODE}` : ''; _rcEl.style.display = ROOM_CODE ? '' : 'none'; }
@@ -2284,6 +2342,8 @@ function resetRound() {
 
   // Reset setup UI
   document.querySelectorAll('.course-card').forEach(c => c.classList.remove('selected'));
+  document.querySelectorAll('.nine-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('fairbanks-nines').classList.remove('visible');
   setupState.course = null;
   setupState.team1 = [];
   setupState.team2 = [];
@@ -2356,9 +2416,43 @@ function renderSetup() {
 function selectCourse(el) {
   document.querySelectorAll('.course-card').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
-  setupState.course = el.dataset.course;
+  const family = el.dataset.course;
+  if (family === 'fairbanks') {
+    document.getElementById('fairbanks-nines').classList.add('visible');
+    setupState.course = null; // finalized only when a nine combo is picked
+  } else {
+    document.getElementById('fairbanks-nines').classList.remove('visible');
+    document.querySelectorAll('.nine-btn').forEach(b => b.classList.remove('selected'));
+    setupState.course = family;
+  }
   syncSetupAndSchedule();
   updateCTA();
+}
+
+function selectNines(el) {
+  document.querySelectorAll('.nine-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  setupState.course = el.dataset.combo;
+  syncSetupAndSchedule();
+  updateCTA();
+}
+
+function restoreCourseUI() {
+  const c = setupState.course;
+  const isFairbanks = c && c.startsWith('fairbanks_');
+  document.querySelectorAll('.course-card').forEach(card =>
+    card.classList.toggle('selected',
+      c === card.dataset.course || (isFairbanks && card.dataset.course === 'fairbanks'))
+  );
+  const fbnEl = document.getElementById('fairbanks-nines');
+  if (isFairbanks) {
+    fbnEl.classList.add('visible');
+    document.querySelectorAll('.nine-btn').forEach(b =>
+      b.classList.toggle('selected', b.dataset.combo === c));
+  } else {
+    fbnEl.classList.remove('visible');
+    document.querySelectorAll('.nine-btn').forEach(b => b.classList.remove('selected'));
+  }
 }
 
 function clickAssign(player) {
@@ -2620,9 +2714,7 @@ function applyRemoteState(remoteApp, fromJoin) {
 
   if (APP.setupSnapshot) {
     syncAppToSetup();
-    document.querySelectorAll('.course-card').forEach(c =>
-      c.classList.toggle('selected', c.dataset.course === setupState.course)
-    );
+    restoreCourseUI();
     renderSetup();
     loadBetsToInputs();
     updateCTA();
@@ -2892,9 +2984,7 @@ function _stateSkins(st) {
   // Restore setup UI from saved snapshot (for joining players on setup screen)
   if (APP.setupSnapshot) {
     syncAppToSetup();
-    document.querySelectorAll('.course-card').forEach(c =>
-      c.classList.toggle('selected', c.dataset.course === setupState.course)
-    );
+    restoreCourseUI();
     renderSetup();
     loadBetsToInputs();
     updateCTA();
