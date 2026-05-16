@@ -2714,7 +2714,33 @@ function subscribeToRoom(code) {
 }
 
 function applyRemoteState(remoteApp, fromJoin) {
+  const localScores = APP.scores;
+  const localPutts  = APP.putts;
   APP = { ...APP, ...remoteApp };
+
+  // Merge scores hole-by-hole: never let a remote null overwrite a local value.
+  // This prevents the last-writer-wins race from wiping scores entered on this device.
+  if (localScores && APP.scores) {
+    for (const player of Object.keys(localScores)) {
+      if (!APP.scores[player]) continue;
+      for (let h = 0; h < 18; h++) {
+        if (localScores[player][h] !== null && APP.scores[player][h] === null) {
+          APP.scores[player][h] = localScores[player][h];
+        }
+      }
+    }
+  }
+  if (localPutts && APP.putts) {
+    for (const player of Object.keys(localPutts)) {
+      if (!APP.putts[player]) continue;
+      for (let h = 0; h < 18; h++) {
+        if (localPutts[player][h] !== null && APP.putts[player][h] === null) {
+          APP.putts[player][h] = localPutts[player][h];
+        }
+      }
+    }
+  }
+
   saveState();
 
   if (APP.setupSnapshot) {
