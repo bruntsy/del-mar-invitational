@@ -2655,6 +2655,7 @@ async function createRoom() {
   ROUND_ID  = data.id;
   APP.roundId = ROUND_ID;
   saveState();
+  await pushToSupabase(); // store state with correct roundId so joining clients get it
   _lastPushed = JSON.stringify(APP);
   setRoomActive(code);
   subscribeToRoom(code);
@@ -2678,6 +2679,8 @@ async function joinRoom() {
   APP.roomCode = raw;
   APP.roundId  = ROUND_ID;
   applyRemoteState(typeof data.state === 'string' ? JSON.parse(data.state) : data.state, true);
+  APP.roundId = ROUND_ID; // re-assert after merge — host's stored state may have null roundId
+  saveState();
   setRoomActive(raw);
   subscribeToRoom(raw);
 }
