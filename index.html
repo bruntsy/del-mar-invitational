@@ -1435,7 +1435,6 @@ function computeSkins() {
   players.forEach(p => { skinsByPlayer[p] = 0; });
 
   const holeResults = [];
-  let pot = 1;
 
   for (let h = 0; h < 18; h++) {
     const allEntered = players.every(p => APP.scores[p][h] !== null && APP.scores[p][h] !== undefined);
@@ -1456,16 +1455,14 @@ function computeSkins() {
 
     if (winners.length === 1) {
       const w = winners[0];
-      skinsByPlayer[w] += pot;
-      holeResults.push({ hole: h + 1, winner: w, pot, nets, tied: false });
-      pot = 1;
+      skinsByPlayer[w]++;
+      holeResults.push({ hole: h + 1, winner: w, pot: 1, nets, tied: false });
     } else {
-      holeResults.push({ hole: h + 1, winner: null, pot, nets, tied: true, tiedPlayers: winners });
-      pot++;
+      holeResults.push({ hole: h + 1, winner: null, pot: 1, nets, tied: true, tiedPlayers: winners });
     }
   }
 
-  return { skinsByPlayer, holeResults, pendingPot: pot > 1 ? pot - 1 : 0 };
+  return { skinsByPlayer, holeResults, pendingPot: 0 };
 }
 
 function computeNetTotal(player, strokes) {
