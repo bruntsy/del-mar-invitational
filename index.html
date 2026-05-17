@@ -2683,6 +2683,7 @@ async function joinRoom() {
   applyRemoteState(typeof data.state === 'string' ? JSON.parse(data.state) : data.state, true);
   APP.roundId = ROUND_ID; // re-assert after merge — host's stored state may have null roundId
   saveState();
+  pushToSupabase(); // flush any locally-held scores immediately on rejoin
   setRoomActive(raw);
   subscribeToRoom(raw);
 }
