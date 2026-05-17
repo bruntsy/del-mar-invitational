@@ -3025,12 +3025,36 @@ function _stateSkins(st) {
   }
 
   // Re-connect to room if we were in one
-  if (APP.roomCode && APP.roundId) {
-    ROOM_CODE = APP.roomCode;
-    ROUND_ID  = APP.roundId;
-    setRoomActive(ROOM_CODE);
-    subscribeToRoom(ROOM_CODE);
+  if (APP.roomCode) {
+    if (APP.roundId) {
+      ROOM_CODE = APP.roomCode;
+      ROUND_ID  = APP.roundId;
+      setRoomActive(ROOM_CODE);
+      subscribeToRoom(ROOM_CODE);
+    } else {
+      // roundId missing in saved state — fetch from Supabase to recover
+      _db.from('rounds').select('id,state').eq('code', APP.roomCode)
+        .eq('completed', false).order('created_at', { ascending: false })
+        .limit(1).single()
+        .then(({ data }) => {
+          if (!data) return;
+          ROOM_CODE = APP.roomCode;
+          ROUND_ID  = data.id;
+          APP.roundId = ROUND_ID;
+          saveState();
+          applyRemoteState(typeof data.state === 'string' ? JSON.parse(data.state) : data.state, false);
+          setRoomActive(ROOM_CODE);
+          subscribeToRoom(ROOM_CODE);
+        });
+    }
   }
+
+  // Poll every 10s as a fallback in case real-time subscription drops
+  setInterval(async () => {
+    if (!ROUND_ID || !_db) return;
+    const { data } = await _db.from('rounds').select('state').eq('id', ROUND_ID).single();
+    if (data) applyRemoteState(typeof data.state === 'string' ? JSON.parse(data.state) : data.state, false);
+  }, 10000);
 })();
 </script>
 </body>
