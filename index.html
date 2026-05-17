@@ -2356,7 +2356,12 @@ function resetRound() {
     _db.from('rounds').insert({ code: _keepCode, state: APP, completed: false })
       .select('id').single()
       .then(({ data }) => {
-        if (data) { ROUND_ID = data.id; APP.roundId = ROUND_ID; saveState(); }
+        if (data) {
+          ROUND_ID = data.id;
+          APP.roundId = ROUND_ID;
+          saveState();
+          pushToSupabase(); // store correct roundId so joining clients get it
+        }
       });
   }
 }
@@ -2758,7 +2763,8 @@ function applyRemoteState(remoteApp, fromJoin) {
     initPutts();
     if (onScorecard) {
       const sc = document.getElementById('scorecard-screen');
-      if (!sc.contains(document.activeElement)) renderScorecard();
+      const typingNow = document.activeElement && document.activeElement.tagName === 'INPUT' && sc.contains(document.activeElement);
+      if (!typingNow) renderScorecard();
     }
     if (onResults) renderResults();
   }
