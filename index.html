@@ -951,22 +951,6 @@
       font-style: italic;
     }
 
-    /* ─── Room Code ─── */
-    .room-card { background: var(--panel-white); border: 2px solid var(--panel-border); border-radius: 3px; padding: 1.1rem 1.5rem; }
-    .room-actions { display: flex; gap: 0.65rem; align-items: center; flex-wrap: wrap; }
-    .room-btn { background: var(--bg); color: var(--gold); border: 1.5px solid var(--gold); border-radius: 3px; padding: 0.5rem 1rem; font-family: 'Lato', sans-serif; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
-    .room-btn:hover { background: var(--bg-lighter); }
-    .room-btn.sm { padding: 0.38rem 0.75rem; font-size: 0.7rem; }
-    .room-divider { color: var(--text-faint); font-size: 0.72rem; }
-    .room-join-row { display: flex; gap: 0.45rem; align-items: center; }
-    .room-code-input { width: 70px; padding: 0.45rem 0.5rem; border: 1.5px solid var(--panel-border); border-radius: 3px; font-size: 1rem; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; font-family: 'Lato', sans-serif; text-align: center; background: var(--panel-white); color: var(--text-dark); }
-    .room-code-input:focus { outline: none; border-color: var(--gold); }
-    .room-active { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-    .room-code-badge { font-size: 1.45rem; font-weight: 700; letter-spacing: 0.28em; color: var(--gold-dark); font-family: 'Playfair Display', serif; }
-    .room-code-meta { font-size: 0.63rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-light); }
-    .room-sync-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #27ae60; margin-right: 5px; vertical-align: middle; }
-    .room-leave-btn { background: none; border: none; color: var(--text-faint); font-size: 0.7rem; cursor: pointer; text-decoration: underline; padding: 0; }
-    .room-status-msg { font-size: 0.76rem; margin-top: 0.45rem; min-height: 1em; }
     .nav-btns { display: flex; gap: 0.5rem; margin-bottom: 1.6rem; }
 
     /* ─── Complete Round button ─── */
@@ -1076,202 +1060,87 @@
     @media (max-width: 600px) {
       .ghin-input { width: 110px; }
     }
+
+    /* Group-first flow */
+    .app-shell { min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 2rem 1rem; }
+    .app-shell.narrow .card { max-width: 620px; }
+    .hub-card { background: var(--panel); border-radius: 3px; max-width: 960px; width: 100%; box-shadow: 0 24px 64px rgba(0,0,0,0.55), 0 0 0 1px rgba(201,168,76,0.25), inset 0 1px 0 rgba(255,255,255,0.6); overflow: hidden; }
+    .form-row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.8rem; }
+    .form-input { height: 42px; border: 1.5px solid var(--panel-border); border-radius: 2px; padding: 0 0.8rem; font-family: 'Lato', sans-serif; font-size: 0.9rem; background: var(--panel-white); color: var(--text-dark); min-width: 0; }
+    .form-input:focus { outline: none; border-color: var(--gold); background: #fffce8; }
+    .form-input.grow { flex: 1; }
+    .group-btn { background: var(--bg); color: var(--gold); border: 1.5px solid var(--gold); border-radius: 3px; padding: 0.58rem 1rem; font-family: 'Lato', sans-serif; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
+    .group-btn:hover:not(:disabled) { background: var(--bg-lighter); }
+    .group-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .group-btn.sm { padding: 0.4rem 0.75rem; font-size: 0.7rem; }
+    .group-btn.primary { background: var(--gold); color: var(--bg); border-color: var(--gold); }
+    .group-btn.primary:hover:not(:disabled) { background: var(--gold-light); }
+    .group-divider { color: var(--text-faint); font-size: 0.72rem; }
+    .group-status-msg { font-size: 0.76rem; margin-top: 0.45rem; min-height: 1em; color: var(--text-light); }
+    .code-input { width: 92px; text-transform: uppercase; text-align: center; letter-spacing: 0.22em; font-weight: 700; }
+    .hub-top { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap; margin-bottom:1.5rem; }
+    .hub-name { font-family:'Playfair Display',serif; font-size:1.7rem; font-weight:700; color:var(--text-dark); }
+    .group-code-badge { display:inline-flex; align-items:center; gap:0.45rem; margin-top:0.35rem; color:var(--gold-dark); font-weight:700; letter-spacing:0.18em; text-transform:uppercase; }
+    .hub-grid { display:grid; grid-template-columns:1.1fr 0.9fr; gap:1rem; }
+    .hub-panel { background:var(--panel-white); border:1.5px solid var(--panel-border); border-radius:3px; padding:1rem 1.1rem; }
+    .hub-panel-title { font-size:0.66rem; font-weight:700; letter-spacing:0.22em; text-transform:uppercase; color:var(--text-light); margin-bottom:0.75rem; }
+    .active-round-name { font-family:'Playfair Display',serif; font-size:1.12rem; font-weight:700; color:var(--text-dark); margin-bottom:0.25rem; }
+    .muted { color:var(--text-light); font-size:0.78rem; }
+    .roster-row, .course-result-item, .tee-option, .hcp-preview-row { display:flex; justify-content:space-between; align-items:center; gap:0.8rem; border:1px solid var(--panel-border); background:var(--panel-white); border-radius:3px; padding:0.72rem 0.85rem; margin-bottom:0.5rem; }
+    .course-result-item, .tee-option { cursor:pointer; transition:border-color 0.15s, background 0.15s; }
+    .course-result-item:hover, .tee-option:hover, .tee-option.selected { border-color:var(--gold); background:#fffce8; }
+    .course-search-input { width:100%; margin-bottom:0.8rem; }
+    .setup-step-top { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1.4rem; }
+    .setup-step-title { font-family:'Playfair Display',serif; font-size:1.25rem; font-weight:700; color:var(--text-dark); }
+    .setup-step-nav { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-top:1.2rem; }
+    .selected-course-box { background:#fffce8; border:1.5px solid var(--gold); border-radius:3px; padding:0.9rem 1rem; margin:0.8rem 0; }
+    .empty-state { color:var(--text-light); font-style:italic; font-size:0.82rem; padding:0.8rem 0; }
+    @media (max-width: 760px) { .hub-grid { grid-template-columns:1fr; } .form-row { align-items:stretch; } .form-input.grow, .group-btn { width:100%; } .code-input { width:100%; } }
+
   </style>
 </head>
+
 <body>
 
-<!-- ═══════════════ SETUP SCREEN ═══════════════ -->
-<div id="setup-screen">
-<div class="card">
-  <div class="hdr">
-    <div class="hdr-ornament">◆ &nbsp; ◆ &nbsp; ◆</div>
-    <div class="hdr-title">Del Mar Invitational</div>
-    <div class="hdr-sub">Course Setup &amp; Team Selection</div>
-  </div>
-  <div class="content">
-    <!-- Nav -->
-    <div class="nav-btns">
-      <button class="room-btn sm" onclick="showHistory()">Past Rounds</button>
-      <button class="room-btn sm" onclick="showStats()">All-Time Stats</button>
+<div id="home-screen" class="app-shell narrow">
+  <div class="card">
+    <div class="hdr">
+      <div class="hdr-ornament">◆ &nbsp; ◆ &nbsp; ◆</div>
+      <div class="hdr-title">Del Mar Invitational</div>
+      <div class="hdr-sub">Group Setup</div>
     </div>
-
-    <!-- Live Room -->
-    <div style="margin-bottom:2rem">
-      <div class="section-label">Live Room</div>
-      <div class="room-card">
-        <div id="room-active" class="room-active" style="display:none">
-          <div>
-            <div class="room-code-meta"><span class="room-sync-dot"></span>Room Active</div>
-            <div class="room-code-badge" id="room-code-display"></div>
-          </div>
-          <button class="room-leave-btn" onclick="leaveRoom()">Leave room</button>
-        </div>
-        <div id="room-join-area">
-          <div class="room-actions">
-            <button class="room-btn" onclick="createRoom()">Create Group</button>
-            <span class="room-divider">or</span>
-            <div class="room-join-row">
-              <input id="join-code-input" class="room-code-input" type="text" maxlength="4" placeholder="ABCD"
-                     oninput="this.value=this.value.toUpperCase()"
-                     onkeydown="if(event.key==='Enter')joinRoom()">
-              <button class="room-btn" onclick="joinRoom()">Join</button>
-            </div>
-          </div>
-        </div>
-        <div id="room-status" class="room-status-msg"></div>
+    <div class="content">
+      <div class="section-label">Create Group</div>
+      <div class="form-row">
+        <input id="group-name-input" class="form-input grow" type="text" placeholder="Group name" onkeydown="if(event.key==='Enter')createGroup()">
+        <button class="group-btn primary" onclick="createGroup()">Create Group</button>
       </div>
-    </div>
-
-    <div class="section-label">Select Course</div>
-    <div class="course-grid">
-      <div class="course-card" data-course="fairbanks" onclick="selectCourse(this)">
-        <div class="course-check">✓</div>
-        <div class="course-glyph">⛳</div>
-        <div class="course-name">Fairbanks Ranch</div>
-        <div class="course-loc">Rancho Santa Fe, California</div>
+      <div class="section-label" style="margin-top:1.8rem">Join Group</div>
+      <div class="form-row">
+        <input id="join-code-input" class="form-input code-input" type="text" maxlength="4" placeholder="ABCD" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')joinGroup()">
+        <button class="group-btn" onclick="joinGroup()">Join Group</button>
       </div>
-      <div class="course-card" data-course="torrey" onclick="selectCourse(this)">
-        <div class="course-check">✓</div>
-        <div class="course-glyph">🌊</div>
-        <div class="course-name">Torrey Pines South</div>
-        <div class="course-loc">La Jolla, California</div>
-      </div>
-      <div class="course-card" data-course="riverwalk" onclick="selectCourse(this)">
-        <div class="course-check">✓</div>
-        <div class="course-glyph">🌿</div>
-        <div class="course-name">Riverwalk GC</div>
-        <div class="course-loc">San Diego, California</div>
-      </div>
-    </div>
-
-    <div class="fairbanks-nines" id="fairbanks-nines">
-      <div class="nines-hint">Which nines are you playing? (front → back)</div>
-      <div class="nines-grid">
-        <button class="nine-btn" data-combo="fairbanks_vl" onclick="selectNines(this)">Valley<br>→ Lakes</button>
-        <button class="nine-btn" data-combo="fairbanks_lv" onclick="selectNines(this)">Lakes<br>→ Valley</button>
-        <button class="nine-btn" data-combo="fairbanks_lo" onclick="selectNines(this)">Lakes<br>→ Ocean</button>
-        <button class="nine-btn" data-combo="fairbanks_ol" onclick="selectNines(this)">Ocean<br>→ Lakes</button>
-        <button class="nine-btn" data-combo="fairbanks_ov" onclick="selectNines(this)">Ocean<br>→ Valley</button>
-        <button class="nine-btn" data-combo="fairbanks_vo" onclick="selectNines(this)">Valley<br>→ Ocean</button>
-      </div>
-    </div>
-
-    <div class="section-label">Build Your Teams</div>
-    <div class="team-builder">
-      <div class="team-panel" id="team1-panel">
-        <div class="team-hdr">
-          <div class="team-title">Team 1</div>
-          <div class="team-ct" id="team1-ct">0 of 3</div>
-        </div>
-        <div class="team-slots" id="team1-slots"></div>
-      </div>
-
-      <div class="pool-wrap">
-        <div class="pool-label">Players</div>
-
-        <div class="player-add-row">
-          <input id="ghin-input" class="ghin-input" type="number" inputmode="numeric" placeholder="GHIN #"
-                 onkeydown="if(event.key==='Enter')lookupGhin()">
-          <button class="room-btn sm" id="ghin-btn" onclick="lookupGhin()">Lookup</button>
-          <span class="room-divider">or</span>
-          <button class="room-btn sm" onclick="toggleManualAdd()">+ Manual</button>
-        </div>
-        <div id="manual-add-box" class="manual-add-box" style="display:none">
-          <div class="player-add-row">
-            <input id="manual-name" class="name-input" type="text" placeholder="Player name"
-                   onkeydown="if(event.key==='Enter')addManualPlayer()">
-            <input id="manual-hcp" class="hcp-idx-input" type="number" inputmode="decimal" step="0.1" min="0" max="54" placeholder="Hcp Idx"
-                   onkeydown="if(event.key==='Enter')addManualPlayer()">
-            <button class="room-btn sm" onclick="addManualPlayer()">Add</button>
-            <button class="room-btn sm" onclick="toggleManualAdd()">Cancel</button>
-          </div>
-        </div>
-        <div id="ghin-status" class="ghin-status"></div>
-
-        <div class="pool-hint">tap to assign · ✕ to remove</div>
-        <div class="pool-drop-zone" id="pool-zone"></div>
-      </div>
-
-      <div class="team-panel" id="team2-panel">
-        <div class="team-hdr">
-          <div class="team-title">Team 2</div>
-          <div class="team-ct" id="team2-ct">0 of 3</div>
-        </div>
-        <div class="team-slots" id="team2-slots"></div>
-      </div>
-    </div>
-
-    <!-- Matchup selector (shown once both teams are full) -->
-    <div id="matchup-section" style="display:none">
-      <div class="section-label">Head-to-Head Matchups</div>
-      <div class="matchup-card">
-        <div class="matchup-hint">Reorder Team 2 with ▲▼ to set who plays who</div>
-        <div id="matchup-rows"></div>
-      </div>
-    </div>
-
-    <!-- Bet amounts -->
-    <div id="bets-section">
-      <div class="section-label">Bet Amounts</div>
-      <div class="bets-card">
-        <div class="bet-row">
-          <span class="bet-label">Skins</span>
-          <div class="bet-inputs-group">
-            <div class="bet-field">
-              <span class="bet-dollar">$</span>
-              <input class="bet-input" type="number" inputmode="numeric" min="0" id="bet-skins" placeholder="0" oninput="saveBets()">
-              <span class="bet-unit">/ player</span>
-            </div>
-          </div>
-        </div>
-        <div class="bet-row">
-          <span class="bet-label">Best Ball</span>
-          <div class="bet-inputs-group">
-            <div class="bet-field"><span class="bet-sublabel">Front</span><span class="bet-dollar">$</span><input class="bet-input" type="number" inputmode="numeric" min="0" id="bet-bb-front" placeholder="0" oninput="saveBets()"></div>
-            <div class="bet-field"><span class="bet-sublabel">Back</span><span class="bet-dollar">$</span><input class="bet-input" type="number" inputmode="numeric" min="0" id="bet-bb-back" placeholder="0" oninput="saveBets()"></div>
-            <div class="bet-field"><span class="bet-sublabel">Total</span><span class="bet-dollar">$</span><input class="bet-input" type="number" inputmode="numeric" min="0" id="bet-bb-total" placeholder="0" oninput="saveBets()"></div>
-          </div>
-        </div>
-        <div class="bet-row">
-          <span class="bet-label">2-Ball</span>
-          <div class="bet-inputs-group">
-            <div class="bet-field"><span class="bet-sublabel">Front</span><span class="bet-dollar">$</span><input class="bet-input" type="number" inputmode="numeric" min="0" id="bet-tb-front" placeholder="0" oninput="saveBets()"></div>
-            <div class="bet-field"><span class="bet-sublabel">Back</span><span class="bet-dollar">$</span><input class="bet-input" type="number" inputmode="numeric" min="0" id="bet-tb-back" placeholder="0" oninput="saveBets()"></div>
-            <div class="bet-field"><span class="bet-sublabel">Total</span><span class="bet-dollar">$</span><input class="bet-input" type="number" inputmode="numeric" min="0" id="bet-tb-total" placeholder="0" oninput="saveBets()"></div>
-          </div>
-        </div>
-        <div class="bet-row">
-          <span class="bet-label">H2H</span>
-          <div class="bet-inputs-group">
-            <div class="bet-field">
-              <span class="bet-dollar">$</span>
-              <input class="bet-input" type="number" inputmode="numeric" min="0" id="bet-h2h" placeholder="0" oninput="saveBets()">
-              <span class="bet-unit">/ matchup</span>
-            </div>
-          </div>
-        </div>
-        <div class="bet-row">
-          <span class="bet-label">Putt Poker</span>
-          <div class="bet-inputs-group">
-            <div class="bet-field">
-              <span class="bet-dollar">$</span>
-              <input class="bet-input" type="number" inputmode="numeric" min="0" id="bet-pp" placeholder="0" oninput="saveBets()">
-              <span class="bet-unit">/ person (starting pot)</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="start-section">
-      <button class="start-btn" id="start-btn" onclick="startRound()" disabled>Begin Round &rarr;</button>
-      <div class="val-msg" id="val-msg">Select a course and assign players to begin</div>
+      <div id="group-status" class="group-status-msg"></div>
     </div>
   </div>
 </div>
+
+<div id="hub-screen" class="app-shell" style="display:none">
+  <div class="hub-card">
+    <div class="hdr">
+      <div class="hdr-ornament">◆ &nbsp; ◆ &nbsp; ◆</div>
+      <div class="hdr-title">Del Mar Invitational</div>
+      <div class="hdr-sub">Group Hub</div>
+    </div>
+    <div class="content" id="hub-content"></div>
+  </div>
 </div>
 
-<!-- ═══════════════ SCORECARD SCREEN ═══════════════ -->
+<div id="setup-course-screen" class="app-shell" style="display:none"><div class="card"><div class="hdr"><div class="hdr-title">Select Course</div><div class="hdr-sub">Round Setup</div></div><div class="content" id="setup-course-content"></div></div></div>
+<div id="setup-players-screen" class="app-shell" style="display:none"><div class="card"><div class="hdr"><div class="hdr-title">Players</div><div class="hdr-sub">Round Setup</div></div><div class="content" id="setup-players-content"></div></div></div>
+<div id="setup-teams-screen" class="app-shell" style="display:none"><div class="card"><div class="hdr"><div class="hdr-title">Teams</div><div class="hdr-sub">Round Setup</div></div><div class="content" id="setup-teams-content"></div></div></div>
+<div id="setup-games-screen" class="app-shell" style="display:none"><div class="card"><div class="hdr"><div class="hdr-title">Games</div><div class="hdr-sub">Round Setup</div></div><div class="content" id="setup-games-content"></div></div></div>
+
 <div id="scorecard-screen">
   <div class="sc-topbar">
     <div>
@@ -1283,7 +1152,7 @@
         <button class="btn-ghost" onclick="showResults()">Results &rarr;</button>
         <button class="btn-danger" onclick="resetRound()">Reset</button>
       </div>
-      <div id="sc-room-code" style="display:none;font-size:0.62rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);opacity:0.75;margin-top:0.3rem;text-align:right"></div>
+      <div id="sc-group-code" style="display:none;font-size:0.62rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);opacity:0.75;margin-top:0.3rem;text-align:right"></div>
     </div>
   </div>
   <div class="sc-table-wrap" id="sc-table-wrap"></div>
@@ -1296,1945 +1165,469 @@
   </div>
 </div>
 
-<!-- ═══════════════ RESULTS SCREEN ═══════════════ -->
-<div id="results-screen">
-  <div class="results-wrap" id="results-wrap"></div>
-</div>
-
-<!-- ═══════════════ HISTORY SCREEN ═══════════════ -->
-<div id="history-screen" style="display:none">
-  <div class="hist-wrap" id="history-wrap"></div>
-</div>
-
-<!-- ═══════════════ STATS SCREEN ═══════════════ -->
-<div id="stats-screen" style="display:none">
-  <div class="stats-wrap" id="stats-wrap"></div>
-</div>
+<div id="results-screen"><div class="results-wrap" id="results-wrap"></div></div>
+<div id="history-screen" style="display:none"><div class="hist-wrap" id="history-wrap"></div></div>
+<div id="stats-screen" style="display:none"><div class="stats-wrap" id="stats-wrap"></div></div>
 
 <script>
-/* ─────────────────────────────────────────────
-   COURSE DATA
-───────────────────────────────────────────── */
-const COURSES = {
-  // Fairbanks Ranch — 6 ordered permutations of Valley / Lakes / Ocean nines
-  // SI uses the interleaved odd/even system: front nine gets odd slots (1,3,5…17),
-  // back nine gets even slots (2,4,6…18), ordered by within-nine difficulty rank.
-  // V/L and L/O combos are USGA-rated; remaining four are derived from the same ranking.
-  fairbanks_vl: {
-    name: 'Fairbanks Ranch', nines: 'Valley → Lakes', loc: 'Rancho Santa Fe, CA',
-    par:  [5,4,5,4,4,3,4,3,4, 4,4,3,5,5,4,3,4,4],
-    si:   [9,13,5,1,7,17,3,15,11, 4,10,16,8,2,12,18,14,6],
-    yds:  [520,424,541,441,423,193,417,209,434, 391,433,210,545,475,456,232,457,395],
-    hcp:  { Robbie:8, Michael:9, Cole:10, Jack:9, Brunts:14, Tom:16 }
-  },
-  fairbanks_lv: {
-    name: 'Fairbanks Ranch', nines: 'Lakes → Valley', loc: 'Rancho Santa Fe, CA',
-    par:  [4,4,3,5,5,4,3,4,4, 5,4,5,4,4,3,4,3,4],
-    si:   [3,9,15,7,1,11,17,13,5, 10,14,6,2,8,18,4,16,12],
-    yds:  [391,433,210,545,475,456,232,457,395, 520,424,541,441,423,193,417,209,434],
-    hcp:  { Robbie:8, Michael:9, Cole:10, Jack:9, Brunts:14, Tom:16 }
-  },
-  fairbanks_lo: {
-    name: 'Fairbanks Ranch', nines: 'Lakes → Ocean', loc: 'Rancho Santa Fe, CA',
-    par:  [4,4,3,5,5,4,3,4,4, 4,5,4,4,3,4,5,3,4],
-    si:   [3,9,15,7,1,11,17,13,5, 6,2,14,12,16,4,10,18,8],
-    yds:  [391,433,210,545,475,456,232,457,395, 381,520,428,278,221,410,627,180,422],
-    hcp:  { Robbie:8, Michael:9, Cole:10, Jack:9, Brunts:14, Tom:16 }
-  },
-  fairbanks_ol: {
-    name: 'Fairbanks Ranch', nines: 'Ocean → Lakes', loc: 'Rancho Santa Fe, CA',
-    par:  [4,5,4,4,3,4,5,3,4, 4,4,3,5,5,4,3,4,4],
-    si:   [5,1,13,11,15,3,9,17,7, 4,10,16,8,2,12,18,14,6],
-    yds:  [381,520,428,278,221,410,627,180,422, 391,433,210,545,475,456,232,457,395],
-    hcp:  { Robbie:8, Michael:9, Cole:10, Jack:9, Brunts:14, Tom:16 }
-  },
-  fairbanks_ov: {
-    name: 'Fairbanks Ranch', nines: 'Ocean → Valley', loc: 'Rancho Santa Fe, CA',
-    par:  [4,5,4,4,3,4,5,3,4, 5,4,5,4,4,3,4,3,4],
-    si:   [5,1,13,11,15,3,9,17,7, 10,14,6,2,8,18,4,16,12],
-    yds:  [381,520,428,278,221,410,627,180,422, 520,424,541,441,423,193,417,209,434],
-    hcp:  { Robbie:8, Michael:9, Cole:10, Jack:9, Brunts:14, Tom:16 }
-  },
-  fairbanks_vo: {
-    name: 'Fairbanks Ranch', nines: 'Valley → Ocean', loc: 'Rancho Santa Fe, CA',
-    par:  [5,4,5,4,4,3,4,3,4, 4,5,4,4,3,4,5,3,4],
-    si:   [9,13,5,1,7,17,3,15,11, 6,2,14,12,16,4,10,18,8],
-    yds:  [520,424,541,441,423,193,417,209,434, 381,520,428,278,221,410,627,180,422],
-    hcp:  { Robbie:8, Michael:9, Cole:10, Jack:9, Brunts:14, Tom:16 }
-  },
-  torrey: {
-    name: 'Torrey Pines South',
-    loc:  'La Jolla, CA',
-    par:  [4,4,3,4,4,5,4,3,5, 4,3,4,5,4,4,3,4,5],
-    si:   [5,15,13,3,11,9,1,17,7, 16,14,2,6,8,12,18,4,10],
-    yds:  [451,389,201,490,454,564,462,177,615, 454,225,505,621,437,517,227,443,570],
-    hcp:  { Robbie:11, Michael:11, Cole:13, Jack:11, Brunts:17, Tom:20 }
-  },
-  riverwalk: {
-    name: 'Riverwalk GC',
-    loc:  'San Diego, CA',
-    par:  [4,4,4,5,3,4,3,4,5, 4,3,5,4,4,5,4,3,4],
-    si:   [5,17,7,11,9,15,3,13,1, 6,12,14,4,2,16,8,18,10],
-    yds:  [380,296,309,525,179,350,191,378,542, 397,174,512,440,396,538,374,147,412],
-    hcp:  { Robbie:7, Michael:8, Cole:9, Jack:8, Brunts:13, Tom:15 }
-  }
+const LEGACY_COURSES = {
+  fairbanks_vl: { name:'Fairbanks Ranch', nines:'Valley -> Lakes', loc:'Rancho Santa Fe, CA', par:[5,4,5,4,4,3,4,3,4,4,4,3,5,5,4,3,4,4], si:[9,13,5,1,7,17,3,15,11,4,10,16,8,2,12,18,14,6], yds:[520,424,541,441,423,193,417,209,434,391,433,210,545,475,456,232,457,395], hcp:{Robbie:8,Michael:9,Cole:10,Jack:9,Brunts:14,Tom:16} },
+  fairbanks_lv: { name:'Fairbanks Ranch', nines:'Lakes -> Valley', loc:'Rancho Santa Fe, CA', par:[4,4,3,5,5,4,3,4,4,5,4,5,4,4,3,4,3,4], si:[3,9,15,7,1,11,17,13,5,10,14,6,2,8,18,4,16,12], yds:[391,433,210,545,475,456,232,457,395,520,424,541,441,423,193,417,209,434], hcp:{Robbie:8,Michael:9,Cole:10,Jack:9,Brunts:14,Tom:16} },
+  fairbanks_lo: { name:'Fairbanks Ranch', nines:'Lakes -> Ocean', loc:'Rancho Santa Fe, CA', par:[4,4,3,5,5,4,3,4,4,4,5,4,4,3,4,5,3,4], si:[3,9,15,7,1,11,17,13,5,6,2,14,12,16,4,10,18,8], yds:[391,433,210,545,475,456,232,457,395,381,520,428,278,221,410,627,180,422], hcp:{Robbie:8,Michael:9,Cole:10,Jack:9,Brunts:14,Tom:16} },
+  fairbanks_ol: { name:'Fairbanks Ranch', nines:'Ocean -> Lakes', loc:'Rancho Santa Fe, CA', par:[4,5,4,4,3,4,5,3,4,4,4,3,5,5,4,3,4,4], si:[5,1,13,11,15,3,9,17,7,4,10,16,8,2,12,18,14,6], yds:[381,520,428,278,221,410,627,180,422,391,433,210,545,475,456,232,457,395], hcp:{Robbie:8,Michael:9,Cole:10,Jack:9,Brunts:14,Tom:16} },
+  fairbanks_ov: { name:'Fairbanks Ranch', nines:'Ocean -> Valley', loc:'Rancho Santa Fe, CA', par:[4,5,4,4,3,4,5,3,4,5,4,5,4,4,3,4,3,4], si:[5,1,13,11,15,3,9,17,7,10,14,6,2,8,18,4,16,12], yds:[381,520,428,278,221,410,627,180,422,520,424,541,441,423,193,417,209,434], hcp:{Robbie:8,Michael:9,Cole:10,Jack:9,Brunts:14,Tom:16} },
+  fairbanks_vo: { name:'Fairbanks Ranch', nines:'Valley -> Ocean', loc:'Rancho Santa Fe, CA', par:[5,4,5,4,4,3,4,3,4,4,5,4,4,3,4,5,3,4], si:[9,13,5,1,7,17,3,15,11,6,2,14,12,16,4,10,18,8], yds:[520,424,541,441,423,193,417,209,434,381,520,428,278,221,410,627,180,422], hcp:{Robbie:8,Michael:9,Cole:10,Jack:9,Brunts:14,Tom:16} },
+  torrey: { name:'Torrey Pines South', loc:'La Jolla, CA', par:[4,4,3,4,4,5,4,3,5,4,3,4,5,4,4,3,4,5], si:[5,15,13,3,11,9,1,17,7,16,14,2,6,8,12,18,4,10], yds:[451,389,201,490,454,564,462,177,615,454,225,505,621,437,517,227,443,570], hcp:{Robbie:11,Michael:11,Cole:13,Jack:11,Brunts:17,Tom:20} },
+  riverwalk: { name:'Riverwalk GC', loc:'San Diego, CA', par:[4,4,4,5,3,4,3,4,5,4,3,5,4,4,5,4,3,4], si:[5,17,7,11,9,15,3,13,1,6,12,14,4,2,16,8,18,10], yds:[380,296,309,525,179,350,191,378,542,397,174,512,440,396,538,374,147,412], hcp:{Robbie:7,Michael:8,Cole:9,Jack:8,Brunts:13,Tom:15} }
 };
 
-const ALL_PLAYERS = ['Robbie', 'Jack', 'Brunts', 'Michael', 'Cole', 'Tom'];
-
-const PRESET_PLAYERS = [
-  { name: 'Robbie',  handicapIndex: 8   },
-  { name: 'Jack',    handicapIndex: 9   },
-  { name: 'Brunts',  handicapIndex: 14  },
-  { name: 'Michael', handicapIndex: 9   },
-  { name: 'Cole',    handicapIndex: 10  },
-  { name: 'Tom',     handicapIndex: 16  },
-];
-
-/* ─────────────────────────────────────────────
-   APP STATE + PERSISTENCE
-───────────────────────────────────────────── */
-const DEFAULT_BETS = { skins:0, bbFront:0, bbBack:0, bbTotal:0, tbFront:0, tbBack:0, tbTotal:0, h2h:0, pp:0 };
-
-let APP = {
-  course: null,
-  team1: [],
-  team2: [],
-  matchups: [],
-  bets: { ...DEFAULT_BETS },
-  scores: {},
-  players: {}
-};
-
-function saveState() {
-  localStorage.setItem('golf_scorecard_v1', JSON.stringify(APP));
-}
-
-function loadState() {
-  try {
-    const raw = localStorage.getItem('golf_scorecard_v1');
-    if (!raw) return false;
-    const s = JSON.parse(raw);
-    if (!s.course || !s.team1.length || !s.team2.length) return false;
-    if (s.course === 'fairbanks') s.course = 'fairbanks_vl'; // backwards compat
-    if (!s.players) s.players = {};
-    APP = s;
-    return true;
-  } catch (e) { return false; }
-}
-
-function initScores() {
-  const players = [...APP.team1, ...APP.team2];
-  players.forEach(p => {
-    if (!APP.scores[p] || APP.scores[p].length !== 18) {
-      APP.scores[p] = new Array(18).fill(null);
-    }
-  });
-}
-
-function initPutts() {
-  if (!APP.putts) APP.putts = {};
-  const players = [...APP.team1, ...APP.team2];
-  players.forEach(p => {
-    if (!APP.putts[p] || APP.putts[p].length !== 18) {
-      APP.putts[p] = new Array(18).fill(null);
-    }
-  });
-}
-
-/* ─────────────────────────────────────────────
-   SCREEN ROUTING
-───────────────────────────────────────────── */
-function showScreen(name) {
-  document.getElementById('setup-screen').style.display     = name === 'setup'     ? ''      : 'none';
-  document.getElementById('scorecard-screen').style.display = name === 'scorecard' ? 'flex'  : 'none';
-  document.getElementById('results-screen').style.display   = name === 'results'   ? 'block' : 'none';
-  document.getElementById('history-screen').style.display   = name === 'history'   ? ''      : 'none';
-  document.getElementById('stats-screen').style.display     = name === 'stats'     ? ''      : 'none';
-}
-
-/* ─────────────────────────────────────────────
-   SCORING CALCULATIONS
-───────────────────────────────────────────── */
-function getPlayerStrokes() {
-  const course = COURSES[APP.course];
-  const players = [...APP.team1, ...APP.team2];
-  const hcps = players.map(p => {
-    if (course?.hcp?.[p] !== undefined) return course.hcp[p];
-    return Math.round(APP.players?.[p]?.handicapIndex ?? 0);
-  });
-  const minHcp = Math.min(...hcps);
-  const result = {};
-  players.forEach((p, i) => { result[p] = hcps[i] - minHcp; });
-  return result;
-}
-
-function getsStroke(playerStrokes, si) {
-  return si <= playerStrokes;
-}
-
-function getColorClass(gross, par) {
-  const d = gross - par;
-  if (d <= -2) return 'score-eagle';
-  if (d === -1) return 'score-birdie';
-  if (d === 0)  return 'score-par';
-  if (d === 1)  return 'score-bogey';
-  return 'score-double';
-}
-
-function computeSkins() {
-  const course = COURSES[APP.course];
-  const players = [...APP.team1, ...APP.team2];
-  const strokes = getPlayerStrokes();
-  const skinsByPlayer = {};
-  players.forEach(p => { skinsByPlayer[p] = 0; });
-
-  const holeResults = [];
-
-  for (let h = 0; h < 18; h++) {
-    const allEntered = players.every(p => APP.scores[p][h] !== null && APP.scores[p][h] !== undefined);
-    if (!allEntered) {
-      // Stop processing — carryover depends on sequential completion
-      break;
-    }
-
-    const nets = {};
-    players.forEach(p => {
-      const gross = APP.scores[p][h];
-      const stroke = getsStroke(strokes[p], course.si[h]) ? 1 : 0;
-      nets[p] = gross - stroke;
-    });
-
-    const minNet = Math.min(...Object.values(nets));
-    const winners = players.filter(p => nets[p] === minNet);
-
-    if (winners.length === 1) {
-      const w = winners[0];
-      skinsByPlayer[w]++;
-      holeResults.push({ hole: h + 1, winner: w, pot: 1, nets, tied: false });
-    } else {
-      holeResults.push({ hole: h + 1, winner: null, pot: 1, nets, tied: true, tiedPlayers: winners });
-    }
-  }
-
-  return { skinsByPlayer, holeResults, pendingPot: 0 };
-}
-
-function computeNetTotal(player, strokes) {
-  const course = COURSES[APP.course];
-  const scores = APP.scores[player];
-  let net = 0;
-  let hasAny = false;
-  for (let h = 0; h < 18; h++) {
-    if (scores[h] === null || scores[h] === undefined) continue;
-    hasAny = true;
-    const stroke = getsStroke(strokes[player], course.si[h]) ? 1 : 0;
-    net += scores[h] - stroke;
-  }
-  return hasAny ? net : null;
-}
-
-function sumRange(player, start, end) {
-  const scores = APP.scores[player];
-  let s = 0, hasAny = false;
-  for (let h = start; h < end; h++) {
-    if (scores[h] !== null && scores[h] !== undefined) { s += scores[h]; hasAny = true; }
-  }
-  return hasAny ? s : null;
-}
-
-/* ─────────────────────────────────────────────
-   TEAM FORMAT CALCULATIONS (Best Ball / 2-Ball)
-───────────────────────────────────────────── */
-function computeTeamHoleStats(teamPlayers, strokes, h) {
-  const course = COURSES[APP.course];
-  const nets = teamPlayers
-    .filter(p => APP.scores[p][h] !== null && APP.scores[p][h] !== undefined)
-    .map(p => APP.scores[p][h] - (getsStroke(strokes[p], course.si[h]) ? 1 : 0))
-    .sort((a, b) => a - b);
-  return {
-    bestBall: nets.length >= 1 ? nets[0] : null,
-    twoBall:  nets.length >= 2 ? nets[0] + nets[1] : null
-  };
-}
-
-function computeTeamTotals(teamPlayers, strokes) {
-  let bbOut = 0, bbOutAny = false, bbIn = 0, bbInAny = false;
-  let tbOut = 0, tbOutAny = false, tbIn = 0, tbInAny = false;
-  for (let h = 0; h < 18; h++) {
-    const { bestBall, twoBall } = computeTeamHoleStats(teamPlayers, strokes, h);
-    if (h < 9) {
-      if (bestBall !== null) { bbOut += bestBall; bbOutAny = true; }
-      if (twoBall  !== null) { tbOut += twoBall;  tbOutAny = true; }
-    } else {
-      if (bestBall !== null) { bbIn += bestBall; bbInAny = true; }
-      if (twoBall  !== null) { tbIn += twoBall;  tbInAny = true; }
-    }
-  }
-  return {
-    bbOut:   bbOutAny ? bbOut : null,
-    bbIn:    bbInAny  ? bbIn  : null,
-    bbTotal: (bbOutAny || bbInAny) ? (bbOutAny ? bbOut : 0) + (bbInAny ? bbIn : 0) : null,
-    tbOut:   tbOutAny ? tbOut : null,
-    tbIn:    tbInAny  ? tbIn  : null,
-    tbTotal: (tbOutAny || tbInAny) ? (tbOutAny ? tbOut : 0) + (tbInAny ? tbIn : 0) : null
-  };
-}
-
-/* ─────────────────────────────────────────────
-   SCORECARD RENDER
-───────────────────────────────────────────── */
-function renderScorecard() {
-  const course = COURSES[APP.course];
-  const players = [...APP.team1, ...APP.team2];
-  const strokes = getPlayerStrokes();
-  const { skinsByPlayer } = computeSkins();
-
-  // Top bar
-  document.getElementById('sc-course-title').textContent = course.nines ? `${course.name} — ${course.nines}` : course.name;
-  document.getElementById('sc-course-sub').textContent = course.loc;
-  const _rcEl = document.getElementById('sc-room-code');
-  if (_rcEl) { _rcEl.textContent = ROOM_CODE ? `Room: ${ROOM_CODE}` : ''; _rcEl.style.display = ROOM_CODE ? '' : 'none'; }
-
-  // Par sums
-  const outPar   = course.par.slice(0,9).reduce((a,b)=>a+b,0);
-  const inPar    = course.par.slice(9,18).reduce((a,b)=>a+b,0);
-  const totalPar = outPar + inPar;
-
-  let html = '';
-
-  // colgroup
-  html += '<colgroup>';
-  html += '<col class="col-name">';
-  for (let i = 0; i < 9; i++)  html += '<col class="col-hole">';
-  html += '<col class="col-out">';
-  for (let i = 0; i < 9; i++)  html += '<col class="col-hole">';
-  html += '<col class="col-sum"><col class="col-sum"><col class="col-net"><col class="col-skins">';
-  html += '</colgroup>';
-
-  // THEAD
-  html += '<thead>';
-
-  // Hole number row
-  html += '<tr class="row-holes">';
-  html += '<th></th>';
-  for (let h = 1; h <= 9; h++)  html += `<th>${h}</th>`;
-  html += '<th class="col-out-h">OUT</th>';
-  for (let h = 10; h <= 18; h++) html += `<th>${h}</th>`;
-  html += '<th class="col-in-h">IN</th><th>TOT</th><th>NET</th><th>SKN</th>';
-  html += '</tr>';
-
-  // Par row
-  html += '<tr class="row-par">';
-  html += '<td>Par</td>';
-  for (let h = 0; h < 9; h++)  html += `<td>${course.par[h]}</td>`;
-  html += `<td class="out-col">${outPar}</td>`;
-  for (let h = 9; h < 18; h++) html += `<td>${course.par[h]}</td>`;
-  html += `<td class="in-col">${inPar}</td><td class="total-col">${totalPar}</td><td class="net-col">—</td><td class="skins-col">—</td>`;
-  html += '</tr>';
-
-  // Yardage row
-  const outYds   = course.yds.slice(0,9).reduce((a,b)=>a+b,0);
-  const inYds    = course.yds.slice(9,18).reduce((a,b)=>a+b,0);
-  const totalYds = outYds + inYds;
-  html += '<tr class="row-ydg">';
-  html += '<td>Yds</td>';
-  for (let h = 0; h < 9; h++)  html += `<td>${course.yds[h]}</td>`;
-  html += `<td class="out-col">${outYds}</td>`;
-  for (let h = 9; h < 18; h++) html += `<td>${course.yds[h]}</td>`;
-  html += `<td class="in-col">${inYds}</td><td class="total-col">${totalYds}</td><td class="net-col"></td><td class="skins-col"></td>`;
-  html += '</tr>';
-
-  // Handicap (stroke index) row
-  html += '<tr class="row-si">';
-  html += '<td>Handicap</td>';
-  for (let h = 0; h < 9; h++)  html += `<td>${course.si[h]}</td>`;
-  html += '<td class="out-col">—</td>';
-  for (let h = 9; h < 18; h++) html += `<td>${course.si[h]}</td>`;
-  html += '<td class="in-col">—</td><td class="total-col">—</td><td class="net-col"></td><td class="skins-col"></td>';
-  html += '</tr>';
-
-  html += '</thead>';
-
-  // TBODY
-  html += '<tbody>';
-
-  const teams = [{ key: 'team1', label: 'Team 1', players: APP.team1 },
-                 { key: 'team2', label: 'Team 2', players: APP.team2 }];
-
-  teams.forEach(({ key, label, players: teamPlayers }) => {
-    const memberNames = teamPlayers.join(' &middot; ');
-    html += `<tr class="row-team-divider"><td colspan="24">${label} &mdash; ${memberNames}</td></tr>`;
-
-    teamPlayers.forEach(p => {
-      html += buildPlayerRow(p, strokes[p], skinsByPlayer[p], course);
-      html += buildPuttRow(p);
-    });
-
-    html += buildBestBallRow(key, teamPlayers, strokes, course);
-    html += build2BallRow(key, teamPlayers, strokes, course);
-  });
-
-  html += '</tbody>';
-
-  const table = document.createElement('table');
-  table.className = 'sc-table';
-  table.innerHTML = html;
-  const wrap = document.getElementById('sc-table-wrap');
-  wrap.innerHTML = '';
-  wrap.appendChild(table);
-  renderPuttPoker();
-}
-
-function buildPlayerRow(player, playerStrokes, skinsWon, course) {
-  const scores = APP.scores[player];
-  const { skinsByPlayer } = computeSkins();
-  skinsWon = skinsByPlayer[player];
-
-  const outVal   = sumRange(player, 0, 9);
-  const inVal    = sumRange(player, 9, 18);
-  const totalVal = (outVal !== null || inVal !== null) ? (outVal || 0) + (inVal || 0) : null;
-  const netVal   = computeNetTotal(player, getPlayerStrokes());
-
-  let html = `<tr class="row-player" data-player="${player}">`;
-
-  // Name cell
-  const _pExpanded = expandedPuttRows.has(player);
-  const _courseHcp = course?.hcp?.[player] ?? Math.round(APP.players?.[player]?.handicapIndex ?? 0);
-  html += `<td class="name-cell">
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:3px">
-      <div class="cell-pname">${player}</div>
-      <button class="putt-toggle-btn" id="putts-toggle-${player}"
-              onclick="event.stopPropagation();togglePuttRow('${player}')"
-              title="Toggle putt tracking">${_pExpanded ? '▲' : '▼'}</button>
-    </div>
-    <div class="cell-hcp">Hcp ${_courseHcp} &bull; +${playerStrokes} strokes</div>
-  </td>`;
-
-  // Holes 1-9
-  for (let h = 0; h < 9; h++) html += buildScoreCell(player, h, playerStrokes, scores[h], course);
-
-  // Out
-  html += `<td class="sum-cell out-col" id="out-${player}">${outVal !== null ? outVal : '—'}</td>`;
-
-  // Holes 10-18
-  for (let h = 9; h < 18; h++) html += buildScoreCell(player, h, playerStrokes, scores[h], course);
-
-  // In, Total, Net, Skins
-  html += `<td class="sum-cell in-col"    id="in-${player}">${inVal    !== null ? inVal    : '—'}</td>`;
-  html += `<td class="sum-cell total-col" id="total-${player}">${totalVal !== null ? totalVal : '—'}</td>`;
-  html += `<td class="sum-cell net-col"   id="net-${player}">${netVal   !== null ? netVal   : '—'}</td>`;
-  html += `<td class="sum-cell skins-col" id="skins-${player}">${skinsWon > 0 ? skinsWon : '—'}</td>`;
-
-  html += '</tr>';
-  return html;
-}
-
-function buildFormatRow(rowClass, teamKey, teamPlayers, strokes, course, label, sublabel, valKey) {
-  const fmt = v => v !== null ? v : '<span style="color:var(--text-faint);font-weight:400">—</span>';
-  const totals = computeTeamTotals(teamPlayers, strokes);
-  const outKey = valKey === 'bestBall' ? 'bbOut' : 'tbOut';
-  const inKey  = valKey === 'bestBall' ? 'bbIn'  : 'tbIn';
-  const totKey = valKey === 'bestBall' ? 'bbTotal' : 'tbTotal';
-  const prefix = valKey === 'bestBall' ? 'bb' : 'tb';
-
-  let html = `<tr class="${rowClass}">`;
-  html += `<td class="name-cell"><div class="fmt-row-label">${label}</div><div class="fmt-row-sub">${sublabel}</div></td>`;
-
-  for (let h = 0; h < 9; h++) {
-    const v = computeTeamHoleStats(teamPlayers, strokes, h)[valKey];
-    html += `<td class="fmt-cell" id="${prefix}-${teamKey}-h${h}">${fmt(v)}</td>`;
-  }
-  html += `<td class="sum-cell out-col" id="${prefix}-${teamKey}-out">${fmt(totals[outKey])}</td>`;
-  for (let h = 9; h < 18; h++) {
-    const v = computeTeamHoleStats(teamPlayers, strokes, h)[valKey];
-    html += `<td class="fmt-cell" id="${prefix}-${teamKey}-h${h}">${fmt(v)}</td>`;
-  }
-  html += `<td class="sum-cell in-col" id="${prefix}-${teamKey}-in">${fmt(totals[inKey])}</td>`;
-  html += `<td class="sum-cell total-col" id="${prefix}-${teamKey}-total">${fmt(totals[totKey])}</td>`;
-  html += `<td class="sum-cell net-col">—</td><td class="sum-cell skins-col">—</td>`;
-  html += '</tr>';
-  return html;
-}
-
-function buildBestBallRow(teamKey, teamPlayers, strokes, course) {
-  return buildFormatRow('row-best-ball', teamKey, teamPlayers, strokes, course,
-    'Best Ball', 'low net per hole', 'bestBall');
-}
-
-function build2BallRow(teamKey, teamPlayers, strokes, course) {
-  return buildFormatRow('row-two-ball', teamKey, teamPlayers, strokes, course,
-    '2-Ball', 'sum of 2 low nets', 'twoBall');
-}
-
-function updateTeamFormatRows(teamKey) {
-  const teamPlayers = APP[teamKey];
-  const strokes = getPlayerStrokes();
-  const totals = computeTeamTotals(teamPlayers, strokes);
-  const fmt = v => v !== null ? String(v) : '—';
-  const el = id => document.getElementById(id);
-
-  for (let h = 0; h < 18; h++) {
-    const { bestBall, twoBall } = computeTeamHoleStats(teamPlayers, strokes, h);
-    const bbCell = el(`bb-${teamKey}-h${h}`);
-    const tbCell = el(`tb-${teamKey}-h${h}`);
-    if (bbCell) bbCell.textContent = bestBall !== null ? bestBall : '—';
-    if (tbCell) tbCell.textContent = twoBall  !== null ? twoBall  : '—';
-  }
-
-  ['bb','tb'].forEach(p => {
-    const [outK, inK, totK] = p === 'bb'
-      ? ['bbOut','bbIn','bbTotal'] : ['tbOut','tbIn','tbTotal'];
-    if (el(`${p}-${teamKey}-out`))   el(`${p}-${teamKey}-out`).textContent   = fmt(totals[outK]);
-    if (el(`${p}-${teamKey}-in`))    el(`${p}-${teamKey}-in`).textContent    = fmt(totals[inK]);
-    if (el(`${p}-${teamKey}-total`)) el(`${p}-${teamKey}-total`).textContent = fmt(totals[totK]);
-  });
-}
-
-function buildScoreCell(player, h, playerStrokes, gross, course) {
-  const colorClass = gross !== null ? getColorClass(gross, course.par[h]) : '';
-  const hasDot = getsStroke(playerStrokes, course.si[h]);
-  return `<td class="score-cell ${colorClass}" data-player="${player}" data-hole="${h}">
-    <div class="sc-cell-inner">
-      <input type="number" inputmode="numeric" min="1" max="20"
-             value="${gross !== null && gross !== undefined ? gross : ''}"
-             oninput="onScoreInput('${player}',${h},this.value)"
-             onfocus="this.select()">
-      ${hasDot ? '<span class="stroke-dot">●</span>' : ''}
-    </div>
-  </td>`;
-}
-
-/* ─────────────────────────────────────────────
-   PUTT TRACKING
-───────────────────────────────────────────── */
-const expandedPuttRows = new Set();
-
-function togglePuttRow(player) {
-  if (expandedPuttRows.has(player)) expandedPuttRows.delete(player);
-  else expandedPuttRows.add(player);
-  const row = document.getElementById(`putts-row-${player}`);
-  if (row) row.style.display = expandedPuttRows.has(player) ? '' : 'none';
-  const btn = document.getElementById(`putts-toggle-${player}`);
-  if (btn) btn.textContent = expandedPuttRows.has(player) ? '▲' : '▼';
-}
-
-function onPuttInput(player, h, rawVal) {
-  if (!APP.putts) APP.putts = {};
-  if (!APP.putts[player]) APP.putts[player] = new Array(18).fill(null);
-  const v = rawVal === '' ? null : parseInt(rawVal, 10);
-  if (rawVal !== '' && (isNaN(v) || v < 0)) return;
-  APP.putts[player][h] = v;
-  saveState();
-  scheduleSync();
-  const input = document.getElementById(`putt-inp-${player}-${h}`);
-  if (input) {
-    input.className = `putt-inp${v === 0 ? ' putt-1' : v === 1 ? ' putt-1' : v === 2 ? ' putt-2' : v >= 3 ? ' putt-3' : ''}`;
-  }
-  updatePuttSums(player);
-  renderPuttPoker();
-}
-
-function updatePuttSums(player) {
-  const putts = APP.putts?.[player] || [];
-  const front = putts.slice(0, 9).filter(v => v !== null && v !== undefined);
-  const back  = putts.slice(9, 18).filter(v => v !== null && v !== undefined);
-  const fSum  = front.length ? front.reduce((a, b) => a + b, 0) : '—';
-  const bSum  = back.length  ? back.reduce((a, b) => a + b, 0)  : '—';
-  const tSum  = (front.length || back.length)
-    ? (front.length ? front.reduce((a, b) => a + b, 0) : 0) + (back.length ? back.reduce((a, b) => a + b, 0) : 0)
-    : '—';
-  const el = id => document.getElementById(id);
-  if (el(`putt-out-${player}`))   el(`putt-out-${player}`).textContent   = fSum;
-  if (el(`putt-in-${player}`))    el(`putt-in-${player}`).textContent    = bSum;
-  if (el(`putt-total-${player}`)) el(`putt-total-${player}`).textContent = tSum;
-}
-
-function buildPuttCell(player, h) {
-  const v   = APP.putts?.[player]?.[h] ?? null;
-  const cls = v === 0 ? ' putt-1' : v === 1 ? ' putt-1' : v === 2 ? ' putt-2' : v >= 3 ? ' putt-3' : '';
-  return `<td class="putt-cell">
-    <input type="number" inputmode="numeric" min="0" max="9" class="putt-inp${cls}" id="putt-inp-${player}-${h}"
-           value="${v !== null ? v : ''}"
-           oninput="onPuttInput('${player}',${h},this.value)"
-           onfocus="this.select()">
-  </td>`;
-}
-
-function buildPuttRow(player) {
-  const expanded = expandedPuttRows.has(player);
-  const putts    = APP.putts?.[player] || new Array(18).fill(null);
-  const front    = putts.slice(0, 9).filter(v => v !== null);
-  const back     = putts.slice(9, 18).filter(v => v !== null);
-  const fSum     = front.length ? front.reduce((a, b) => a + b, 0) : '—';
-  const bSum     = back.length  ? back.reduce((a, b) => a + b, 0)  : '—';
-  const tSum     = (front.length || back.length)
-    ? (front.length ? front.reduce((a, b) => a + b, 0) : 0) + (back.length ? back.reduce((a, b) => a + b, 0) : 0)
-    : '—';
-
-  let html = `<tr class="row-putts" id="putts-row-${player}" style="${expanded ? '' : 'display:none'}">`;
-  html += `<td class="name-cell" style="background:var(--bg-lighter)!important">
-    <div style="font-size:0.58rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);opacity:0.75">Putts</div>
-  </td>`;
-  for (let h = 0;  h < 9;  h++) html += buildPuttCell(player, h);
-  html += `<td class="sum-cell out-col"   id="putt-out-${player}"   style="background:var(--bg-lighter)!important;color:rgba(245,240,228,0.65);font-size:0.82rem">${fSum}</td>`;
-  for (let h = 9;  h < 18; h++) html += buildPuttCell(player, h);
-  html += `<td class="sum-cell in-col"    id="putt-in-${player}"    style="background:var(--bg-lighter)!important;color:rgba(245,240,228,0.65);font-size:0.82rem">${bSum}</td>`;
-  html += `<td class="sum-cell total-col" id="putt-total-${player}" style="background:var(--bg-lighter)!important;color:rgba(245,240,228,0.65);font-size:0.82rem">${tSum}</td>`;
-  html += `<td class="sum-cell" style="background:var(--bg-lighter)!important"></td>`;
-  html += `<td class="sum-cell" style="background:var(--bg-lighter)!important"></td>`;
-  html += '</tr>';
-  return html;
-}
-
-/* ─────────────────────────────────────────────
-   PUTT POKER
-───────────────────────────────────────────── */
-function computePuttPoker(teamPlayers) {
-  const cards          = {};
-  const threePuttCount = {};
-  teamPlayers.forEach(p => { cards[p] = 2; threePuttCount[p] = 0; });
-  let coinHolder = null;
-  let pot        = (APP.bets?.pp || 0) * teamPlayers.length;
-
-  for (let h = 0; h < 18; h++) {
-    teamPlayers.forEach(p => {
-      const v = APP.putts?.[p]?.[h] ?? null;
-      if (v === null) return;
-      if (v === 0) cards[p] += 2;
-      if (v === 1) cards[p] += 1;
-      if (v === 3) { coinHolder = p; pot += 5; threePuttCount[p]++; }
-    });
-  }
-  return { cards, coinHolder, pot, threePuttCount };
-}
-
-function _renderPuttPokerContent(panel) {
-  const teams = [
-    { label: 'Team 1', players: APP.team1 || [] },
-    { label: 'Team 2', players: APP.team2 || [] }
-  ];
-  let html = '<div class="pp-content">';
-  teams.forEach(({ label, players }) => {
-    if (!players.length) return;
-    const { cards, coinHolder, pot, threePuttCount } = computePuttPoker(players);
-    html += `<div class="pp-team">
-      <div class="pp-team-hdr">${label}</div>
-      <div class="pp-coin">🪙 Coin: ${coinHolder
-        ? `<strong>${coinHolder}</strong>`
-        : '<em style="opacity:0.45;font-style:italic;font-size:0.7rem">no 3-putts yet</em>'
-      }</div>
-      <div class="pp-cards-row">
-        ${players.map(p => `<div class="pp-player">
-          <div class="pp-player-name">${p}</div>
-          <div class="pp-card-count">🃏&nbsp;&times;&nbsp;${cards[p]}</div>
-          ${threePuttCount[p] > 0 ? `<div class="pp-3putt-note">${threePuttCount[p]}&times; 3-putt</div>` : ''}
-        </div>`).join('')}
-      </div>
-      <div class="pp-pot">Pot: <strong>$${pot}</strong></div>
-    </div>`;
-  });
-  html += '</div>';
-  panel.innerHTML = html;
-}
-
-function renderPuttPoker() {
-  const panel = document.getElementById('pp-panel');
-  if (!panel || panel.style.display === 'none') return;
-  _renderPuttPokerContent(panel);
-}
-
-function togglePPPanel() {
-  const panel = document.getElementById('pp-panel');
-  const icon  = document.getElementById('pp-toggle-icon');
-  if (!panel) return;
-  const opening = panel.style.display === 'none';
-  panel.style.display = opening ? '' : 'none';
-  if (icon) icon.textContent = opening ? '▲' : '▼';
-  if (opening) _renderPuttPokerContent(panel);
-}
-
-/* ─────────────────────────────────────────────
-   SCORE INPUT HANDLER
-───────────────────────────────────────────── */
-function onScoreInput(player, h, rawVal) {
-  const gross = rawVal === '' ? null : parseInt(rawVal, 10);
-  if (rawVal !== '' && isNaN(gross)) return;
-  APP.scores[player][h] = gross;
-  saveState();
-  scheduleSync();
-
-  const course = COURSES[APP.course];
-
-  // Update cell color class
-  const cell = document.querySelector(`td.score-cell[data-player="${player}"][data-hole="${h}"]`);
-  if (cell) {
-    cell.className = 'score-cell' + (gross !== null ? ' ' + getColorClass(gross, course.par[h]) : '');
-  }
-
-  // Update sums for this player
-  updatePlayerSums(player);
-
-  // Recompute skins for all players
-  updateAllSkins();
-
-  // Update team format rows (Best Ball / 2-Ball)
-  const teamKey = APP.team1.includes(player) ? 'team1' : 'team2';
-  updateTeamFormatRows(teamKey);
-}
-
-function updatePlayerSums(player) {
-  const strokes = getPlayerStrokes();
-  const outVal   = sumRange(player, 0, 9);
-  const inVal    = sumRange(player, 9, 18);
-  const totalVal = (outVal !== null || inVal !== null) ? (outVal || 0) + (inVal || 0) : null;
-  const netVal   = computeNetTotal(player, strokes);
-
-  const el = id => document.getElementById(id);
-  const fmt = v => v !== null ? v : '—';
-  if (el(`out-${player}`))   el(`out-${player}`).textContent   = fmt(outVal);
-  if (el(`in-${player}`))    el(`in-${player}`).textContent    = fmt(inVal);
-  if (el(`total-${player}`)) el(`total-${player}`).textContent = fmt(totalVal);
-  if (el(`net-${player}`))   el(`net-${player}`).textContent   = fmt(netVal);
-}
-
-function updateAllSkins() {
-  const { skinsByPlayer } = computeSkins();
-  const players = [...APP.team1, ...APP.team2];
-  players.forEach(p => {
-    const el = document.getElementById(`skins-${p}`);
-    if (el) el.textContent = skinsByPlayer[p] > 0 ? skinsByPlayer[p] : '—';
-  });
-}
-
-/* ─────────────────────────────────────────────
-   RESULTS RENDER
-───────────────────────────────────────────── */
-function renderResults() {
-  const course  = COURSES[APP.course];
-  const players = [...APP.team1, ...APP.team2];
-  const strokes = getPlayerStrokes();
-  const { skinsByPlayer, holeResults, pendingPot } = computeSkins();
-
-  // Build individual leaderboard sorted by net
-  const board = players.map(p => {
-    const gross = players.reduce((_, _p) => _, 0); // placeholder
-    const grossTotal = sumRange(p, 0, 18);
-    const netTotal   = computeNetTotal(p, strokes);
-    const team = APP.team1.includes(p) ? 'Team 1' : 'Team 2';
-    return { player: p, team, gross: grossTotal, strokes: strokes[p], net: netTotal, skins: skinsByPlayer[p] };
-  }).sort((a, b) => {
-    if (a.net === null && b.net === null) return 0;
-    if (a.net === null) return 1;
-    if (b.net === null) return -1;
-    return a.net - b.net;
-  });
-
-  // Team totals
-  const team1Net = APP.team1.reduce((s, p) => s + (computeNetTotal(p, strokes) || 0), 0);
-  const team2Net = APP.team2.reduce((s, p) => s + (computeNetTotal(p, strokes) || 0), 0);
-  const team1HasAll = APP.team1.every(p => computeNetTotal(p, strokes) !== null);
-  const team2HasAll = APP.team2.every(p => computeNetTotal(p, strokes) !== null);
-
-  let html = '';
-
-  // Top bar
-  const _completeBtn = ROOM_CODE && !APP.completed
-    ? `<button class="btn-complete" onclick="completeRound()">Complete Round ✓</button>`
-    : (APP.completed ? `<span class="completed-badge">✓ Round Complete</span>` : '');
-  html += `<div class="results-topbar">
-    <div>
-      <div class="results-title">◆ Final Results</div>
-      ${ROOM_CODE ? `<div style="font-size:0.62rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);opacity:0.75;margin-top:0.2rem">Room: ${ROOM_CODE}</div>` : ''}
-    </div>
-    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">
-      ${_completeBtn}
-      <button class="btn-ghost" onclick="showScreen('scorecard')">← Scorecard</button>
-      <button class="btn-danger" onclick="resetRound()">Reset Round</button>
-    </div>
-  </div>`;
-
-  // 0. Settlement
-  const pnl = computePlayerPnL();
-  const hasBets = Object.values(APP.bets || {}).some(v => v > 0);
-  const allPlayers2 = [...APP.team1, ...APP.team2];
-  html += `<div class="results-section">
-    <div class="results-section-hdr">Settlement</div>`;
-  if (!hasBets) {
-    html += `<div class="settle-no-bets">No bet amounts entered — set them on the setup screen.</div>`;
-  } else {
-    const transfers = computeSettlement(pnl);
-    // P&L summary table
-    html += `<div style="overflow-x:auto"><table class="pnl-table">
-      <thead><tr><th>Player</th><th>Skins</th><th>Best Ball</th><th>2-Ball</th><th>H2H</th><th>Net</th></tr></thead>
-      <tbody>`;
-    const b = APP.bets;
-    allPlayers2.forEach(p => {
-      // Recompute per-format breakdown
-      const sk = computeSkins();
-      const st = getPlayerStrokes();
-      const t1T = computeTeamTotals(APP.team1, st);
-      const t2T = computeTeamTotals(APP.team2, st);
-      const isT1 = APP.team1.includes(p);
-
-      let skinPnl = 0;
-      if (b.skins) {
-        const _total = Object.values(sk.skinsByPlayer).reduce((a,c)=>a+c,0);
-        if (_total > 0) skinPnl = (sk.skinsByPlayer[p] / _total) * (b.skins * 6) - b.skins;
-      }
-
-      function teamDelta(t1v, t2v, amt) {
-        if (!amt || t1v===null || t2v===null) return 0;
-        if (isT1) return t1v < t2v ? amt : t1v > t2v ? -amt : 0;
-        return t2v < t1v ? amt : t2v > t1v ? -amt : 0;
-      }
-      const bbPnl = teamDelta(t1T.bbOut,t2T.bbOut,b.bbFront)+teamDelta(t1T.bbIn,t2T.bbIn,b.bbBack)+teamDelta(t1T.bbTotal,t2T.bbTotal,b.bbTotal);
-      const tbPnl = teamDelta(t1T.tbOut,t2T.tbOut,b.tbFront)+teamDelta(t1T.tbIn,t2T.tbIn,b.tbBack)+teamDelta(t1T.tbTotal,t2T.tbTotal,b.tbTotal);
-
-      let h2hPnl = 0;
-      if (b.h2h && APP.matchups) {
-        const myM = APP.matchups.find(m => m.t1===p||m.t2===p);
-        if (myM) {
-          const n1=computeNetTotal(myM.t1,st), n2=computeNetTotal(myM.t2,st);
-          if (n1!==null&&n2!==null) {
-            if (myM.t1===p) h2hPnl = n1<n2?b.h2h:n2<n1?-b.h2h:0;
-            else            h2hPnl = n2<n1?b.h2h:n1<n2?-b.h2h:0;
-          }
-        }
-      }
-      const net = skinPnl + bbPnl + tbPnl + h2hPnl;
-      const fc = v => v===0?'—':`<span class="${v>0?'pnl-pos':'pnl-neg'}">${v>0?'+':''}$${Math.abs(v)}</span>`;
-      html += `<tr>
-        <td><strong>${p}</strong></td>
-        <td>${fc(Math.round(skinPnl))}</td><td>${fc(bbPnl)}</td><td>${fc(tbPnl)}</td><td>${fc(h2hPnl)}</td>
-        <td>${fc(net)}</td>
-      </tr>`;
-    });
-    html += `</tbody></table></div>`;
-
-    if (transfers.length) {
-      html += `<div class="settle-header">Who pays who</div>
-        <div class="settlement-list">`;
-      transfers.forEach(t => {
-        html += `<div class="settlement-row">
-          <span class="settle-names">${t.from} <span class="settle-arrow">pays</span> ${t.to}</span>
-          <span class="settle-amount">$${Math.round(t.amount)}</span>
-        </div>`;
-      });
-      html += `</div>`;
-    } else {
-      html += `<div class="settle-no-bets" style="padding:0.75rem">All square — no money changes hands.</div>`;
-    }
-  }
-  html += `</div>`;
-
-  // 1. Individual Leaderboard
-  html += `<div class="results-section">
-    <div class="results-section-hdr">Individual Leaderboard</div>
-    <div style="overflow-x:auto"><table class="res-table">
-      <thead><tr>
-        <th>Player</th><th>Team</th><th>Gross</th><th>Strokes</th><th>Net</th><th>Skins</th>
-      </tr></thead>
-      <tbody>`;
-
-  board.forEach((row, i) => {
-    const isLeader = i === 0 && row.net !== null;
-    html += `<tr>
-      <td><span class="res-rank">${i+1}.</span><span class="res-player-name ${isLeader ? 'res-winner' : ''}">${row.player}</span></td>
-      <td>${row.team}</td>
-      <td>${row.gross !== null ? row.gross : '—'}</td>
-      <td>${row.strokes > 0 ? '+' + row.strokes : '—'}</td>
-      <td class="res-net-val">${row.net !== null ? row.net : '—'}</td>
-      <td class="res-skins-val">${row.skins > 0 ? row.skins : '—'}</td>
-    </tr>`;
-  });
-
-  html += `</tbody></table></div>`;
-
-  // 2. Team Scores
-  const t1Win = team1HasAll && team2HasAll && team1Net < team2Net;
-  const t2Win = team1HasAll && team2HasAll && team2Net < team1Net;
-  const tied  = team1HasAll && team2HasAll && team1Net === team2Net;
-
-  html += `<div class="results-section">
-    <div class="results-section-hdr">Team Scores</div>
-    <div class="team-score-grid">
-      <div class="team-score-box ${t1Win ? 'winner' : ''}">
-        <div class="tsb-label">Team 1 &bull; ${APP.team1.join(', ')}</div>
-        <div class="tsb-score ${t1Win ? 'winner-score' : ''}">${team1HasAll ? team1Net : '—'}</div>
-        <div class="tsb-tag ${t1Win ? 'winner-tag' : ''}">${t1Win ? '🏆 Winners' : (team1HasAll ? '' : 'In progress')}</div>
-      </div>
-      <div class="team-score-vs">vs</div>
-      <div class="team-score-box ${t2Win ? 'winner' : ''}">
-        <div class="tsb-label">Team 2 &bull; ${APP.team2.join(', ')}</div>
-        <div class="tsb-score ${t2Win ? 'winner-score' : ''}">${team2HasAll ? team2Net : '—'}</div>
-        <div class="tsb-tag ${t2Win ? 'winner-tag' : ''}">${t2Win ? '🏆 Winners' : (team2HasAll ? '' : 'In progress')}${tied ? 'All square' : ''}</div>
-      </div>
-    </div>
-  </div>`;
-
-  // 3. Skins Breakdown
-  html += `<div class="results-section">
-    <div class="results-section-hdr">Skins Breakdown</div>`;
-
-  if (!holeResults.length) {
-    html += `<div class="provisional-note">No complete holes yet — skins will appear as scores are entered.</div>`;
-  } else {
-    html += `<table class="res-table">
-      <thead><tr>
-        <th>Hole</th><th>Par</th><th>Handicap</th><th>Result</th><th>Winner</th><th>Gross</th><th>Net</th><th>Pot</th>
-      </tr></thead>
-      <tbody>`;
-
-    holeResults.forEach(r => {
-      const par = course.par[r.hole - 1];
-      const si  = course.si[r.hole - 1];
-      if (r.tied) {
-        html += `<tr class="skins-carry-row">
-          <td>${r.hole}</td><td>${par}</td><td>${si}</td>
-          <td style="font-style:italic;color:var(--text-faint)">Carry →</td>
-          <td style="font-size:0.75rem;color:var(--text-faint)">${r.tiedPlayers.join(', ')}</td>
-          <td>—</td><td>—</td>
-          <td><span class="skins-pot-badge">${r.pot} → ${r.pot+1}</span></td>
-        </tr>`;
-      } else {
-        const gross = APP.scores[r.winner][r.hole - 1];
-        const net   = r.nets[r.winner];
-        html += `<tr>
-          <td>${r.hole}</td><td>${par}</td><td>${si}</td>
-          <td style="color:var(--gold-dark);font-weight:700">Won</td>
-          <td><span class="skins-winner-name">${r.winner}</span></td>
-          <td>${gross}</td><td>${net}</td>
-          <td><span class="skins-pot-badge">${r.pot}</span></td>
-        </tr>`;
-      }
-    });
-
-    html += '</tbody></table>';
-
-    if (pendingPot > 1) {
-      html += `<div class="provisional-note">Pot of ${pendingPot} skin${pendingPot > 1 ? 's' : ''} pending on next completed hole.</div>`;
-    }
-
-    if (APP.bets && APP.bets.skins) {
-      const _skinsTotal = Object.values(skinsByPlayer).reduce((a,b)=>a+b,0);
-      const _pot = APP.bets.skins * 6;
-      const _perSkin = _skinsTotal > 0 ? (_pot / _skinsTotal).toFixed(2) : '—';
-      html += `<div class="provisional-note" style="margin-top:0.5rem">Pot: $${_pot} total &bull; $${_perSkin}/skin (${_skinsTotal} skin${_skinsTotal!==1?'s':''} decided)</div>`;
-    }
-  }
-
-  html += '</div>'; // close skins section
-
-  // 4. Best Ball & 2-Ball Competition
-  const t1Totals = computeTeamTotals(APP.team1, strokes);
-  const t2Totals = computeTeamTotals(APP.team2, strokes);
-  const f = v => v !== null ? v : '—';
-
-  function formatCompSection(label, ruleLine, t1Out, t1In, t1Total, t2Out, t2In, t2Total) {
-    const bothDone = t1Total !== null && t2Total !== null;
-    const t1Wins   = bothDone && t1Total < t2Total;
-    const t2Wins   = bothDone && t2Total < t1Total;
-    const allSquare = bothDone && t1Total === t2Total;
-    const teamBox = (teamNum, players, out, inp, total, wins) => `
-      <div class="format-comp-box ${wins ? 'winner' : ''}">
-        <div class="fcb-label">Team ${teamNum} &bull; ${players.join(', ')}</div>
-        <div class="fcb-breakdown">
-          <div class="fcb-bd-item"><div class="fcb-bd-label">Out</div><div class="fcb-bd-val">${f(out)}</div></div>
-          <div class="fcb-bd-item"><div class="fcb-bd-label">In</div><div class="fcb-bd-val">${f(inp)}</div></div>
-        </div>
-        <div class="fcb-total-label">Total</div>
-        <div class="fcb-score ${wins ? 'winner-score' : ''}">${f(total)}</div>
-        <div class="fcb-tag ${wins ? 'winner-tag' : ''}">${wins ? '🏆 Winners' : allSquare ? 'All Square' : (total !== null ? '' : 'In progress')}</div>
-      </div>`;
-    return `
-      <div style="border-top:1px solid var(--panel-border);padding:0.55rem 1.25rem 0.35rem;background:var(--bg-lighter);display:flex;align-items:baseline;gap:0.75rem;">
-        <span style="font-family:'Playfair Display',serif;font-size:0.8rem;font-weight:700;color:var(--gold);letter-spacing:0.12em;text-transform:uppercase;">${label}</span>
-        <span class="format-section-sub">${ruleLine}</span>
-      </div>
-      <div class="format-comp-grid">
-        ${teamBox(1, APP.team1, t1Out, t1In, t1Total, t1Wins)}
-        <div class="format-comp-vs">vs</div>
-        ${teamBox(2, APP.team2, t2Out, t2In, t2Total, t2Wins)}
-      </div>`;
-  }
-
-  // 4. Head-to-Head Matchup Results
-  if (APP.matchups && APP.matchups.length) {
-    html += `<div class="results-section">
-      <div class="results-section-hdr">Head-to-Head Matchups</div>
-      <table class="res-table">
-        <thead><tr>
-          <th>#</th><th>Team 1</th><th>Net</th><th></th><th>Net</th><th>Team 2</th><th>Result</th>
-        </tr></thead>
-        <tbody>`;
-
-    APP.matchups.forEach((m, i) => {
-      const n1 = computeNetTotal(m.t1, strokes);
-      const n2 = computeNetTotal(m.t2, strokes);
-      const t1Wins = n1 !== null && n2 !== null && n1 < n2;
-      const t2Wins = n1 !== null && n2 !== null && n2 < n1;
-      const square = n1 !== null && n2 !== null && n1 === n2;
-      const result = t1Wins ? `${m.t1} wins` : t2Wins ? `${m.t2} wins` : square ? 'All Square' : 'In progress';
-      const resultColor = (t1Wins || t2Wins) ? 'var(--gold-dark)' : 'var(--text-faint)';
-      html += `<tr>
-        <td style="color:var(--text-faint);font-size:0.75rem">${i + 1}</td>
-        <td style="text-align:left"><span class="res-player-name ${t1Wins ? 'res-winner' : ''}">${m.t1}</span></td>
-        <td class="res-net-val">${n1 !== null ? n1 : '—'}</td>
-        <td style="color:var(--text-faint);font-style:italic;font-size:0.78rem">vs</td>
-        <td class="res-net-val">${n2 !== null ? n2 : '—'}</td>
-        <td style="text-align:right"><span class="res-player-name ${t2Wins ? 'res-winner' : ''}">${m.t2}</span></td>
-        <td style="font-weight:700;font-size:0.82rem;color:${resultColor}">${result}</td>
-      </tr>`;
-    });
-
-    html += `</tbody></table></div>`;
-  }
-
-  // 5. Best Ball & 2-Ball Competition
-  html += `<div class="results-section">
-    <div class="results-section-hdr">Best Ball &amp; 2-Ball Competition</div>
-    ${formatCompSection(
-        'Best Ball',
-        'Each hole: 1 best net score counts — lowest team total wins',
-        t1Totals.bbOut, t1Totals.bbIn, t1Totals.bbTotal,
-        t2Totals.bbOut, t2Totals.bbIn, t2Totals.bbTotal
-    )}
-    ${formatCompSection(
-        '2-Ball',
-        'Each hole: sum of 2 best net scores counts — lowest team total wins',
-        t1Totals.tbOut, t1Totals.tbIn, t1Totals.tbTotal,
-        t2Totals.tbOut, t2Totals.tbIn, t2Totals.tbTotal
-    )}
-  </div>`;
-
-  document.getElementById('results-wrap').innerHTML = html;
-}
-
-/* ─────────────────────────────────────────────
-   MONEY / SETTLEMENT
-───────────────────────────────────────────── */
-function computePlayerPnL() {
-  const bets    = APP.bets || DEFAULT_BETS;
-  const strokes = getPlayerStrokes();
-  const { skinsByPlayer } = computeSkins();
-  const players = [...APP.team1, ...APP.team2];
-  const t1Tot   = computeTeamTotals(APP.team1, strokes);
-  const t2Tot   = computeTeamTotals(APP.team2, strokes);
-  const pnl     = {};
-  players.forEach(p => { pnl[p] = 0; });
-
-  // Skins: pot model — each player contributes bets.skins; total pot split by skins won.
-  if (bets.skins) {
-    const totalPot = bets.skins * 6;
-    const total = Object.values(skinsByPlayer).reduce((a,b)=>a+b,0);
-    if (total > 0) {
-      players.forEach(p => { pnl[p] += (skinsByPlayer[p] / total) * totalPot - bets.skins; });
-    }
-  }
-
-  // Team format helper: winning team +amt per player, losing -amt per player
-  function applyTeam(t1Val, t2Val, amt) {
-    if (!amt || t1Val === null || t2Val === null) return;
-    if (t1Val < t2Val)      { APP.team1.forEach(p => { pnl[p] += amt; }); APP.team2.forEach(p => { pnl[p] -= amt; }); }
-    else if (t2Val < t1Val) { APP.team2.forEach(p => { pnl[p] += amt; }); APP.team1.forEach(p => { pnl[p] -= amt; }); }
-  }
-
-  applyTeam(t1Tot.bbOut,   t2Tot.bbOut,   bets.bbFront);
-  applyTeam(t1Tot.bbIn,    t2Tot.bbIn,    bets.bbBack);
-  applyTeam(t1Tot.bbTotal, t2Tot.bbTotal, bets.bbTotal);
-  applyTeam(t1Tot.tbOut,   t2Tot.tbOut,   bets.tbFront);
-  applyTeam(t1Tot.tbIn,    t2Tot.tbIn,    bets.tbBack);
-  applyTeam(t1Tot.tbTotal, t2Tot.tbTotal, bets.tbTotal);
-
-  // H2H matchups
-  if (bets.h2h && APP.matchups) {
-    APP.matchups.forEach(m => {
-      const n1 = computeNetTotal(m.t1, strokes);
-      const n2 = computeNetTotal(m.t2, strokes);
-      if (n1 !== null && n2 !== null) {
-        if (n1 < n2)      { pnl[m.t1] += bets.h2h; pnl[m.t2] -= bets.h2h; }
-        else if (n2 < n1) { pnl[m.t2] += bets.h2h; pnl[m.t1] -= bets.h2h; }
-      }
-    });
-  }
-  return pnl;
-}
-
-function computeSettlement(pnl) {
-  const debtors   = Object.entries(pnl).filter(([,v])=>v<0).map(([n,v])=>({name:n,amt:-v})).sort((a,b)=>b.amt-a.amt);
-  const creditors = Object.entries(pnl).filter(([,v])=>v>0).map(([n,v])=>({name:n,amt:v})).sort((a,b)=>b.amt-a.amt);
-  const transfers = [];
-  let di = 0, ci = 0;
-  while (di < debtors.length && ci < creditors.length) {
-    const pay = Math.min(debtors[di].amt, creditors[ci].amt);
-    if (pay > 0) transfers.push({ from: debtors[di].name, to: creditors[ci].name, amount: pay });
-    debtors[di].amt   -= pay;
-    creditors[ci].amt -= pay;
-    if (debtors[di].amt   < 0.01) di++;
-    if (creditors[ci].amt < 0.01) ci++;
-  }
-  return transfers;
-}
-
-function showResults() {
-  renderResults();
-  showScreen('results');
-}
-
-/* ─────────────────────────────────────────────
-   RESET
-───────────────────────────────────────────── */
-function resetRound() {
-  if (!confirm('Reset this round? All scores will be lost.')) return;
-  const _keepCode    = ROOM_CODE;
-  const _keepPlayers = { ...(APP.players || {}) };
-  localStorage.removeItem('golf_scorecard_v1');
-  expandedPuttRows.clear();
-  APP = { course: null, team1: [], team2: [], scores: {}, putts: {}, bets: { ...DEFAULT_BETS },
-          roomCode: _keepCode || null, completed: false, players: _keepPlayers };
-
-  // Reset setup UI
-  document.querySelectorAll('.course-card').forEach(c => c.classList.remove('selected'));
-  document.querySelectorAll('.nine-btn').forEach(b => b.classList.remove('selected'));
-  document.getElementById('fairbanks-nines').classList.remove('visible');
-  setupState.course = null;
-  setupState.team1 = [];
-  setupState.team2 = [];
-  setupState.pool = Object.keys(_keepPlayers);
-  setupState.matchupOrder = [];
-  loadBetsToInputs();
-  renderSetup();
-  updateCTA();
-  showScreen('setup');
-  saveState();
-  if (_keepCode) {
-    // Insert a new round row — the INSERT event notifies all subscribers
-    _db.from('rounds').insert({ code: _keepCode, state: APP, completed: false })
-      .select('id').single()
-      .then(({ data }) => {
-        if (data) {
-          ROUND_ID = data.id;
-          APP.roundId = ROUND_ID;
-          saveState();
-          pushToSupabase(); // store correct roundId so joining clients get it
-        }
-      });
-  }
-}
-
-/* ─────────────────────────────────────────────
-   SETUP SCREEN LOGIC
-───────────────────────────────────────────── */
-const setupState = {
-  course: null,
-  team1: [],
-  team2: [],
-  pool: [],   // populated from APP.players in init
-  matchupOrder: [],
-};
-
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function renderPool() {
-  const zone = document.getElementById('pool-zone');
-  if (!setupState.pool.length) {
-    zone.innerHTML = '<div class="pool-empty">Add players above to begin</div>';
-    return;
-  }
-  zone.innerHTML = setupState.pool.map(p => {
-    const pd  = APP.players?.[p];
-    const sub = pd?.handicapIndex !== undefined
-      ? `<span class="player-chip-sub">Idx ${pd.handicapIndex}</span>` : '';
-    const safe = p.replace(/'/g, "\\'");
-    return `<div class="player-chip" data-player="${escHtml(p)}" onclick="clickAssign('${safe}')">
-      <span>${escHtml(p)}</span>${sub}<span class="chip-x" onclick="event.stopPropagation();removePlayer('${safe}')" title="Remove">✕</span>
-    </div>`;
-  }).join('');
-}
-
-function renderTeam(t) {
-  const members = setupState[t];
-  const slots = document.getElementById(`${t}-slots`);
-  const ct    = document.getElementById(`${t}-ct`);
-  let html = '';
-  for (let i = 0; i < 3; i++) {
-    if (members[i]) {
-      const p = members[i];
-      html += `<div class="slot slot-filled" data-player="${p}"
-                    onclick="returnToPool('${p}','${t}')">
-                 <span class="slot-name">${p}</span><span class="slot-x">✕</span>
-               </div>`;
-    } else {
-      html += `<div class="slot slot-empty">open</div>`;
-    }
-  }
-  slots.innerHTML = html;
-  ct.textContent = `${members.length} of 3`;
-}
-
-function renderSetup() {
-  renderPool();
-  renderTeam('team1');
-  renderTeam('team2');
-}
-
-function selectCourse(el) {
-  document.querySelectorAll('.course-card').forEach(c => c.classList.remove('selected'));
-  el.classList.add('selected');
-  const family = el.dataset.course;
-  if (family === 'fairbanks') {
-    document.getElementById('fairbanks-nines').classList.add('visible');
-    setupState.course = 'fairbanks'; // sentinel: card selected, nine not yet chosen
-  } else {
-    document.getElementById('fairbanks-nines').classList.remove('visible');
-    document.querySelectorAll('.nine-btn').forEach(b => b.classList.remove('selected'));
-    setupState.course = family;
-  }
-  syncSetupAndSchedule();
-  updateCTA();
-}
-
-function selectNines(el) {
-  document.querySelectorAll('.nine-btn').forEach(b => b.classList.remove('selected'));
-  el.classList.add('selected');
-  setupState.course = el.dataset.combo;
-  syncSetupAndSchedule();
-  updateCTA();
-}
-
-function restoreCourseUI() {
-  const c = setupState.course;
-  const isFairbanks = c === 'fairbanks' || (c && c.startsWith('fairbanks_'));
-  document.querySelectorAll('.course-card').forEach(card =>
-    card.classList.toggle('selected',
-      c === card.dataset.course || (isFairbanks && card.dataset.course === 'fairbanks'))
-  );
-  const fbnEl = document.getElementById('fairbanks-nines');
-  if (isFairbanks) {
-    fbnEl.classList.add('visible');
-    document.querySelectorAll('.nine-btn').forEach(b =>
-      b.classList.toggle('selected', b.dataset.combo === c));
-  } else {
-    fbnEl.classList.remove('visible');
-    document.querySelectorAll('.nine-btn').forEach(b => b.classList.remove('selected'));
-  }
-}
-
-function clickAssign(player) {
-  if (setupState.team1.length < 3) moveToTeam(player, 'pool', 'team1');
-  else if (setupState.team2.length < 3) moveToTeam(player, 'pool', 'team2');
-}
-
-function returnToPool(player, fromTeam) {
-  setupState[fromTeam] = setupState[fromTeam].filter(p => p !== player);
-  setupState.pool.push(player);
-  renderSetup();
-  syncSetupAndSchedule();
-  updateCTA();
-}
-
-function moveToTeam(player, from, to) {
-  if (setupState[to].length >= 3) return;
-  if (from === 'pool') setupState.pool = setupState.pool.filter(p => p !== player);
-  else setupState[from] = setupState[from].filter(p => p !== player);
-  setupState[to].push(player);
-  renderSetup();
-  syncSetupAndSchedule();
-  updateCTA();
-}
-
-
-function updateCTA() {
-  const btn = document.getElementById('start-btn');
-  const msg = document.getElementById('val-msg');
-  const ready = !!COURSES[setupState.course] && setupState.team1.length === 3 && setupState.team2.length === 3;
-  btn.disabled = !ready;
-  if (!setupState.course && !setupState.team1.length && !setupState.team2.length) {
-    msg.textContent = 'Select a course and assign players to begin';
-  } else if (setupState.course === 'fairbanks') {
-    msg.textContent = setupState.pool.length > 0 ? 'Choose your nines and assign players to begin' : 'Choose your nines to begin';
-  } else if (!setupState.course) {
-    msg.textContent = 'Select a course to begin';
-  } else if (setupState.pool.length > 0) {
-    const n = setupState.pool.length;
-    msg.textContent = `Assign ${n} more player${n > 1 ? 's' : ''} to begin`;
-  } else {
-    msg.textContent = '';
-  }
-  renderMatchups();
-}
-
-function renderMatchups() {
-  const section = document.getElementById('matchup-section');
-  if (setupState.team1.length !== 3 || setupState.team2.length !== 3) {
-    section.style.display = 'none';
-    return;
-  }
-  section.style.display = '';
-  // Reset order if team composition changed
-  if (setupState.matchupOrder.length !== 3 ||
-      !setupState.matchupOrder.every(p => setupState.team2.includes(p))) {
-    setupState.matchupOrder = [...setupState.team2];
-  }
-  renderMatchupRows();
-}
-
-function renderMatchupRows() {
-  document.getElementById('matchup-rows').innerHTML =
-    setupState.team1.map((t1p, i) => {
-      const t2p = setupState.matchupOrder[i];
-      const n   = setupState.team1.length;
-      return `<div class="matchup-row">
-        <div class="matchup-num">${i + 1}</div>
-        <div class="matchup-player">${t1p}</div>
-        <div class="matchup-vs">vs</div>
-        <div class="matchup-t2-wrap">
-          <div class="matchup-t2-name">${t2p}</div>
-          <div class="matchup-arrows">
-            <button class="matchup-btn" onclick="swapMatchup(${i},-1)" ${i === 0 ? 'disabled' : ''}>▲</button>
-            <button class="matchup-btn" onclick="swapMatchup(${i}, 1)" ${i === n - 1 ? 'disabled' : ''}>▼</button>
-          </div>
-        </div>
-      </div>`;
-    }).join('');
-}
-
-function swapMatchup(i, dir) {
-  const j = i + dir;
-  const a = setupState.matchupOrder;
-  if (j < 0 || j >= a.length) return;
-  [a[i], a[j]] = [a[j], a[i]];
-  renderMatchupRows();
-  syncSetupAndSchedule();
-}
-
-function saveBets() {
-  const g = id => { const v = parseInt(document.getElementById(id)?.value || '0', 10); return isNaN(v) ? 0 : Math.max(0, v); };
-  APP.bets = {
-    skins:   g('bet-skins'),
-    bbFront: g('bet-bb-front'), bbBack: g('bet-bb-back'), bbTotal: g('bet-bb-total'),
-    tbFront: g('bet-tb-front'), tbBack: g('bet-tb-back'), tbTotal: g('bet-tb-total'),
-    h2h:     g('bet-h2h'),
-    pp:      g('bet-pp')
-  };
-  scheduleSync();
-}
-
-function loadBetsToInputs() {
-  const b = APP.bets || DEFAULT_BETS;
-  const s = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
-  s('bet-skins', b.skins); s('bet-h2h', b.h2h); s('bet-pp', b.pp);
-  s('bet-bb-front', b.bbFront); s('bet-bb-back', b.bbBack); s('bet-bb-total', b.bbTotal);
-  s('bet-tb-front', b.tbFront); s('bet-tb-back', b.tbBack); s('bet-tb-total', b.tbTotal);
-}
-
-function startRound() {
-  if (!COURSES[setupState.course] || setupState.team1.length !== 3 || setupState.team2.length !== 3) return;
-  APP.course   = setupState.course;
-  APP.team1    = [...setupState.team1];
-  APP.team2    = [...setupState.team2];
-  APP.matchups = setupState.team1.map((t1p, i) => ({ t1: t1p, t2: setupState.matchupOrder[i] }));
-  saveBets();
-  initScores();
-  initPutts();
-  saveState();
-  renderScorecard();
-  showScreen('scorecard');
-}
-
-/* ─────────────────────────────────────────────
-   SUPABASE CLIENT
-───────────────────────────────────────────── */
+const DEFAULT_GAMES = { skins:{pot:0}, bestBall:{front:0,back:0,total:0}, twoBall:{front:0,back:0,total:0}, h2h:{perMatchup:0}, puttPoker:{pot:0} };
 const _SUPA_URL = 'https://dhpkeueubhpmvaungjfj.supabase.co';
 const _SUPA_KEY = 'sb_publishable_O9usNlh7G_lO7s7yy0QQXQ_JlWlf_Oe';
 const _db = window.supabase.createClient(_SUPA_URL, _SUPA_KEY);
 
-let ROOM_CODE    = null;  // 4-char code shared by the group
-let ROUND_ID     = null;  // uuid of the current round row
-let ROOM_CHANNEL = null;
-let _syncTimer   = null;
-let _lastPushed  = null;
+let GROUP = null;
+let ROUND = null;
+let GROUP_CHANNEL = null;
+let _syncTimer = null;
+let _pollTimer = null;
+let _lastPushed = null;
+let _courseSearchTimer = null;
+let _courseSearchResults = [];
+const expandedPuttRows = new Set();
 
-/* ─────────────────────────────────────────────
-   ROOM CODE
-───────────────────────────────────────────── */
-function generateCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let c = '';
-  for (let i = 0; i < 4; i++) c += chars[Math.floor(Math.random() * chars.length)];
-  return c;
+const setupState = { course:null, players:[], team1:[], team2:[], pool:[], matchupOrder:[] };
+
+function cloneDefaultGames(){ return JSON.parse(JSON.stringify(DEFAULT_GAMES)); }
+function currentPlayers(){ return ROUND ? [...(ROUND.team1||[]), ...(ROUND.team2||[])] : []; }
+function escHtml(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function generateCode(){ const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c=''; for(let i=0;i<4;i++) c+=chars[Math.floor(Math.random()*chars.length)]; return c; }
+function setGroupStatus(msg,isError){ const el=document.getElementById('group-status'); if(el){ el.textContent=msg||''; el.style.color=isError?'#c0392b':'var(--text-light)'; } }
+function groupCode(){ return GROUP?.roomCode || GROUP?.room_code || ''; }
+function groupName(){ return GROUP?.name || 'Del Mar Invitational'; }
+
+function normalizeGroup(row){ if(!row) return null; return { id:row.id, roomCode:row.room_code || row.roomCode, name:row.name || 'Del Mar Invitational', players:row.players || {} }; }
+function groupForDb(){ return { room_code:GROUP.roomCode, name:GROUP.name, players:GROUP.players || {} }; }
+function normalizeRound(row){ if(!row) return null; const st=typeof row.state==='string'?JSON.parse(row.state):row.state; return { ...st, id:row.id || st.id, groupId:row.group_id || st.groupId, completed:row.completed ?? st.completed ?? false }; }
+function roundForDb(){ return { ...ROUND, id:ROUND?.id, groupId:GROUP?.id, players:{ ...(GROUP?.players || {}) } }; }
+
+function saveState(){
+  if(GROUP) localStorage.setItem('dmi_group', JSON.stringify(GROUP)); else localStorage.removeItem('dmi_group');
+  if(ROUND) localStorage.setItem('dmi_round', JSON.stringify(ROUND)); else localStorage.removeItem('dmi_round');
 }
 
-function syncSetupToApp() {
-  APP.setupSnapshot = {
-    course:       setupState.course,
-    team1:        [...setupState.team1],
-    team2:        [...setupState.team2],
-    pool:         [...setupState.pool],
-    matchupOrder: [...setupState.matchupOrder]
-  };
+function loadState(){
+  try{
+    const g=localStorage.getItem('dmi_group');
+    const r=localStorage.getItem('dmi_round');
+    if(g) GROUP=JSON.parse(g);
+    if(r) ROUND=JSON.parse(r);
+    if(GROUP) return true;
+    return migrateLegacyState();
+  }catch{ return false; }
 }
 
-function syncAppToSetup() {
-  if (!APP.setupSnapshot) return;
-  const s = APP.setupSnapshot;
-  setupState.course       = s.course || null;
-  setupState.team1        = [...(s.team1 || [])];
-  setupState.team2        = [...(s.team2 || [])];
-  setupState.pool         = [...(s.pool  || Object.keys(APP.players || {}))];
-  setupState.matchupOrder = [...(s.matchupOrder || [])];
+function migrateLegacyState(){
+  try{
+    const raw=localStorage.getItem('golf_scorecard_v1');
+    if(!raw) return false;
+    const old=JSON.parse(raw);
+    if(!old.team1?.length && !old.team2?.length) return false;
+    const players={};
+    Object.entries(old.players || {}).forEach(([name,p])=>{ players[name]={ name, handicapIndex:Number(p.handicapIndex ?? 0) }; });
+    [...(old.team1||[]), ...(old.team2||[])].forEach(name=>{ if(!players[name]) players[name]={ name, handicapIndex:0 }; });
+    GROUP={ id:null, roomCode:old.roomCode || null, name:'Migrated Group', players };
+    const legacyCourse=LEGACY_COURSES[old.course] || null;
+    ROUND={
+      id:old.roundId || null, groupId:null, course: legacyCourse ? legacyCourseToRoundCourse(old.course, legacyCourse) : null,
+      team1:old.team1||[], team2:old.team2||[], matchups:old.matchups||[], games:legacyBetsToGames(old.bets || {}),
+      scores:old.scores||{}, putts:old.putts||{}, completed:!!old.completed
+    };
+    saveState();
+    return true;
+  }catch{ return false; }
+}
+function legacyCourseToRoundCourse(key,c){ return { id:key, clubName:c.name, courseName:c.nines?`${c.name} ${c.nines}`:c.name, location:c.loc, tee:{ name:'Legacy', rating:sum(c.par), slope:113, parTotal:sum(c.par), yards:sum(c.yds||[]) }, par:[...c.par], si:[...c.si], yds:[...(c.yds||new Array(18).fill(0))] }; }
+function legacyBetsToGames(b){ return { skins:{pot:b.skins||0}, bestBall:{front:b.bbFront||0,back:b.bbBack||0,total:b.bbTotal||0}, twoBall:{front:b.tbFront||0,back:b.tbBack||0,total:b.tbTotal||0}, h2h:{perMatchup:b.h2h||0}, puttPoker:{pot:b.pp||0} }; }
+function sum(arr){ return (arr||[]).reduce((a,b)=>a+Number(b||0),0); }
+
+function showScreen(name){
+  ['home','hub','setup-course','setup-players','setup-teams','setup-games','scorecard','results','history','stats'].forEach(screen=>{
+    const el=document.getElementById(`${screen}-screen`);
+    if(!el) return;
+    if(screen==='scorecard') el.style.display = name===screen ? 'flex' : 'none';
+    else if(screen==='results') el.style.display = name===screen ? 'block' : 'none';
+    else el.style.display = name===screen ? '' : 'none';
+  });
 }
 
-function syncSetupAndSchedule() {
-  syncSetupToApp();
-  scheduleSync();
+async function createGroup(){
+  const input=document.getElementById('group-name-input');
+  const name=(input?.value || '').trim() || 'Del Mar Invitational';
+  setGroupStatus('Creating group...');
+  for(let attempt=0; attempt<5; attempt++){
+    const room_code=generateCode();
+    const { data, error } = await _db.from('groups').insert({ room_code, name, players:{} }).select('id,room_code,name,players').single();
+    if(!error && data){ GROUP=normalizeGroup(data); ROUND=null; saveState(); setGroupStatus(''); showHub(); return; }
+    if(error && !String(error.message||'').includes('duplicate')){ setGroupStatus('Error: '+error.message, true); return; }
+  }
+  setGroupStatus('Could not create a unique group code. Try again.', true);
 }
 
-function scheduleSync() {
-  if (!ROUND_ID) return;
-  clearTimeout(_syncTimer);
-  _syncTimer = setTimeout(pushToSupabase, 600);
+async function joinGroup(){
+  const raw=(document.getElementById('join-code-input')?.value || '').trim().toUpperCase();
+  if(raw.length!==4){ setGroupStatus('Enter a 4-character group code', true); return; }
+  setGroupStatus('Joining group...');
+  const { data, error } = await _db.from('groups').select('id,room_code,name,players').eq('room_code', raw).single();
+  if(error || !data){ setGroupStatus('Group not found: '+raw, true); return; }
+  GROUP=normalizeGroup(data);
+  const roundRes=await _db.from('rounds').select('id,group_id,state,completed,created_at').eq('group_id', GROUP.id).eq('completed', false).order('created_at',{ascending:false}).limit(1).maybeSingle();
+  ROUND=roundRes.data ? normalizeRound(roundRes.data) : null;
+  saveState(); setGroupStatus(''); showHub();
 }
 
-async function pushToSupabase() {
-  if (!ROUND_ID) return;
-  const payload = JSON.stringify(APP);
-  _lastPushed = payload;
-  await _db.from('rounds').update(
-    { state: APP, completed: APP.completed || false }
-  ).eq('id', ROUND_ID);
-}
-
-async function createRoom() {
-  setRoomStatus('Creating room…');
-  syncSetupToApp();
-  const code = generateCode();
-  APP.roomCode  = code;
-  APP.roundId   = null;
-  APP.completed = false;
-  const { data, error } = await _db.from('rounds')
-    .insert({ code, state: APP, completed: false })
-    .select('id').single();
-  if (error || !data) { setRoomStatus('Error: ' + (error?.message || 'insert failed'), true); APP.roomCode = null; return; }
-  ROOM_CODE = code;
-  ROUND_ID  = data.id;
-  APP.roundId = ROUND_ID;
+async function persistGroup(){
+  if(!GROUP?.id) return;
+  await _db.from('groups').update({ name:GROUP.name, players:GROUP.players || {} }).eq('id', GROUP.id);
   saveState();
-  await pushToSupabase(); // store state with correct roundId so joining clients get it
-  _lastPushed = JSON.stringify(APP);
-  setRoomActive(code);
-  subscribeToRoom(code);
 }
 
-async function joinRoom() {
-  const raw = (document.getElementById('join-code-input').value || '').trim().toUpperCase();
-  if (raw.length !== 4) { setRoomStatus('Enter a 4-character code', true); return; }
-  setRoomStatus('Joining…');
-  // Find the most recent active (incomplete) round for this code
-  const { data, error } = await _db.from('rounds')
-    .select('id,state,completed')
-    .eq('code', raw)
-    .eq('completed', false)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
-  if (error || !data) { setRoomStatus('Room not found: ' + raw, true); return; }
-  ROOM_CODE = raw;
-  ROUND_ID  = data.id;
-  APP.roomCode = raw;
-  APP.roundId  = ROUND_ID;
-  applyRemoteState(typeof data.state === 'string' ? JSON.parse(data.state) : data.state, true);
-  APP.roundId = ROUND_ID; // re-assert after merge — host's stored state may have null roundId
+async function loadActiveRound(){
+  if(!GROUP?.id) return null;
+  const { data } = await _db.from('rounds').select('id,group_id,state,completed,created_at').eq('group_id', GROUP.id).eq('completed', false).order('created_at',{ascending:false}).limit(1).maybeSingle();
+  ROUND=data ? normalizeRound(data) : null;
   saveState();
-  pushToSupabase(); // flush any locally-held scores immediately on rejoin
-  setRoomActive(raw);
-  subscribeToRoom(raw);
+  return ROUND;
 }
 
-function subscribeToRoom(code) {
-  if (ROOM_CHANNEL) { _db.removeChannel(ROOM_CHANNEL); ROOM_CHANNEL = null; }
-  // Listen to ALL changes on this room code — catches both score updates (UPDATE)
-  // and new rounds started by the host after a reset (INSERT).
-  ROOM_CHANNEL = _db.channel('room-' + code)
-    .on('postgres_changes', {
-      event: '*', schema: 'public', table: 'rounds', filter: `code=eq.${code}`
-    }, payload => {
-      if (!payload.new || !payload.new.state) return;
-      const row = payload.new;
-      if (payload.eventType === 'INSERT') {
-        // Host started a new round — switch to tracking the new row
-        ROUND_ID = row.id;
-        APP.roundId = ROUND_ID;
-        const st = typeof row.state === 'string' ? JSON.parse(row.state) : row.state;
-        applyRemoteState(st, false);
-        return;
-      }
-      if (payload.eventType === 'UPDATE') {
-        if (row.id !== ROUND_ID) return; // a different round in same room, ignore
-        const incoming = typeof row.state === 'string' ? row.state : JSON.stringify(row.state);
-        if (incoming === _lastPushed) return; // our own echo
-        applyRemoteState(typeof row.state === 'string' ? JSON.parse(row.state) : row.state, false);
-      }
-    })
-    .subscribe();
+function showHub(){
+  if(!GROUP){ showScreen('home'); return; }
+  stopGroupSubscription();
+  subscribeToGroup();
+  renderHub();
+  showScreen('hub');
 }
-
-function applyRemoteState(remoteApp, fromJoin) {
-  const localScores = APP.scores;
-  const localPutts  = APP.putts;
-  APP = { ...APP, ...remoteApp };
-
-  // Merge scores hole-by-hole: never let a remote null overwrite a local value.
-  // This prevents the last-writer-wins race from wiping scores entered on this device.
-  if (localScores && APP.scores) {
-    for (const player of Object.keys(localScores)) {
-      if (!APP.scores[player]) continue;
-      for (let h = 0; h < 18; h++) {
-        if (localScores[player][h] !== null && APP.scores[player][h] === null) {
-          APP.scores[player][h] = localScores[player][h];
-        }
-      }
-    }
-  }
-  if (localPutts && APP.putts) {
-    for (const player of Object.keys(localPutts)) {
-      if (!APP.putts[player]) continue;
-      for (let h = 0; h < 18; h++) {
-        if (localPutts[player][h] !== null && APP.putts[player][h] === null) {
-          APP.putts[player][h] = localPutts[player][h];
-        }
-      }
-    }
-  }
-
-  saveState();
-
-  if (APP.setupSnapshot) {
-    syncAppToSetup();
-    restoreCourseUI();
-    renderSetup();
-    loadBetsToInputs();
-    updateCTA();
-  } else {
-    loadBetsToInputs();
-  }
-
-  const onScorecard = document.getElementById('scorecard-screen').style.display !== 'none';
-  const onResults   = document.getElementById('results-screen').style.display   !== 'none';
-
-  if (APP.team1 && APP.team1.length === 3 && APP.course) {
-    initScores();
-    initPutts();
-    if (onScorecard) {
-      const sc = document.getElementById('scorecard-screen');
-      const typingNow = document.activeElement && document.activeElement.tagName === 'INPUT' && sc.contains(document.activeElement);
-      if (!typingNow) renderScorecard();
-    }
-    if (onResults) renderResults();
-  }
-
-  if (fromJoin && APP.team1 && APP.team1.length === 3 && APP.course) {
-    renderScorecard();
-    showScreen('scorecard');
-  }
-
-  // Remote reset (new round) — go back to setup
-  if (!fromJoin && (!APP.course || !APP.team1 || APP.team1.length === 0)) {
-    renderSetup();
-    loadBetsToInputs();
-    updateCTA();
-    showScreen('setup');
-  }
-
-  if (APP.completed && onResults) renderResults();
-}
-
-function setRoomActive(code) {
-  document.getElementById('room-join-area').style.display = 'none';
-  document.getElementById('room-active').style.display    = '';
-  document.getElementById('room-code-display').textContent = code;
-  setRoomStatus('');
-}
-
-function leaveRoom() {
-  if (ROOM_CHANNEL) { _db.removeChannel(ROOM_CHANNEL); ROOM_CHANNEL = null; }
-  ROOM_CODE = null;
-  ROUND_ID  = null;
-  APP.roomCode = null;
-  APP.roundId  = null;
-  saveState();
-  document.getElementById('room-join-area').style.display = '';
-  document.getElementById('room-active').style.display    = 'none';
-  document.getElementById('join-code-input').value        = '';
-  setRoomStatus('');
-}
-
-function setRoomStatus(msg, isError) {
-  const el = document.getElementById('room-status');
-  if (!el) return;
-  el.textContent = msg;
-  el.style.color = isError ? '#c0392b' : 'var(--text-light)';
-}
-
-async function completeRound() {
-  if (!ROUND_ID) return;
-  if (!confirm('Mark this round as complete? It will be saved to Round History for all players.')) return;
-  APP.completed = true;
-  saveState();
-  const { error } = await _db.from('rounds').update(
-    { state: APP, completed: true, completed_at: new Date().toISOString() }
-  ).eq('id', ROUND_ID);
-  if (error) { alert('Error saving: ' + error.message); APP.completed = false; saveState(); return; }
-  renderResults();
-  // Keep channel open so host reset broadcasts the new round INSERT to all devices
-}
-
-/* ─────────────────────────────────────────────
-   HISTORY SCREEN
-───────────────────────────────────────────── */
-async function showHistory() {
-  showScreen('history');
-  const wrap = document.getElementById('history-wrap');
-  wrap.innerHTML = `<div class="screen-topbar">
-    <div class="screen-topbar-title">◆ Past Rounds</div>
-    <button class="btn-ghost" onclick="showScreen('setup')">← Back</button>
-  </div><div style="color:var(--gold);padding:1rem;opacity:0.7">Loading…</div>`;
-  const { data, error } = await _db.from('rounds')
-    .select('code,state,completed_at')
-    .eq('completed', true)
-    .order('completed_at', { ascending: false });
-  if (error) { wrap.innerHTML += `<div style="color:#c0392b">${error.message}</div>`; return; }
-  renderHistory(data || []);
-}
-
-function renderHistory(rounds) {
-  const wrap = document.getElementById('history-wrap');
-  let html = `<div class="screen-topbar">
-    <div class="screen-topbar-title">◆ Past Rounds</div>
-    <button class="btn-ghost" onclick="showScreen('setup')">← Back</button>
-  </div>`;
-  if (!rounds.length) {
-    html += '<div style="color:var(--gold);opacity:0.6;padding:1rem">No completed rounds yet.</div>';
-    wrap.innerHTML = html; return;
-  }
-  rounds.forEach(r => {
-    const st    = typeof r.state === 'string' ? JSON.parse(r.state) : r.state;
-    const crs   = COURSES[st.course];
-    const plrs  = [...(st.team1 || []), ...(st.team2 || [])];
-    const strk  = _stateStrokes(st);
-    const { skinsByPlayer } = _stateSkins(st);
-    const nets  = plrs.map(p => ({ p, net: _stateNet(st, p, strk) }))
-      .filter(x => x.net !== null).sort((a, b) => a.net - b.net);
-    const date  = r.completed_at
-      ? new Date(r.completed_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : '—';
-    html += `<div class="hist-round-card">
-      <div class="hist-round-hdr">
-        <div><div class="hist-round-code">${r.code}</div><div class="hist-round-course">${crs ? crs.name : st.course}</div></div>
-        <div class="hist-round-date">${date}</div>
+function renderHub(){
+  const wrap=document.getElementById('hub-content');
+  const players=Object.values(GROUP.players || {}).sort((a,b)=>a.name.localeCompare(b.name));
+  const hasRoundDraft=ROUND && !ROUND.completed;
+  const active=hasRoundDraft && ROUND.id && roundCanScore();
+  const courseName=ROUND?.course ? courseDisplayName(ROUND.course) : 'Round setup in progress';
+  const roundAction=active ? 'Resume Round' : 'Continue Setup';
+  wrap.innerHTML=`
+    <div class="hub-top">
+      <div><div class="hub-name">${escHtml(groupName())}</div><div class="group-code-badge">Group ${escHtml(groupCode())}</div></div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap"><button class="group-btn" onclick="showHistory()">Past Rounds</button><button class="group-btn" onclick="showStats()">All-Time Stats</button><button class="group-btn" onclick="leaveGroup()">Leave Group</button></div>
+    </div>
+    <div class="hub-grid">
+      <div class="hub-panel">
+        <div class="hub-panel-title">Active Round</div>
+        ${hasRoundDraft ? `<div class="active-round-name">${escHtml(courseName)}</div><div class="muted">${escHtml(ROUND.course?.tee?.name || 'Choose a course and tee to continue')}</div><div style="margin-top:0.9rem"><button class="group-btn primary" onclick="resumeRound()">${roundAction}</button></div>` : `<div class="empty-state">No active round.</div>`}
+        <div style="margin-top:0.9rem"><button class="group-btn" onclick="startNewRound()">Start New Round</button></div>
       </div>
-      <div style="overflow-x:auto"><table class="res-table" style="font-size:0.82rem">
-        <thead><tr><th>Player</th><th>Team</th><th>Net</th><th>Skins</th></tr></thead><tbody>`;
-    nets.forEach(({ p, net }) => {
-      const tm = (st.team1 || []).includes(p) ? 'T1' : 'T2';
-      html += `<tr><td><strong>${p}</strong></td><td>${tm}</td><td>${net}</td><td>${skinsByPlayer[p] > 0 ? skinsByPlayer[p] : '—'}</td></tr>`;
-    });
-    html += `</tbody></table></div></div>`;
-  });
-  wrap.innerHTML = html;
-}
-
-/* ─────────────────────────────────────────────
-   STATS SCREEN
-───────────────────────────────────────────── */
-async function showStats() {
-  showScreen('stats');
-  const wrap = document.getElementById('stats-wrap');
-  wrap.innerHTML = `<div class="screen-topbar">
-    <div class="screen-topbar-title">◆ All-Time Stats</div>
-    <button class="btn-ghost" onclick="showScreen('setup')">← Back</button>
-  </div><div style="color:var(--gold);padding:1rem;opacity:0.7">Loading…</div>`;
-  const { data, error } = await _db.from('rounds').select('state,completed_at').eq('completed', true);
-  if (error) { wrap.innerHTML += `<div style="color:#c0392b">${error.message}</div>`; return; }
-  renderStats(data || []);
-}
-
-function renderStats(rounds) {
-  const wrap = document.getElementById('stats-wrap');
-  const agg = {};
-
-  rounds.forEach(r => {
-    const st   = typeof r.state === 'string' ? JSON.parse(r.state) : r.state;
-    const plrs = [...(st.team1 || []), ...(st.team2 || [])];
-    const strk = _stateStrokes(st);
-    const { skinsByPlayer } = _stateSkins(st);
-    plrs.forEach(p => {
-      if (!agg[p]) agg[p] = { rounds:0, skinsWon:0, nets:[], bestNet:Infinity, h2hW:0, h2hL:0, h2hT:0 };
-      agg[p].rounds++;
-      agg[p].skinsWon += skinsByPlayer[p] || 0;
-      const net = _stateNet(st, p, strk);
-      if (net !== null) { agg[p].nets.push(net); if (net < agg[p].bestNet) agg[p].bestNet = net; }
-    });
-    (st.matchups || []).forEach(m => {
-      const n1 = _stateNet(st, m.t1, strk), n2 = _stateNet(st, m.t2, strk);
-      if (n1 === null || n2 === null) return;
-      if (n1 < n2)      { if(agg[m.t1]) agg[m.t1].h2hW++; if(agg[m.t2]) agg[m.t2].h2hL++; }
-      else if (n2 < n1) { if(agg[m.t2]) agg[m.t2].h2hW++; if(agg[m.t1]) agg[m.t1].h2hL++; }
-      else              { if(agg[m.t1]) agg[m.t1].h2hT++; if(agg[m.t2]) agg[m.t2].h2hT++; }
-    });
-  });
-
-  const sorted = Object.keys(agg).sort((a, b) =>
-    (agg[b].rounds - agg[a].rounds) || (agg[b].skinsWon - agg[a].skinsWon)
-  );
-
-  let html = `<div class="screen-topbar">
-    <div class="screen-topbar-title">◆ All-Time Stats</div>
-    <button class="btn-ghost" onclick="showScreen('setup')">← Back</button>
-  </div>`;
-
-  if (!rounds.length) {
-    html += '<div style="color:var(--gold);opacity:0.6;padding:1rem">No completed rounds yet.</div>';
-    wrap.innerHTML = html; return;
-  }
-
-  sorted.forEach(p => {
-    const a = agg[p];
-    if (!a.rounds) return;
-    const avgNet = a.nets.length ? (a.nets.reduce((s,v)=>s+v,0)/a.nets.length).toFixed(1) : '—';
-    const bestNet = a.bestNet < Infinity ? a.bestNet : '—';
-    const h2h = `${a.h2hW}-${a.h2hL}${a.h2hT ? '-'+a.h2hT : ''}`;
-    html += `<div class="stats-player-card">
-      <div class="stats-player-name">${p}</div>
-      <div class="stats-stat"><div class="stats-stat-val">${a.rounds}</div><div class="stats-stat-lbl">Rounds</div></div>
-      <div class="stats-stat"><div class="stats-stat-val">${a.skinsWon}</div><div class="stats-stat-lbl">Skins</div></div>
-      <div class="stats-stat"><div class="stats-stat-val">${avgNet}</div><div class="stats-stat-lbl">Avg Net</div></div>
-      <div class="stats-stat"><div class="stats-stat-val">${bestNet}</div><div class="stats-stat-lbl">Best Net</div></div>
-      <div class="stats-stat"><div class="stats-stat-val">${h2h}</div><div class="stats-stat-lbl">H2H (W-L)</div></div>
+      <div class="hub-panel">
+        <div class="hub-panel-title">Player Roster</div>
+        <div class="form-row" style="margin-bottom:0.85rem">
+          <input id="hub-player-name" class="form-input grow" type="text" placeholder="Player name" onkeydown="if(event.key==='Enter')addHubPlayer()">
+          <input id="hub-player-index" class="form-input" style="width:96px" type="number" step="0.1" min="0" max="54" placeholder="Index" onkeydown="if(event.key==='Enter')addHubPlayer()">
+          <button class="group-btn sm" onclick="addHubPlayer()">Add</button>
+        </div>
+        <div id="hub-roster-status" class="group-status-msg"></div>
+        ${players.length ? players.map(p=>`<div class="roster-row"><strong>${escHtml(p.name)}</strong><span style="display:flex;align-items:center;gap:0.75rem"><span>Idx ${Number(p.handicapIndex||0).toFixed(1).replace('.0','')}</span><button class="group-btn sm" onclick="removeHubPlayer('${escJs(p.name)}')">Remove</button></span></div>`).join('') : '<div class="empty-state">Add players to this group.</div>'}
+      </div>
     </div>`;
+}
+function leaveGroup(){ stopGroupSubscription(); GROUP=null; ROUND=null; saveState(); showScreen('home'); }
+function setHubRosterStatus(msg,isErr){ const el=document.getElementById('hub-roster-status'); if(el){ el.textContent=msg||''; el.style.color=isErr?'#c0392b':'var(--text-light)'; } }
+async function addHubPlayer(){
+  const name=(document.getElementById('hub-player-name')?.value||'').trim();
+  const idxRaw=document.getElementById('hub-player-index')?.value||'';
+  const idx=parseFloat(idxRaw);
+  if(!name){ setHubRosterStatus('Enter a player name.', true); return; }
+  if(Number.isNaN(idx) || idx < 0 || idx > 54){ setHubRosterStatus('Enter a handicap index from 0 to 54.', true); return; }
+  GROUP.players=GROUP.players||{};
+  GROUP.players[name]={name,handicapIndex:idx};
+  await persistGroup();
+  setHubRosterStatus('');
+  renderHub();
+}
+async function removeHubPlayer(name){
+  if(!confirm(`Remove ${name} from this group?`)) return;
+  delete GROUP.players[name];
+  await persistGroup();
+  renderHub();
+}
+function roundCanScore(){ return !!(ROUND?.course?.par?.length === 18 && teamsAreReady(ROUND.team1 || [], ROUND.team2 || [])); }
+function hydrateSetupStateFromRound(){
+  setupState.course=ROUND?.course || null;
+  setupState.players=Object.keys(GROUP?.players || {});
+  setupState.team1=[...(ROUND?.team1 || [])];
+  setupState.team2=[...(ROUND?.team2 || [])];
+  setupState.pool=setupState.players.filter(p=>!setupState.team1.includes(p)&&!setupState.team2.includes(p));
+  setupState.matchupOrder=(ROUND?.matchups || []).map(m=>m.t2).filter(Boolean);
+  if(setupState.matchupOrder.length!==setupState.team2.length) setupState.matchupOrder=[...setupState.team2];
+}
+function resumeRound(){
+  if(!ROUND) return;
+  hydrateSetupStateFromRound();
+  if(!ROUND.course){ showSetupCourse(); return; }
+  if(!canBuildTeams(Object.keys(GROUP.players || {}).length)){ showSetupPlayers(); return; }
+  if(!teamsAreReady(ROUND.team1 || [], ROUND.team2 || [])){ showSetupTeams(); return; }
+  if(!ROUND.id){ showSetupGames(); return; }
+  initScores(); initPutts(); renderScorecard(); showScreen('scorecard');
+}
+function startNewRound(){
+  ROUND={ id:null, groupId:GROUP.id, course:null, team1:[], team2:[], matchups:[], games:cloneDefaultGames(), scores:{}, putts:{}, completed:false };
+  setupState.course=null; setupState.players=Object.keys(GROUP.players || {}); setupState.team1=[]; setupState.team2=[]; setupState.pool=[...setupState.players]; setupState.matchupOrder=[];
+  saveState(); showSetupCourse();
+}
+
+function showSetupCourse(){ renderSetupCourse(); showScreen('setup-course'); }
+function renderSetupCourse(){
+  const wrap=document.getElementById('setup-course-content');
+  wrap.innerHTML=`
+    <div class="setup-step-top"><div class="setup-step-title">Course Search</div><button class="group-btn sm" onclick="showHub()">Back</button></div>
+    <input id="course-search-input" class="form-input course-search-input" type="search" placeholder="Search by course name" oninput="onCourseSearchInput(this.value)">
+    <div id="course-search-status" class="muted">Enter at least 3 characters.</div>
+    <div id="course-results"></div>
+    <div id="tee-picker"></div>
+    <div id="hcp-preview"></div>
+    <div class="setup-step-nav"><button class="group-btn" onclick="showHub()">Back</button><button id="course-next-btn" class="group-btn primary" onclick="showSetupPlayers()" ${ROUND?.course?'':'disabled'}>Next &rarr;</button></div>`;
+  if(ROUND?.course){ renderSelectedCourse(); renderHandicapPreview(); }
+}
+function onCourseSearchInput(q){ clearTimeout(_courseSearchTimer); const status=document.getElementById('course-search-status'); if((q||'').trim().length<3){ status.textContent='Enter at least 3 characters.'; document.getElementById('course-results').innerHTML=''; return; } status.textContent='Searching...'; _courseSearchTimer=setTimeout(()=>courseSearch(q),500); }
+async function courseSearch(query){
+  const status=document.getElementById('course-search-status');
+  try{
+    const res=await fetch(`${_SUPA_URL}/functions/v1/course-search`,{ method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${_SUPA_KEY}`}, body:JSON.stringify({query}), signal:AbortSignal.timeout(15000) });
+    const data=await res.json();
+    if(!res.ok) throw new Error(data.error || `Course search failed (${res.status})`);
+    _courseSearchResults=data.courses || [];
+    status.textContent=_courseSearchResults.length ? `${_courseSearchResults.length} result${_courseSearchResults.length===1?'':'s'}` : 'No courses found.';
+    renderCourseResults();
+  }catch(e){ status.textContent=e.message || 'Course search failed.'; document.getElementById('course-results').innerHTML=''; }
+}
+function renderCourseResults(){
+  const el=document.getElementById('course-results');
+  el.innerHTML=_courseSearchResults.map((c,i)=>{
+    const tees=courseTees(c);
+    const location = formatLocation(c.location);
+    return `<div class="course-result-item" onclick="selectCourseResult(${i})"><div><strong>${escHtml(c.clubName || c.courseName)}</strong><div class="muted">${escHtml([c.courseName, location].filter(Boolean).join(' - '))}</div></div><span class="muted">${tees.length} tee${tees.length===1?'':'s'}</span></div>`;
+  }).join('');
+}
+function selectCourseResult(i){
+  const c=_courseSearchResults[i];
+  const tees=courseTees(c).filter(t=>(t.holes||[]).length>=18 && t.rating && t.slope);
+  document.getElementById('tee-picker').innerHTML=`<div class="section-label" style="margin-top:1.2rem">Select Tee</div>${tees.length?tees.map((t,idx)=>`<div class="tee-option" onclick="selectTee(${i},${idx})"><div><strong>${escHtml(t.name || 'Tee')}</strong></div><span class="muted">${t.yards || ''} yds</span></div>`).join(''):'<div class="empty-state">No 18-hole tees returned for this course.</div>'}`;
+  c._selectableTees=tees;
+}
+function selectTee(courseIdx, teeIdx){
+  const c=_courseSearchResults[courseIdx]; const t=c._selectableTees?.[teeIdx]; if(!c||!t) return;
+  const holes=(t.holes||[]).slice(0,18);
+  ROUND.course={ id:c.id, clubName:c.clubName, courseName:c.courseName, location:formatLocation(c.location), tee:{ name:t.name, gender:t.gender || '', rating:Number(t.rating), slope:Number(t.slope), parTotal:Number(t.parTotal || sum(holes.map(h=>h.par))), yards:Number(t.yards || sum(holes.map(h=>h.yardage))) }, par:holes.map(h=>Number(h.par || 4)), si:normalizeStrokeIndexes(holes.map((h,i)=>Number(h.si || i+1))), yds:holes.map(h=>Number(h.yardage || 0)) };
+  saveState(); renderSelectedCourse(); renderHandicapPreview(); document.getElementById('course-next-btn').disabled=false;
+}
+function normalizeStrokeIndexes(si){ const seen=new Set(si); if(si.length===18 && seen.size===18 && Math.min(...si)>=1 && Math.max(...si)<=18) return si; return Array.from({length:18},(_,i)=>i+1); }
+function renderSelectedCourse(){ const el=document.getElementById('tee-picker'); const c=ROUND.course; el.innerHTML=`<div class="selected-course-box"><strong>${escHtml(courseDisplayName(c))}</strong><div class="muted">${escHtml(c.location || '')} / ${escHtml(c.tee?.name || '')} / Rating ${c.tee?.rating} / Slope ${c.tee?.slope}</div></div>`; }
+function renderHandicapPreview(){
+  const el=document.getElementById('hcp-preview'); if(!el||!ROUND?.course) return;
+  const players=Object.values(GROUP.players || {});
+  el.innerHTML=`<div class="section-label" style="margin-top:1.2rem">Course Handicap Preview</div>${players.length?players.map(p=>`<div class="hcp-preview-row"><span>${escHtml(p.name)}</span><span>Idx ${Number(p.handicapIndex||0).toFixed(1).replace('.0','')} &rarr; ${computeWHSCourseHcp(p.handicapIndex, ROUND.course.tee.slope, ROUND.course.tee.rating, ROUND.course.tee.parTotal)}</span></div>`).join(''):'<div class="empty-state">No players in this group yet.</div>'}`;
+}
+function courseDisplayName(c){ if(!c) return ''; return [c.clubName, c.courseName && c.courseName!==c.clubName ? c.courseName : ''].filter(Boolean).join(' - '); }
+function courseTees(course){
+  const bySet = new Map();
+  const add = (tee, gender) => {
+    const name = tee.name || 'Tee';
+    const yards = Number(tee.yards || 0);
+    const key = `${name.toLowerCase()}|${yards}`;
+    const normalized = { ...tee, name, gender, yards };
+    const existing = bySet.get(key);
+    if(!existing || existing.gender !== 'Men') bySet.set(key, normalized);
+  };
+  (course.tees?.female || []).forEach(tee => add(tee, 'Women'));
+  (course.tees?.male || []).forEach(tee => add(tee, 'Men'));
+  return [...bySet.values()].sort((a,b)=>Number(b.yards||0)-Number(a.yards||0));
+}
+function formatLocation(location){
+  if(!location) return '';
+  if(typeof location === 'string') return location;
+  if(typeof location !== 'object') return String(location);
+  const values = [
+    location.city,
+    location.state,
+    location.state_code,
+    location.country
+  ].filter(Boolean);
+  if(values.length) return [...new Set(values.map(String))].join(', ');
+  return '';
+}
+function computeWHSCourseHcp(idx,slope,rating,par){ return Math.round(Number(idx||0)*Number(slope||113)/113 + Number(rating||par||0) - Number(par||0)); }
+
+function showSetupPlayers(){ renderSetupPlayers(); showScreen('setup-players'); }
+function renderSetupPlayers(){
+  const wrap=document.getElementById('setup-players-content'); const roster=Object.values(GROUP.players||{}).sort((a,b)=>a.name.localeCompare(b.name));
+  wrap.innerHTML=`<div class="setup-step-top"><div class="setup-step-title">Round Players</div><button class="group-btn sm" onclick="showSetupCourse()">Back</button></div>
+    <div class="form-row"><input id="manual-name" class="form-input grow" placeholder="Player name"><input id="manual-hcp" class="form-input" style="width:110px" type="number" step="0.1" min="0" max="54" placeholder="Index"><button class="group-btn" onclick="addManualPlayer()">Add</button></div>
+    <div id="ghin-status" class="group-status-msg">GHIN lookup is deferred; add players manually for now.</div>
+    <div id="player-roster-list">${roster.length?roster.map(p=>playerRosterRow(p)).join(''):'<div class="empty-state">Add an even number of players to continue.</div>'}</div>
+    <div class="muted" style="margin-top:0.75rem">${playerCountMessage(Object.keys(GROUP.players||{}).length)}</div>
+    <div class="setup-step-nav"><button class="group-btn" onclick="showSetupCourse()">Back</button><button class="group-btn primary" onclick="showSetupTeams()" ${canBuildTeams(Object.keys(GROUP.players||{}).length)?'':'disabled'}>Next &rarr;</button></div>`;
+}
+function playerRosterRow(p){ const ch=ROUND?.course?computeWHSCourseHcp(p.handicapIndex,ROUND.course.tee.slope,ROUND.course.tee.rating,ROUND.course.tee.parTotal):0; return `<div class="roster-row"><div><strong>${escHtml(p.name)}</strong><div class="muted">Idx ${Number(p.handicapIndex||0).toFixed(1).replace('.0','')} / Course Hcp ${ch}</div></div><button class="group-btn sm" onclick="removePlayer('${escJs(p.name)}')">Remove</button></div>`; }
+function escJs(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+async function addManualPlayer(){ const name=(document.getElementById('manual-name')?.value||'').trim(); const idx=parseFloat(document.getElementById('manual-hcp')?.value||'0')||0; if(!name){ setGhinStatus('Enter a player name', true); return; } GROUP.players=GROUP.players||{}; GROUP.players[name]={name,handicapIndex:idx}; await persistGroup(); if(!setupState.players.includes(name)) setupState.players.push(name); if(!setupState.pool.includes(name) && !setupState.team1.includes(name) && !setupState.team2.includes(name)) setupState.pool.push(name); renderSetupPlayers(); }
+function setGhinStatus(msg,isErr){ const el=document.getElementById('ghin-status'); if(el){ el.textContent=msg||''; el.style.color=isErr?'#c0392b':'var(--text-light)'; } }
+async function removePlayer(name){ if(!confirm(`Remove ${name} from this group?`)) return; delete GROUP.players[name]; setupState.players=setupState.players.filter(p=>p!==name); setupState.pool=setupState.pool.filter(p=>p!==name); setupState.team1=setupState.team1.filter(p=>p!==name); setupState.team2=setupState.team2.filter(p=>p!==name); await persistGroup(); renderSetupPlayers(); }
+
+function canBuildTeams(count){ return count >= 2 && count % 2 === 0; }
+function targetTeamSize(){ return Math.floor((setupState.players || []).length / 2); }
+function teamsAreReady(team1, team2){ return team1.length >= 1 && team1.length === team2.length; }
+function playerCountMessage(count){
+  if(count < 2) return 'Add at least 2 players to continue.';
+  if(count % 2 !== 0) return 'Add or remove 1 player so teams can split evenly.';
+  return `${count} players will split into ${count / 2} vs ${count / 2}.`;
+}
+function showSetupTeams(){ setupState.players=Object.keys(GROUP.players||{}); setupState.team1=setupState.team1.filter(p=>setupState.players.includes(p)); setupState.team2=setupState.team2.filter(p=>setupState.players.includes(p)); setupState.pool=setupState.players.filter(p=>!setupState.team1.includes(p)&&!setupState.team2.includes(p)); renderSetupTeams(); showScreen('setup-teams'); }
+function renderSetupTeams(){
+  document.getElementById('setup-teams-content').innerHTML=`<div class="setup-step-top"><div class="setup-step-title">Build Teams</div><button class="group-btn sm" onclick="showSetupPlayers()">Back</button></div>
+    <div class="team-builder"><div class="team-panel"><div class="team-hdr"><div class="team-title">Team 1</div><div class="team-ct" id="team1-ct"></div></div><div class="team-slots" id="team1-slots"></div></div><div class="pool-wrap"><div class="pool-label">Players</div><div class="pool-hint">tap to assign</div><div class="pool-drop-zone" id="pool-zone"></div></div><div class="team-panel"><div class="team-hdr"><div class="team-title">Team 2</div><div class="team-ct" id="team2-ct"></div></div><div class="team-slots" id="team2-slots"></div></div></div><div id="matchup-section" style="display:none"><div class="section-label">Head-to-Head Matchups</div><div class="matchup-card"><div class="matchup-hint">Reorder Team 2 with ▲▼ to set who plays who</div><div id="matchup-rows"></div></div></div><div class="setup-step-nav"><button class="group-btn" onclick="showSetupPlayers()">Back</button><button id="teams-next-btn" class="group-btn primary" onclick="showSetupGames()">Next &rarr;</button></div>`;
+  renderSetup(); updateTeamsNext();
+}
+function renderSetup(){ renderPool(); renderTeam('team1'); renderTeam('team2'); renderMatchups(); }
+function renderPool(){ const zone=document.getElementById('pool-zone'); if(!zone) return; zone.innerHTML=setupState.pool.length?setupState.pool.map(p=>`<div class="player-chip" onclick="clickAssign('${escJs(p)}')"><span>${escHtml(p)}</span><span class="player-chip-sub">Idx ${Number(GROUP.players[p]?.handicapIndex||0).toFixed(1).replace('.0','')}</span></div>`).join(''):'<div class="pool-empty">All players assigned</div>'; }
+function renderTeam(t){ const slots=document.getElementById(`${t}-slots`); const ct=document.getElementById(`${t}-ct`); if(!slots) return; const members=setupState[t]; const target=targetTeamSize(); let html=''; for(let i=0;i<target;i++){ html+=members[i]?`<div class="slot slot-filled" onclick="returnToPool('${escJs(members[i])}','${t}')"><span class="slot-name">${escHtml(members[i])}</span><span class="slot-x">✕</span></div>`:'<div class="slot slot-empty">open</div>'; } slots.innerHTML=html; if(ct) ct.textContent=`${members.length} of ${target}`; }
+function clickAssign(player){ const target=targetTeamSize(); if(setupState.team1.length<target) moveToTeam(player,'team1'); else if(setupState.team2.length<target) moveToTeam(player,'team2'); }
+function moveToTeam(player,to){ if(setupState[to].length>=targetTeamSize()) return; setupState.pool=setupState.pool.filter(p=>p!==player); setupState[to].push(player); renderSetup(); updateTeamsNext(); }
+function returnToPool(player,fromTeam){ setupState[fromTeam]=setupState[fromTeam].filter(p=>p!==player); setupState.pool.push(player); renderSetup(); updateTeamsNext(); }
+function updateTeamsNext(){ const btn=document.getElementById('teams-next-btn'); if(btn) btn.disabled=!teamsAreReady(setupState.team1, setupState.team2) || setupState.pool.length > 0; }
+function renderMatchups(){ const section=document.getElementById('matchup-section'); if(!section) return; if(!teamsAreReady(setupState.team1, setupState.team2) || setupState.pool.length > 0){ section.style.display='none'; return; } section.style.display=''; if(setupState.matchupOrder.length!==setupState.team2.length || !setupState.matchupOrder.every(p=>setupState.team2.includes(p))) setupState.matchupOrder=[...setupState.team2]; renderMatchupRows(); }
+function renderMatchupRows(){ const el=document.getElementById('matchup-rows'); if(!el) return; const last=setupState.matchupOrder.length-1; el.innerHTML=setupState.team1.map((p,i)=>`<div class="matchup-row"><div class="matchup-num">${i+1}</div><div class="matchup-player">${escHtml(p)}</div><div class="matchup-vs">vs</div><div class="matchup-t2-wrap"><div class="matchup-t2-name">${escHtml(setupState.matchupOrder[i])}</div><div class="matchup-arrows"><button class="matchup-btn" onclick="swapMatchup(${i},-1)" ${i===0?'disabled':''}>▲</button><button class="matchup-btn" onclick="swapMatchup(${i},1)" ${i===last?'disabled':''}>▼</button></div></div></div>`).join(''); }
+function swapMatchup(i,dir){ const j=i+dir; if(j<0||j>=setupState.matchupOrder.length) return; [setupState.matchupOrder[i],setupState.matchupOrder[j]]=[setupState.matchupOrder[j],setupState.matchupOrder[i]]; renderMatchupRows(); }
+
+function showSetupGames(){ ROUND.team1=[...setupState.team1]; ROUND.team2=[...setupState.team2]; ROUND.matchups=setupState.team1.map((t1,i)=>({t1,t2:setupState.matchupOrder[i]})); initScores(); initPutts(); renderSetupGames(); showScreen('setup-games'); }
+function renderSetupGames(){ const g=ROUND.games||cloneDefaultGames(); document.getElementById('setup-games-content').innerHTML=`<div class="setup-step-top"><div class="setup-step-title">Games</div><button class="group-btn sm" onclick="showSetupTeams()">Back</button></div><div class="bets-card">${gameInput('Skins','bet-skins',g.skins.pot,'/ player')}${threeGameInputs('Best Ball','bb',g.bestBall)}${threeGameInputs('2-Ball','tb',g.twoBall)}${gameInput('H2H','bet-h2h',g.h2h.perMatchup,'/ matchup')}${gameInput('Putt Poker','bet-pp',g.puttPoker.pot,'/ person')}</div><div class="setup-step-nav"><button class="group-btn" onclick="showSetupTeams()">Back</button><button class="group-btn primary" onclick="startRound()">Begin Round &rarr;</button></div>`; }
+function gameInput(label,id,val,unit){ return `<div class="bet-row"><span class="bet-label">${label}</span><div class="bet-inputs-group"><div class="bet-field"><span class="bet-dollar">$</span><input class="bet-input" type="number" min="0" id="${id}" value="${val||''}" oninput="saveGames()"><span class="bet-unit">${unit}</span></div></div></div>`; }
+function threeGameInputs(label,prefix,g){ return `<div class="bet-row"><span class="bet-label">${label}</span><div class="bet-inputs-group"><div class="bet-field"><span class="bet-sublabel">Front</span><span class="bet-dollar">$</span><input class="bet-input" type="number" min="0" id="bet-${prefix}-front" value="${g.front||''}" oninput="saveGames()"></div><div class="bet-field"><span class="bet-sublabel">Back</span><span class="bet-dollar">$</span><input class="bet-input" type="number" min="0" id="bet-${prefix}-back" value="${g.back||''}" oninput="saveGames()"></div><div class="bet-field"><span class="bet-sublabel">Total</span><span class="bet-dollar">$</span><input class="bet-input" type="number" min="0" id="bet-${prefix}-total" value="${g.total||''}" oninput="saveGames()"></div></div></div>`; }
+function readMoney(id){ const v=parseInt(document.getElementById(id)?.value||'0',10); return isNaN(v)?0:Math.max(0,v); }
+function saveGames(){ ROUND.games={ skins:{pot:readMoney('bet-skins')}, bestBall:{front:readMoney('bet-bb-front'),back:readMoney('bet-bb-back'),total:readMoney('bet-bb-total')}, twoBall:{front:readMoney('bet-tb-front'),back:readMoney('bet-tb-back'),total:readMoney('bet-tb-total')}, h2h:{perMatchup:readMoney('bet-h2h')}, puttPoker:{pot:readMoney('bet-pp')} }; saveState(); scheduleSync(); }
+async function startRound(){ saveGames(); ROUND.groupId=GROUP.id; ROUND.completed=false; initScores(); initPutts(); const payload=roundForDb(); const { data,error }=await _db.from('rounds').insert({ group_id:GROUP.id, code:groupCode(), state:payload, completed:false }).select('id,group_id,state,completed').single(); if(error){ alert('Error starting round: '+error.message); return; } ROUND=normalizeRound(data); saveState(); subscribeToGroup(); renderScorecard(); showScreen('scorecard'); }
+
+function initScores(){ currentPlayers().forEach(p=>{ if(!ROUND.scores[p]||ROUND.scores[p].length!==18) ROUND.scores[p]=new Array(18).fill(null); }); }
+function initPutts(){ if(!ROUND.putts) ROUND.putts={}; currentPlayers().forEach(p=>{ if(!ROUND.putts[p]||ROUND.putts[p].length!==18) ROUND.putts[p]=new Array(18).fill(null); }); }
+function getPlayerIndex(player){ return Number(GROUP?.players?.[player]?.handicapIndex ?? 0); }
+function getCourseHandicap(player){ const c=ROUND.course; return computeWHSCourseHcp(getPlayerIndex(player), c.tee?.slope, c.tee?.rating, c.tee?.parTotal || sum(c.par)); }
+function getPlayerStrokes(){ const players=currentPlayers(); const courseHcps=players.map(getCourseHandicap); const min=Math.min(...courseHcps); const out={}; players.forEach((p,i)=>out[p]=courseHcps[i]-min); return out; }
+function getsStroke(playerStrokes,si){ return Number(si)<=Number(playerStrokes||0); }
+function getColorClass(gross,par){ const d=gross-par; if(d<=-2)return'score-eagle'; if(d===-1)return'score-birdie'; if(d===0)return'score-par'; if(d===1)return'score-bogey'; return'score-double'; }
+function computeSkins(){ const players=currentPlayers(); const strokes=getPlayerStrokes(); const skinsByPlayer={}; players.forEach(p=>skinsByPlayer[p]=0); const holeResults=[]; for(let h=0;h<18;h++){ const allEntered=players.every(p=>ROUND.scores[p]?.[h]!=null); if(!allEntered) break; const nets={}; players.forEach(p=>{ nets[p]=ROUND.scores[p][h]-(getsStroke(strokes[p],ROUND.course.si[h])?1:0); }); const min=Math.min(...Object.values(nets)); const winners=players.filter(p=>nets[p]===min); if(winners.length===1){ skinsByPlayer[winners[0]]++; holeResults.push({hole:h+1,winner:winners[0],pot:1,nets,tied:false}); } else holeResults.push({hole:h+1,winner:null,pot:0,nets,tied:true,tiedPlayers:winners}); } return {skinsByPlayer,holeResults,pendingPot:0}; }
+function computeNetTotal(player,strokes){ const scores=ROUND.scores[player]||[]; let net=0, any=false; for(let h=0;h<18;h++){ if(scores[h]==null) continue; any=true; net+=scores[h]-(getsStroke(strokes[player],ROUND.course.si[h])?1:0); } return any?net:null; }
+function sumRange(player,start,end){ const scores=ROUND.scores[player]||[]; let s=0, any=false; for(let h=start;h<end;h++){ if(scores[h]!=null){ s+=scores[h]; any=true; } } return any?s:null; }
+function computeTeamHoleStats(teamPlayers,strokes,h){ const nets=teamPlayers.filter(p=>ROUND.scores[p]?.[h]!=null).map(p=>ROUND.scores[p][h]-(getsStroke(strokes[p],ROUND.course.si[h])?1:0)).sort((a,b)=>a-b); return { bestBall:nets.length>=1?nets[0]:null, twoBall:nets.length>=2?nets[0]+nets[1]:null }; }
+function computeTeamTotals(teamPlayers,strokes){ let bbOut=0,bbOutAny=false,bbIn=0,bbInAny=false,tbOut=0,tbOutAny=false,tbIn=0,tbInAny=false; for(let h=0;h<18;h++){ const {bestBall,twoBall}=computeTeamHoleStats(teamPlayers,strokes,h); if(h<9){ if(bestBall!=null){bbOut+=bestBall;bbOutAny=true;} if(twoBall!=null){tbOut+=twoBall;tbOutAny=true;} } else { if(bestBall!=null){bbIn+=bestBall;bbInAny=true;} if(twoBall!=null){tbIn+=twoBall;tbInAny=true;} } } return { bbOut:bbOutAny?bbOut:null, bbIn:bbInAny?bbIn:null, bbTotal:(bbOutAny||bbInAny)?(bbOutAny?bbOut:0)+(bbInAny?bbIn:0):null, tbOut:tbOutAny?tbOut:null, tbIn:tbInAny?tbIn:null, tbTotal:(tbOutAny||tbInAny)?(tbOutAny?tbOut:0)+(tbInAny?tbIn:0):null }; }
+
+function renderScorecard(){ const course=ROUND.course, players=currentPlayers(), strokes=getPlayerStrokes(), {skinsByPlayer}=computeSkins(); document.getElementById('sc-course-title').textContent=courseDisplayName(course); document.getElementById('sc-course-sub').textContent=[course.location, course.tee?.name].filter(Boolean).join(' / '); const gc=document.getElementById('sc-group-code'); if(gc){ gc.textContent=GROUP?`Group: ${groupCode()}`:''; gc.style.display=GROUP?'':'none'; } let html='<colgroup><col class="col-name">'; for(let i=0;i<9;i++)html+='<col class="col-hole">'; html+='<col class="col-out">'; for(let i=0;i<9;i++)html+='<col class="col-hole">'; html+='<col class="col-sum"><col class="col-sum"><col class="col-net"><col class="col-skins"></colgroup><thead>'; const outPar=sum(course.par.slice(0,9)), inPar=sum(course.par.slice(9)), totalPar=outPar+inPar; html+='<tr class="row-holes"><th></th>'; for(let h=1;h<=9;h++)html+=`<th>${h}</th>`; html+='<th class="col-out-h">OUT</th>'; for(let h=10;h<=18;h++)html+=`<th>${h}</th>`; html+='<th class="col-in-h">IN</th><th>TOT</th><th>NET</th><th>SKN</th></tr>'; html+=metaRow('row-par','Par',course.par,outPar,inPar,totalPar,'—','—'); const outY=sum(course.yds.slice(0,9)), inY=sum(course.yds.slice(9)), totalY=outY+inY; html+=metaRow('row-ydg','Yds',course.yds,outY,inY,totalY,'',''); html+=metaRow('row-si','Handicap',course.si,'—','—','—','',''); html+='</thead><tbody>'; [{key:'team1',label:'Team 1',players:ROUND.team1},{key:'team2',label:'Team 2',players:ROUND.team2}].forEach(({key,label,players:teamPlayers})=>{ html+=`<tr class="row-team-divider"><td colspan="24">${label} &mdash; ${teamPlayers.map(escHtml).join(' &middot; ')}</td></tr>`; teamPlayers.forEach(p=>{ html+=buildPlayerRow(p,strokes[p],skinsByPlayer[p],course); html+=buildPuttRow(p); }); html+=buildBestBallRow(key,teamPlayers,strokes,course); html+=build2BallRow(key,teamPlayers,strokes,course); }); html+='</tbody>'; const table=document.createElement('table'); table.className='sc-table'; table.innerHTML=html; const wrap=document.getElementById('sc-table-wrap'); wrap.innerHTML=''; wrap.appendChild(table); renderPuttPoker(); }
+function metaRow(cls,label,vals,outVal,inVal,totalVal,net,skins){ let html=`<tr class="${cls}"><td>${label}</td>`; for(let h=0;h<9;h++)html+=`<td>${vals[h]??''}</td>`; html+=`<td class="out-col">${outVal}</td>`; for(let h=9;h<18;h++)html+=`<td>${vals[h]??''}</td>`; html+=`<td class="in-col">${inVal}</td><td class="total-col">${totalVal}</td><td class="net-col">${net}</td><td class="skins-col">${skins}</td></tr>`; return html; }
+function buildPlayerRow(player,playerStrokes,skinsWon,course){ const outVal=sumRange(player,0,9), inVal=sumRange(player,9,18), totalVal=(outVal!=null||inVal!=null)?(outVal||0)+(inVal||0):null, netVal=computeNetTotal(player,getPlayerStrokes()), expanded=expandedPuttRows.has(player), courseHcp=getCourseHandicap(player); let html=`<tr class="row-player" data-player="${escHtml(player)}"><td class="name-cell"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:3px"><div class="cell-pname">${escHtml(player)}</div><button class="putt-toggle-btn" id="putts-toggle-${escHtml(player)}" onclick="event.stopPropagation();togglePuttRow('${escJs(player)}')" title="Toggle putt tracking">${expanded?'▲':'▼'}</button></div><div class="cell-hcp">Hcp ${courseHcp} &bull; +${playerStrokes} strokes</div></td>`; for(let h=0;h<9;h++)html+=buildScoreCell(player,h,playerStrokes,ROUND.scores[player]?.[h],course); html+=`<td class="sum-cell out-col" id="out-${escHtml(player)}">${outVal??'—'}</td>`; for(let h=9;h<18;h++)html+=buildScoreCell(player,h,playerStrokes,ROUND.scores[player]?.[h],course); html+=`<td class="sum-cell in-col" id="in-${escHtml(player)}">${inVal??'—'}</td><td class="sum-cell total-col" id="total-${escHtml(player)}">${totalVal??'—'}</td><td class="sum-cell net-col" id="net-${escHtml(player)}">${netVal??'—'}</td><td class="sum-cell skins-col" id="skins-${escHtml(player)}">${skinsWon>0?skinsWon:'—'}</td></tr>`; return html; }
+function buildFormatRow(rowClass,teamKey,teamPlayers,strokes,course,label,sublabel,valKey){ const fmt=v=>v!=null?v:'<span style="color:var(--text-faint);font-weight:400">—</span>'; const totals=computeTeamTotals(teamPlayers,strokes), outKey=valKey==='bestBall'?'bbOut':'tbOut', inKey=valKey==='bestBall'?'bbIn':'tbIn', totKey=valKey==='bestBall'?'bbTotal':'tbTotal', prefix=valKey==='bestBall'?'bb':'tb'; let html=`<tr class="${rowClass}"><td class="name-cell"><div class="fmt-row-label">${label}</div><div class="fmt-row-sub">${sublabel}</div></td>`; for(let h=0;h<9;h++)html+=`<td class="fmt-cell" id="${prefix}-${teamKey}-h${h}">${fmt(computeTeamHoleStats(teamPlayers,strokes,h)[valKey])}</td>`; html+=`<td class="sum-cell out-col" id="${prefix}-${teamKey}-out">${fmt(totals[outKey])}</td>`; for(let h=9;h<18;h++)html+=`<td class="fmt-cell" id="${prefix}-${teamKey}-h${h}">${fmt(computeTeamHoleStats(teamPlayers,strokes,h)[valKey])}</td>`; html+=`<td class="sum-cell in-col" id="${prefix}-${teamKey}-in">${fmt(totals[inKey])}</td><td class="sum-cell total-col" id="${prefix}-${teamKey}-total">${fmt(totals[totKey])}</td><td class="sum-cell net-col">—</td><td class="sum-cell skins-col">—</td></tr>`; return html; }
+function buildBestBallRow(teamKey,teamPlayers,strokes,course){ return buildFormatRow('row-best-ball',teamKey,teamPlayers,strokes,course,'Best Ball','low net per hole','bestBall'); }
+function build2BallRow(teamKey,teamPlayers,strokes,course){ return buildFormatRow('row-two-ball',teamKey,teamPlayers,strokes,course,'2-Ball','sum of 2 low nets','twoBall'); }
+function buildScoreCell(player,h,playerStrokes,gross,course){ const cls=gross!=null?getColorClass(gross,course.par[h]):'', dot=getsStroke(playerStrokes,course.si[h]); return `<td class="score-cell ${cls}" data-player="${escHtml(player)}" data-hole="${h}"><div class="sc-cell-inner"><input type="number" inputmode="numeric" min="1" max="20" value="${gross??''}" oninput="onScoreInput('${escJs(player)}',${h},this.value)" onfocus="this.select()">${dot?'<span class="stroke-dot">●</span>':''}</div></td>`; }
+function updateTeamFormatRows(teamKey){ const teamPlayers=ROUND[teamKey], strokes=getPlayerStrokes(), totals=computeTeamTotals(teamPlayers,strokes), el=id=>document.getElementById(id), fmt=v=>v!=null?String(v):'—'; for(let h=0;h<18;h++){ const {bestBall,twoBall}=computeTeamHoleStats(teamPlayers,strokes,h); if(el(`bb-${teamKey}-h${h}`))el(`bb-${teamKey}-h${h}`).textContent=fmt(bestBall); if(el(`tb-${teamKey}-h${h}`))el(`tb-${teamKey}-h${h}`).textContent=fmt(twoBall); } [['bb','bbOut','bbIn','bbTotal'],['tb','tbOut','tbIn','tbTotal']].forEach(([p,o,i,t])=>{ if(el(`${p}-${teamKey}-out`))el(`${p}-${teamKey}-out`).textContent=fmt(totals[o]); if(el(`${p}-${teamKey}-in`))el(`${p}-${teamKey}-in`).textContent=fmt(totals[i]); if(el(`${p}-${teamKey}-total`))el(`${p}-${teamKey}-total`).textContent=fmt(totals[t]); }); }
+function onScoreInput(player,h,rawVal){ const gross=rawVal===''?null:parseInt(rawVal,10); if(rawVal!==''&&isNaN(gross))return; ROUND.scores[player][h]=gross; saveState(); scheduleSync(); const cell=document.querySelector(`td.score-cell[data-player="${CSS.escape(player)}"][data-hole="${h}"]`); if(cell)cell.className='score-cell'+(gross!=null?' '+getColorClass(gross,ROUND.course.par[h]):''); updatePlayerSums(player); updateAllSkins(); updateTeamFormatRows(ROUND.team1.includes(player)?'team1':'team2'); }
+function updatePlayerSums(player){ const strokes=getPlayerStrokes(), outVal=sumRange(player,0,9), inVal=sumRange(player,9,18), totalVal=(outVal!=null||inVal!=null)?(outVal||0)+(inVal||0):null, netVal=computeNetTotal(player,strokes), el=id=>document.getElementById(id), fmt=v=>v!=null?v:'—'; if(el(`out-${player}`))el(`out-${player}`).textContent=fmt(outVal); if(el(`in-${player}`))el(`in-${player}`).textContent=fmt(inVal); if(el(`total-${player}`))el(`total-${player}`).textContent=fmt(totalVal); if(el(`net-${player}`))el(`net-${player}`).textContent=fmt(netVal); }
+function updateAllSkins(){ const {skinsByPlayer}=computeSkins(); currentPlayers().forEach(p=>{ const el=document.getElementById(`skins-${p}`); if(el)el.textContent=skinsByPlayer[p]>0?skinsByPlayer[p]:'—'; }); }
+
+function togglePuttRow(player){ expandedPuttRows.has(player)?expandedPuttRows.delete(player):expandedPuttRows.add(player); const row=document.getElementById(`putts-row-${player}`), btn=document.getElementById(`putts-toggle-${player}`); if(row)row.style.display=expandedPuttRows.has(player)?'':'none'; if(btn)btn.textContent=expandedPuttRows.has(player)?'▲':'▼'; }
+function onPuttInput(player,h,rawVal){ const v=rawVal===''?null:parseInt(rawVal,10); if(rawVal!==''&&(isNaN(v)||v<0))return; ROUND.putts[player][h]=v; saveState(); scheduleSync(); const input=document.getElementById(`putt-inp-${player}-${h}`); if(input)input.className=`putt-inp${v===0?' putt-1':v===1?' putt-1':v===2?' putt-2':v>=3?' putt-3':''}`; updatePuttSums(player); renderPuttPoker(); }
+function puttSum(player,start,end){ const vals=(ROUND.putts?.[player]||[]).slice(start,end).filter(v=>v!=null); return vals.length?sum(vals):'—'; }
+function updatePuttSums(player){ const f=puttSum(player,0,9), b=puttSum(player,9,18), t=(f==='—'&&b==='—')?'—':(f==='—'?0:f)+(b==='—'?0:b); [['out',f],['in',b],['total',t]].forEach(([k,v])=>{ const el=document.getElementById(`putt-${k}-${player}`); if(el)el.textContent=v; }); }
+function buildPuttCell(player,h){ const v=ROUND.putts?.[player]?.[h]??null, cls=v===0?' putt-1':v===1?' putt-1':v===2?' putt-2':v>=3?' putt-3':''; return `<td class="putt-cell"><input type="number" inputmode="numeric" min="0" max="9" class="putt-inp${cls}" id="putt-inp-${escHtml(player)}-${h}" value="${v??''}" oninput="onPuttInput('${escJs(player)}',${h},this.value)" onfocus="this.select()"></td>`; }
+function buildPuttRow(player){ const expanded=expandedPuttRows.has(player), f=puttSum(player,0,9), b=puttSum(player,9,18), t=(f==='—'&&b==='—')?'—':(f==='—'?0:f)+(b==='—'?0:b); let html=`<tr class="row-putts" id="putts-row-${escHtml(player)}" style="${expanded?'':'display:none'}"><td class="name-cell" style="background:var(--bg-lighter)!important"><div style="font-size:0.58rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);opacity:0.75">Putts</div></td>`; for(let h=0;h<9;h++)html+=buildPuttCell(player,h); html+=`<td class="sum-cell out-col" id="putt-out-${escHtml(player)}" style="background:var(--bg-lighter)!important;color:rgba(245,240,228,0.65);font-size:0.82rem">${f}</td>`; for(let h=9;h<18;h++)html+=buildPuttCell(player,h); html+=`<td class="sum-cell in-col" id="putt-in-${escHtml(player)}" style="background:var(--bg-lighter)!important;color:rgba(245,240,228,0.65);font-size:0.82rem">${b}</td><td class="sum-cell total-col" id="putt-total-${escHtml(player)}" style="background:var(--bg-lighter)!important;color:rgba(245,240,228,0.65);font-size:0.82rem">${t}</td><td class="sum-cell" style="background:var(--bg-lighter)!important"></td><td class="sum-cell" style="background:var(--bg-lighter)!important"></td></tr>`; return html; }
+function computePuttPoker(teamPlayers){ const cards={},threePuttCount={},fourPuttCount={}; teamPlayers.forEach(p=>{cards[p]=2; threePuttCount[p]=0; fourPuttCount[p]=0;}); let coinHolder=null, pot=(ROUND.games?.puttPoker?.pot||0)*teamPlayers.length; for(let h=0;h<18;h++)teamPlayers.forEach(p=>{ const v=ROUND.putts?.[p]?.[h]??null; if(v==null)return; if(v===0)cards[p]+=2; if(v===1)cards[p]+=1; if(v===3){coinHolder=p; pot+=1; threePuttCount[p]++;} if(v>=4){coinHolder=p; pot+=2; fourPuttCount[p]++;} }); return {cards,coinHolder,pot,threePuttCount,fourPuttCount}; }
+function puttPenaltyNote(threePutts,fourPutts){ return [threePutts>0?`${threePutts}x 3-putt`:null, fourPutts>0?`${fourPutts}x 4+ putt`:null].filter(Boolean).join(' / '); }
+function _renderPuttPokerContent(panel){ let html='<div class="pp-content">'; [{label:'Team 1',players:ROUND.team1||[]},{label:'Team 2',players:ROUND.team2||[]}].forEach(({label,players})=>{ const {cards,coinHolder,pot,threePuttCount,fourPuttCount}=computePuttPoker(players); html+=`<div class="pp-team"><div class="pp-team-hdr">${label}</div><div class="pp-coin">Coin: ${coinHolder?`<strong>${escHtml(coinHolder)}</strong>`:'<em style="opacity:0.45;font-style:italic;font-size:0.7rem">no 3-putts yet</em>'}</div><div class="pp-cards-row">${players.map(p=>{ const note=puttPenaltyNote(threePuttCount[p],fourPuttCount[p]); return `<div class="pp-player"><div class="pp-player-name">${escHtml(p)}</div><div class="pp-card-count">🃏&nbsp;&times;&nbsp;${cards[p]}</div>${note?`<div class="pp-3putt-note">${note}</div>`:''}</div>`; }).join('')}</div><div class="pp-pot">Pot: <strong>$${pot}</strong></div></div>`; }); panel.innerHTML=html+'</div>'; }
+function renderPuttPoker(){ const panel=document.getElementById('pp-panel'); if(panel&&panel.style.display!=='none')_renderPuttPokerContent(panel); }
+function togglePPPanel(){ const panel=document.getElementById('pp-panel'), icon=document.getElementById('pp-toggle-icon'); if(!panel)return; const opening=panel.style.display==='none'; panel.style.display=opening?'':'none'; if(icon)icon.textContent=opening?'▲':'▼'; if(opening)_renderPuttPokerContent(panel); }
+
+function gamesHaveBets(){ const g=ROUND.games||cloneDefaultGames(); return !!(g.skins.pot||g.bestBall.front||g.bestBall.back||g.bestBall.total||g.twoBall.front||g.twoBall.back||g.twoBall.total||g.h2h.perMatchup||g.puttPoker.pot); }
+function computePlayerPnL(){ const g=ROUND.games||cloneDefaultGames(), strokes=getPlayerStrokes(), {skinsByPlayer}=computeSkins(), players=currentPlayers(), t1=computeTeamTotals(ROUND.team1,strokes), t2=computeTeamTotals(ROUND.team2,strokes), pnl={}; players.forEach(p=>pnl[p]=0); if(g.skins.pot){ const totalPot=g.skins.pot*players.length, total=sum(Object.values(skinsByPlayer)); if(total>0)players.forEach(p=>pnl[p]+=(skinsByPlayer[p]/total)*totalPot-g.skins.pot); } function applyTeam(v1,v2,amt){ if(!amt||v1==null||v2==null)return; if(v1<v2){ROUND.team1.forEach(p=>pnl[p]+=amt); ROUND.team2.forEach(p=>pnl[p]-=amt);} else if(v2<v1){ROUND.team2.forEach(p=>pnl[p]+=amt); ROUND.team1.forEach(p=>pnl[p]-=amt);} } applyTeam(t1.bbOut,t2.bbOut,g.bestBall.front); applyTeam(t1.bbIn,t2.bbIn,g.bestBall.back); applyTeam(t1.bbTotal,t2.bbTotal,g.bestBall.total); applyTeam(t1.tbOut,t2.tbOut,g.twoBall.front); applyTeam(t1.tbIn,t2.tbIn,g.twoBall.back); applyTeam(t1.tbTotal,t2.tbTotal,g.twoBall.total); if(g.h2h.perMatchup)(ROUND.matchups||[]).forEach(m=>{ const n1=computeNetTotal(m.t1,strokes), n2=computeNetTotal(m.t2,strokes); if(n1!=null&&n2!=null){ if(n1<n2){pnl[m.t1]+=g.h2h.perMatchup; pnl[m.t2]-=g.h2h.perMatchup;} else if(n2<n1){pnl[m.t2]+=g.h2h.perMatchup; pnl[m.t1]-=g.h2h.perMatchup;} } }); return pnl; }
+function computeSettlement(pnl){ const debtors=Object.entries(pnl).filter(([,v])=>v<0).map(([n,v])=>({name:n,amt:-v})).sort((a,b)=>b.amt-a.amt), creditors=Object.entries(pnl).filter(([,v])=>v>0).map(([n,v])=>({name:n,amt:v})).sort((a,b)=>b.amt-a.amt), transfers=[]; let di=0,ci=0; while(di<debtors.length&&ci<creditors.length){ const pay=Math.min(debtors[di].amt,creditors[ci].amt); if(pay>0)transfers.push({from:debtors[di].name,to:creditors[ci].name,amount:pay}); debtors[di].amt-=pay; creditors[ci].amt-=pay; if(debtors[di].amt<0.01)di++; if(creditors[ci].amt<0.01)ci++; } return transfers; }
+function renderResults(){ const players=currentPlayers(), strokes=getPlayerStrokes(), {skinsByPlayer,holeResults}=computeSkins(); const board=players.map(p=>({player:p,team:ROUND.team1.includes(p)?'Team 1':'Team 2',gross:sumRange(p,0,18),strokes:strokes[p],net:computeNetTotal(p,strokes),skins:skinsByPlayer[p]})).sort((a,b)=>a.net==null?1:b.net==null?-1:a.net-b.net); const team1Net=ROUND.team1.reduce((s,p)=>s+(computeNetTotal(p,strokes)||0),0), team2Net=ROUND.team2.reduce((s,p)=>s+(computeNetTotal(p,strokes)||0),0), team1HasAll=ROUND.team1.every(p=>computeNetTotal(p,strokes)!=null), team2HasAll=ROUND.team2.every(p=>computeNetTotal(p,strokes)!=null); let html=`<div class="results-topbar"><div><div class="results-title">◆ Final Results</div><div style="font-size:0.62rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);opacity:0.75;margin-top:0.2rem">Group: ${escHtml(groupCode())}</div></div><div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">${!ROUND.completed?'<button class="btn-complete" onclick="completeRound()">Complete Round ✓</button>':'<span class="completed-badge">✓ Round Complete</span>'}<button class="btn-ghost" onclick="showScreen('scorecard')">← Scorecard</button><button class="btn-danger" onclick="resetRound()">Reset Round</button></div></div>`; html+=renderSettlementSection(); html+=`<div class="results-section"><div class="results-section-hdr">Individual Leaderboard</div><div style="overflow-x:auto"><table class="res-table"><thead><tr><th>Player</th><th>Team</th><th>Gross</th><th>Strokes</th><th>Net</th><th>Skins</th></tr></thead><tbody>${board.map((r,i)=>`<tr><td><span class="res-rank">${i+1}.</span><span class="res-player-name ${i===0&&r.net!=null?'res-winner':''}">${escHtml(r.player)}</span></td><td>${r.team}</td><td>${r.gross??'—'}</td><td>${r.strokes>0?'+'+r.strokes:'—'}</td><td class="res-net-val">${r.net??'—'}</td><td class="res-skins-val">${r.skins>0?r.skins:'—'}</td></tr>`).join('')}</tbody></table></div></div>`; const t1Win=team1HasAll&&team2HasAll&&team1Net<team2Net, t2Win=team1HasAll&&team2HasAll&&team2Net<team1Net, tied=team1HasAll&&team2HasAll&&team1Net===team2Net; html+=`<div class="results-section"><div class="results-section-hdr">Team Scores</div><div class="team-score-grid"><div class="team-score-box ${t1Win?'winner':''}"><div class="tsb-label">Team 1 &bull; ${ROUND.team1.map(escHtml).join(', ')}</div><div class="tsb-score ${t1Win?'winner-score':''}">${team1HasAll?team1Net:'—'}</div><div class="tsb-tag ${t1Win?'winner-tag':''}">${t1Win?'Winners':team1HasAll?'':'In progress'}</div></div><div class="team-score-vs">vs</div><div class="team-score-box ${t2Win?'winner':''}"><div class="tsb-label">Team 2 &bull; ${ROUND.team2.map(escHtml).join(', ')}</div><div class="tsb-score ${t2Win?'winner-score':''}">${team2HasAll?team2Net:'—'}</div><div class="tsb-tag ${t2Win?'winner-tag':''}">${t2Win?'Winners':tied?'All square':team2HasAll?'':'In progress'}</div></div></div></div>`; html+=renderSkinsBreakdown(holeResults,skinsByPlayer); html+=renderH2H(strokes); html+=renderFormatResults(strokes); document.getElementById('results-wrap').innerHTML=html; }
+function renderSettlementSection(){ const hasBets=gamesHaveBets(); let html='<div class="results-section"><div class="results-section-hdr">Settlement</div>'; if(!hasBets)return html+'<div class="settle-no-bets">No bet amounts entered.</div></div>'; const pnl=computePlayerPnL(), transfers=computeSettlement(pnl), fc=v=>Math.round(v)===0?'—':`<span class="${v>0?'pnl-pos':'pnl-neg'}">${v>0?'+':''}$${Math.abs(Math.round(v))}</span>`; html+=`<div style="overflow-x:auto"><table class="pnl-table"><thead><tr><th>Player</th><th>Net</th></tr></thead><tbody>${currentPlayers().map(p=>`<tr><td><strong>${escHtml(p)}</strong></td><td>${fc(pnl[p])}</td></tr>`).join('')}</tbody></table></div>`; if(transfers.length)html+=`<div class="settle-header">Who pays who</div><div class="settlement-list">${transfers.map(t=>`<div class="settlement-row"><span class="settle-names">${escHtml(t.from)} <span class="settle-arrow">pays</span> ${escHtml(t.to)}</span><span class="settle-amount">$${Math.round(t.amount)}</span></div>`).join('')}</div>`; else html+='<div class="settle-no-bets" style="padding:0.75rem">All square.</div>'; return html+'</div>'; }
+function renderSkinsBreakdown(holeResults,skinsByPlayer){ let html='<div class="results-section"><div class="results-section-hdr">Skins Breakdown</div>'; if(!holeResults.length)return html+'<div class="provisional-note">No complete holes yet.</div></div>'; html+='<table class="res-table"><thead><tr><th>Hole</th><th>Par</th><th>Handicap</th><th>Result</th><th>Winner</th><th>Gross</th><th>Net</th><th>Skin</th></tr></thead><tbody>'; holeResults.forEach(r=>{ const par=ROUND.course.par[r.hole-1], si=ROUND.course.si[r.hole-1]; if(r.tied)html+=`<tr class="skins-carry-row"><td>${r.hole}</td><td>${par}</td><td>${si}</td><td>Tied</td><td>${r.tiedPlayers.map(escHtml).join(', ')}</td><td>—</td><td>—</td><td>—</td></tr>`; else html+=`<tr><td>${r.hole}</td><td>${par}</td><td>${si}</td><td style="color:var(--gold-dark);font-weight:700">Won</td><td><span class="skins-winner-name">${escHtml(r.winner)}</span></td><td>${ROUND.scores[r.winner][r.hole-1]}</td><td>${r.nets[r.winner]}</td><td><span class="skins-pot-badge">1</span></td></tr>`; }); const total=sum(Object.values(skinsByPlayer)), pot=(ROUND.games?.skins?.pot||0)*currentPlayers().length, per=total>0?(pot/total).toFixed(2):'—'; return html+`</tbody></table>${ROUND.games?.skins?.pot?`<div class="provisional-note" style="margin-top:0.5rem">Pot: $${pot} total &bull; $${per}/skin (${total} skin${total!==1?'s':''} won)</div>`:''}</div>`; }
+function renderH2H(strokes){ if(!ROUND.matchups?.length)return''; return `<div class="results-section"><div class="results-section-hdr">Head-to-Head Matchups</div><table class="res-table"><thead><tr><th>#</th><th>Team 1</th><th>Net</th><th></th><th>Net</th><th>Team 2</th><th>Result</th></tr></thead><tbody>${ROUND.matchups.map((m,i)=>{ const n1=computeNetTotal(m.t1,strokes), n2=computeNetTotal(m.t2,strokes), res=n1==null||n2==null?'In progress':n1<n2?`${m.t1} wins`:n2<n1?`${m.t2} wins`:'All Square'; return `<tr><td>${i+1}</td><td>${escHtml(m.t1)}</td><td>${n1??'—'}</td><td>vs</td><td>${n2??'—'}</td><td>${escHtml(m.t2)}</td><td style="font-weight:700">${escHtml(res)}</td></tr>`; }).join('')}</tbody></table></div>`; }
+function renderFormatResults(strokes){ const t1=computeTeamTotals(ROUND.team1,strokes), t2=computeTeamTotals(ROUND.team2,strokes), f=v=>v??'—'; const box=(label,a,b,c,d,e,g)=>`<div style="border-top:1px solid var(--panel-border);padding:0.55rem 1.25rem 0.35rem;background:var(--bg-lighter);"><span style="font-family:'Playfair Display',serif;font-size:0.8rem;font-weight:700;color:var(--gold);letter-spacing:0.12em;text-transform:uppercase;">${label}</span></div><div class="format-comp-grid"><div class="format-comp-box"><div class="fcb-label">Team 1</div><div class="fcb-breakdown"><div>${f(a)}</div><div>${f(b)}</div></div><div class="fcb-total-label">Total</div><div class="fcb-score">${f(c)}</div></div><div class="format-comp-vs">vs</div><div class="format-comp-box"><div class="fcb-label">Team 2</div><div class="fcb-breakdown"><div>${f(d)}</div><div>${f(e)}</div></div><div class="fcb-total-label">Total</div><div class="fcb-score">${f(g)}</div></div></div>`; return `<div class="results-section"><div class="results-section-hdr">Best Ball &amp; 2-Ball Competition</div>${box('Best Ball',t1.bbOut,t1.bbIn,t1.bbTotal,t2.bbOut,t2.bbIn,t2.bbTotal)}${box('2-Ball',t1.tbOut,t1.tbIn,t1.tbTotal,t2.tbOut,t2.tbIn,t2.tbTotal)}</div>`; }
+function showResults(){ renderResults(); showScreen('results'); }
+
+async function resetRound(){ if(!confirm('Reset this round? Scores will be lost, but the group roster remains.')) return; if(ROUND?.id) await _db.from('rounds').delete().eq('id',ROUND.id); ROUND=null; saveState(); await loadActiveRound(); showHub(); }
+async function completeRound(){ if(!ROUND?.id)return; if(!confirm('Mark this round as complete?'))return; ROUND.completed=true; saveState(); const {error}=await _db.from('rounds').update({ state:roundForDb(), completed:true, completed_at:new Date().toISOString() }).eq('id',ROUND.id); if(error){ alert('Error saving: '+error.message); ROUND.completed=false; saveState(); return; } showHub(); }
+
+function scheduleSync(){ if(!ROUND?.id)return; clearTimeout(_syncTimer); _syncTimer=setTimeout(pushToSupabase,600); }
+function mergeCellMatrix(base={}, incoming={}, preferIncoming=false){
+  const merged={...base};
+  Object.keys(incoming || {}).forEach(player=>{
+    const baseRow=Array.isArray(merged[player]) ? [...merged[player]] : new Array(18).fill(null);
+    const incomingRow=Array.isArray(incoming[player]) ? incoming[player] : [];
+    for(let h=0; h<18; h++){
+      if(incomingRow[h] == null) continue;
+      if(baseRow[h] == null || preferIncoming) baseRow[h]=incomingRow[h];
+    }
+    merged[player]=baseRow;
   });
-  wrap.innerHTML = html;
+  return merged;
 }
-
-/* ─────────────────────────────────────────────
-   HELPERS FOR COMPUTING FROM ARBITRARY STATE BLOB
-───────────────────────────────────────────── */
-function _stateStrokes(st) {
-  const crs  = COURSES[st.course];
-  const plrs = [...(st.team1||[]), ...(st.team2||[])];
-  const hcps = plrs.map(p => {
-    if (crs?.hcp?.[p] !== undefined) return crs.hcp[p];
-    return Math.round((st.players?.[p]?.handicapIndex) ?? 0);
-  });
-  const minH = Math.min(...hcps);
-  const res  = {};
-  plrs.forEach((p, i) => { res[p] = hcps[i] - minH; });
-  return res;
-}
-
-function _stateNet(st, player, strokes) {
-  const crs = COURSES[st.course];
-  if (!crs) return null;
-  const sc = (st.scores || {})[player];
-  if (!sc) return null;
-  let net = 0;
-  for (let h = 0; h < 18; h++) {
-    if (sc[h] === null || sc[h] === undefined) return null;
-    net += sc[h] - (getsStroke(strokes[player] || 0, crs.si[h]) ? 1 : 0);
+function mergeRoundData(localRound, remoteRound, preferRemote=false){
+  if(!remoteRound) return localRound;
+  const merged={...remoteRound,...localRound};
+  merged.scores=mergeCellMatrix(remoteRound.scores || {}, localRound.scores || {}, !preferRemote);
+  merged.putts=mergeCellMatrix(remoteRound.putts || {}, localRound.putts || {}, !preferRemote);
+  if(preferRemote){
+    merged.scores=mergeCellMatrix(merged.scores, remoteRound.scores || {}, true);
+    merged.putts=mergeCellMatrix(merged.putts, remoteRound.putts || {}, true);
   }
-  return net;
+  return merged;
 }
-
-function _stateSkins(st) {
-  const crs = COURSES[st.course];
-  if (!crs) return { skinsByPlayer: {} };
-  const plrs   = [...(st.team1||[]), ...(st.team2||[])];
-  const strk   = _stateStrokes(st);
-  const byPlr  = {};
-  plrs.forEach(p => { byPlr[p] = 0; });
-  let pot = 1;
-  for (let h = 0; h < 18; h++) {
-    if (!plrs.every(p => (st.scores||{})[p]?.[h] != null)) break;
-    const nets = {};
-    plrs.forEach(p => { nets[p] = st.scores[p][h] - (getsStroke(strk[p]||0, crs.si[h]) ? 1 : 0); });
-    const mn  = Math.min(...Object.values(nets));
-    const win = plrs.filter(p => nets[p] === mn);
-    if (win.length === 1) { byPlr[win[0]] += pot; pot = 1; } else { pot++; }
-  }
-  return { skinsByPlayer: byPlr };
-}
-
-/* ─────────────────────────────────────────────
-   INIT
-───────────────────────────────────────────── */
-(function init() {
-  document.getElementById('setup-screen').style.display = '';
-
-  if (loadState()) {
-    bootstrapPresetPlayers();
+async function pushToSupabase(){
+  if(!ROUND?.id)return;
+  const {data}=await _db.from('rounds').select('id,group_id,state,completed').eq('id',ROUND.id).single();
+  if(data){
+    const remote=normalizeRound(data);
+    ROUND=mergeRoundData(ROUND, remote, false);
     saveState();
-    setupState.pool = Object.keys(APP.players || {}).filter(
-      p => !APP.team1.includes(p) && !APP.team2.includes(p)
-    );
-    initScores();
-    initPutts();
-    if (!APP.bets) APP.bets = { ...DEFAULT_BETS };
-    loadBetsToInputs();
-    renderScorecard();
-    showScreen('scorecard');
-  } else {
-    bootstrapPresetPlayers();
-    saveState();
-    setupState.pool = Object.keys(APP.players || {});
-    showScreen('setup');
-    renderSetup();
   }
-
-  // Restore setup UI from saved snapshot (for joining players on setup screen)
-  if (APP.setupSnapshot) {
-    syncAppToSetup();
-    restoreCourseUI();
-    renderSetup();
-    loadBetsToInputs();
-    updateCTA();
-  }
-
-  // Re-connect to room if we were in one
-  if (APP.roomCode) {
-    if (APP.roundId) {
-      ROOM_CODE = APP.roomCode;
-      ROUND_ID  = APP.roundId;
-      setRoomActive(ROOM_CODE);
-      subscribeToRoom(ROOM_CODE);
-    } else {
-      // roundId missing in saved state — fetch from Supabase to recover
-      _db.from('rounds').select('id,state').eq('code', APP.roomCode)
-        .eq('completed', false).order('created_at', { ascending: false })
-        .limit(1).single()
-        .then(({ data }) => {
-          if (!data) return;
-          ROOM_CODE = APP.roomCode;
-          ROUND_ID  = data.id;
-          APP.roundId = ROUND_ID;
-          saveState();
-          applyRemoteState(typeof data.state === 'string' ? JSON.parse(data.state) : data.state, false);
-          setRoomActive(ROOM_CODE);
-          subscribeToRoom(ROOM_CODE);
-        });
-    }
-  }
-
-  // Poll every 10s as a fallback in case real-time subscription drops
-  setInterval(async () => {
-    if (!ROUND_ID || !_db) return;
-    const { data } = await _db.from('rounds').select('state').eq('id', ROUND_ID).single();
-    if (data) applyRemoteState(typeof data.state === 'string' ? JSON.parse(data.state) : data.state, false);
-  }, 10000);
-})();
-
-/* ─────────────────────────────────────────────
-   DYNAMIC PLAYER MANAGEMENT
-───────────────────────────────────────────── */
-
-function bootstrapPresetPlayers() {
-  if (!APP.players) APP.players = {};
-  PRESET_PLAYERS.forEach(({ name, handicapIndex }) => {
-    if (!APP.players[name]) {
-      APP.players[name] = { name, handicapIndex, source: 'preset' };
-    }
-  });
+  const state=roundForDb();
+  const payload=JSON.stringify(state);
+  _lastPushed=payload;
+  await _db.from('rounds').update({ state, completed:ROUND.completed||false }).eq('id',ROUND.id);
 }
-
-function setGhinStatus(msg, isErr) {
-  const el = document.getElementById('ghin-status');
-  if (!el) return;
-  el.textContent = msg;
-  el.className = 'ghin-status' + (isErr ? ' err' : '');
-}
-
-async function lookupGhin() {
-  const raw = (document.getElementById('ghin-input')?.value || '').trim();
-  if (!raw) { setGhinStatus('Enter a GHIN number', true); return; }
-  const btn = document.getElementById('ghin-btn');
-  if (btn) btn.disabled = true;
-  setGhinStatus('Looking up…');
-  try {
-    const res = await fetch(`${_SUPA_URL}/functions/v1/ghin-lookup`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${_SUPA_KEY}`,
-      },
-      body: JSON.stringify({ ghin: raw }),
-      signal: AbortSignal.timeout(12000)
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setGhinStatus(data.error || `Error ${res.status}`, true);
-      return;
-    }
-    const name = data.name;
-    const idx  = parseFloat(data.handicap_index ?? 0) || 0;
-    addPlayerToPool(name, idx, 'ghin');
-    setGhinStatus(`Added ${name} (Idx ${idx})`);
-    const inp = document.getElementById('ghin-input');
-    if (inp) inp.value = '';
-  } catch (e) {
-    const msg = (e.name === 'TimeoutError' || e.name === 'AbortError')
-      ? 'Lookup timed out — try again' : `Error: ${e.message}`;
-    setGhinStatus(msg, true);
-  } finally {
-    if (btn) btn.disabled = false;
-  }
-}
-
-function toggleManualAdd() {
-  const box = document.getElementById('manual-add-box');
-  if (!box) return;
-  const opening = box.style.display === 'none';
-  box.style.display = opening ? '' : 'none';
-  if (opening) {
-    setGhinStatus('');
-    document.getElementById('manual-name')?.focus();
-  }
-}
-
-function addManualPlayer() {
-  const nameEl = document.getElementById('manual-name');
-  const hcpEl  = document.getElementById('manual-hcp');
-  const name   = (nameEl?.value || '').trim();
-  const idx    = parseFloat(hcpEl?.value ?? '') || 0;
-  if (!name) { setGhinStatus('Enter a player name', true); return; }
-  addPlayerToPool(name, idx, 'manual');
-  setGhinStatus(`Added ${name}`);
-  if (nameEl) nameEl.value = '';
-  if (hcpEl)  hcpEl.value  = '';
-  document.getElementById('manual-add-box').style.display = 'none';
-}
-
-function addPlayerToPool(name, handicapIndex, source) {
-  if (!APP.players) APP.players = {};
-  APP.players[name] = { name, handicapIndex, source };
-  if (!setupState.pool.includes(name)) setupState.pool.push(name);
+function subscribeToGroup(){ if(!GROUP?.id)return; stopGroupSubscription(); GROUP_CHANNEL=_db.channel('group-'+GROUP.id).on('postgres_changes',{event:'*',schema:'public',table:'rounds',filter:`group_id=eq.${GROUP.id}`},payload=>{ const row=payload.new; if(!row?.state)return; const incoming=typeof row.state==='string'?row.state:JSON.stringify(row.state); if(incoming===_lastPushed)return; const next=normalizeRound(row); if(payload.eventType==='INSERT' && !next.completed){ ROUND=next; saveState(); renderHub(); return; } if(ROUND?.id && row.id===ROUND.id) applyRemoteRound(next); }).subscribe(); startPolling(); }
+function stopGroupSubscription(){ if(GROUP_CHANNEL){ _db.removeChannel(GROUP_CHANNEL); GROUP_CHANNEL=null; } if(_pollTimer){ clearInterval(_pollTimer); _pollTimer=null; } }
+function applyRemoteRound(remote){
+  const before=JSON.stringify({scores:ROUND?.scores||{}, putts:ROUND?.putts||{}});
+  ROUND=mergeRoundData(ROUND || {}, remote, true);
+  const afterRemote=JSON.stringify({scores:remote?.scores||{}, putts:remote?.putts||{}});
+  const localHadExtra=before!==afterRemote && JSON.stringify({scores:ROUND?.scores||{}, putts:ROUND?.putts||{}})!==afterRemote;
   saveState();
-  renderPool();
-  syncSetupAndSchedule();
-  updateCTA();
+  const onScorecard=document.getElementById('scorecard-screen').style.display!=='none', onResults=document.getElementById('results-screen').style.display!=='none', onHub=document.getElementById('hub-screen').style.display!=='none';
+  if(onScorecard){ const typing=document.activeElement&&document.activeElement.tagName==='INPUT'&&document.getElementById('scorecard-screen').contains(document.activeElement); if(!typing)renderScorecard(); }
+  if(onResults)renderResults();
+  if(onHub)renderHub();
+  if(localHadExtra) scheduleSync();
 }
+function startPolling(){ if(_pollTimer)clearInterval(_pollTimer); _pollTimer=setInterval(async()=>{ if(!ROUND?.id)return; const {data}=await _db.from('rounds').select('id,group_id,state,completed').eq('id',ROUND.id).single(); if(data)applyRemoteRound(normalizeRound(data)); },10000); }
 
-function removePlayer(name) {
-  if (!confirm(`Remove ${name} from your player list?`)) return;
-  delete APP.players[name];
-  setupState.pool  = setupState.pool.filter(p => p !== name);
-  setupState.team1 = setupState.team1.filter(p => p !== name);
-  setupState.team2 = setupState.team2.filter(p => p !== name);
-  saveState();
-  renderSetup();
-  syncSetupAndSchedule();
-  updateCTA();
-}
+async function showHistory(){ if(!GROUP)return; showScreen('history'); const wrap=document.getElementById('history-wrap'); wrap.innerHTML=`<div class="screen-topbar"><div class="screen-topbar-title">◆ Past Rounds</div><button class="btn-ghost" onclick="showHub()">← Back</button></div><div style="color:var(--gold);padding:1rem;opacity:0.7">Loading...</div>`; const {data,error}=await _db.from('rounds').select('code,state,completed_at').eq('group_id',GROUP.id).eq('completed',true).order('completed_at',{ascending:false}); if(error){wrap.innerHTML+=`<div style="color:#c0392b">${escHtml(error.message)}</div>`;return;} renderHistory(data||[]); }
+function renderHistory(rounds){ const wrap=document.getElementById('history-wrap'); let html=`<div class="screen-topbar"><div class="screen-topbar-title">◆ Past Rounds</div><button class="btn-ghost" onclick="showHub()">← Back</button></div>`; if(!rounds.length){ wrap.innerHTML=html+'<div style="color:var(--gold);opacity:0.6;padding:1rem">No completed rounds yet.</div>'; return; } rounds.forEach(r=>{ const st=typeof r.state==='string'?JSON.parse(r.state):r.state, plrs=[...(st.team1||[]),...(st.team2||[])], strk=_stateStrokes(st), {skinsByPlayer}=_stateSkins(st), nets=plrs.map(p=>({p,net:_stateNet(st,p,strk)})).filter(x=>x.net!=null).sort((a,b)=>a.net-b.net), date=r.completed_at?new Date(r.completed_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'; html+=`<div class="hist-round-card"><div class="hist-round-hdr"><div><div class="hist-round-code">${escHtml(groupCode())}</div><div class="hist-round-course">${escHtml(stateCourseName(st))}</div></div><div class="hist-round-date">${date}</div></div><div style="overflow-x:auto"><table class="res-table" style="font-size:0.82rem"><thead><tr><th>Player</th><th>Team</th><th>Net</th><th>Skins</th></tr></thead><tbody>${nets.map(({p,net})=>`<tr><td><strong>${escHtml(p)}</strong></td><td>${(st.team1||[]).includes(p)?'T1':'T2'}</td><td>${net}</td><td>${skinsByPlayer[p]>0?skinsByPlayer[p]:'—'}</td></tr>`).join('')}</tbody></table></div></div>`; }); wrap.innerHTML=html; }
+async function showStats(){ if(!GROUP)return; showScreen('stats'); const wrap=document.getElementById('stats-wrap'); wrap.innerHTML=`<div class="screen-topbar"><div class="screen-topbar-title">◆ All-Time Stats</div><button class="btn-ghost" onclick="showHub()">← Back</button></div><div style="color:var(--gold);padding:1rem;opacity:0.7">Loading...</div>`; const {data,error}=await _db.from('rounds').select('state,completed_at').eq('group_id',GROUP.id).eq('completed',true); if(error){wrap.innerHTML+=`<div style="color:#c0392b">${escHtml(error.message)}</div>`;return;} renderStats(data||[]); }
+function renderStats(rounds){ const agg={}; rounds.forEach(r=>{ const st=typeof r.state==='string'?JSON.parse(r.state):r.state, plrs=[...(st.team1||[]),...(st.team2||[])], strk=_stateStrokes(st), {skinsByPlayer}=_stateSkins(st); plrs.forEach(p=>{ if(!agg[p])agg[p]={rounds:0,skinsWon:0,nets:[],bestNet:Infinity,h2hW:0,h2hL:0,h2hT:0}; agg[p].rounds++; agg[p].skinsWon+=skinsByPlayer[p]||0; const net=_stateNet(st,p,strk); if(net!=null){agg[p].nets.push(net); agg[p].bestNet=Math.min(agg[p].bestNet,net);} }); (st.matchups||[]).forEach(m=>{ const n1=_stateNet(st,m.t1,strk), n2=_stateNet(st,m.t2,strk); if(n1==null||n2==null)return; if(n1<n2){if(agg[m.t1])agg[m.t1].h2hW++; if(agg[m.t2])agg[m.t2].h2hL++;} else if(n2<n1){if(agg[m.t2])agg[m.t2].h2hW++; if(agg[m.t1])agg[m.t1].h2hL++;} else {if(agg[m.t1])agg[m.t1].h2hT++; if(agg[m.t2])agg[m.t2].h2hT++;} }); }); let html=`<div class="screen-topbar"><div class="screen-topbar-title">◆ All-Time Stats</div><button class="btn-ghost" onclick="showHub()">← Back</button></div>`; const sorted=Object.keys(agg).sort((a,b)=>(agg[b].rounds-agg[a].rounds)||(agg[b].skinsWon-agg[a].skinsWon)); if(!sorted.length){document.getElementById('stats-wrap').innerHTML=html+'<div style="color:var(--gold);opacity:0.6;padding:1rem">No completed rounds yet.</div>';return;} sorted.forEach(p=>{ const a=agg[p], avg=a.nets.length?(sum(a.nets)/a.nets.length).toFixed(1):'—', best=a.bestNet<Infinity?a.bestNet:'—', h2h=`${a.h2hW}-${a.h2hL}${a.h2hT?'-'+a.h2hT:''}`; html+=`<div class="stats-player-card"><div class="stats-player-name">${escHtml(p)}</div><div class="stats-stat"><div class="stats-stat-val">${a.rounds}</div><div class="stats-stat-lbl">Rounds</div></div><div class="stats-stat"><div class="stats-stat-val">${a.skinsWon}</div><div class="stats-stat-lbl">Skins</div></div><div class="stats-stat"><div class="stats-stat-val">${avg}</div><div class="stats-stat-lbl">Avg Net</div></div><div class="stats-stat"><div class="stats-stat-val">${best}</div><div class="stats-stat-lbl">Best Net</div></div><div class="stats-stat"><div class="stats-stat-val">${h2h}</div><div class="stats-stat-lbl">H2H (W-L)</div></div></div>`; }); document.getElementById('stats-wrap').innerHTML=html; }
+function stateCourse(st){ if(st.course?.par) return st.course; const c=LEGACY_COURSES[st.course]; return c?legacyCourseToRoundCourse(st.course,c):null; }
+function stateCourseName(st){ const c=stateCourse(st); return c?courseDisplayName(c):(st.course||'Unknown course'); }
+function _stateStrokes(st){ const c=stateCourse(st), plrs=[...(st.team1||[]),...(st.team2||[])]; if(!c)return{}; const hcps=plrs.map(p=>st.players?.[p]?.handicapIndex!=null?computeWHSCourseHcp(st.players[p].handicapIndex,c.tee?.slope,c.tee?.rating,c.tee?.parTotal):Number(LEGACY_COURSES[st.course]?.hcp?.[p]||0)); const min=Math.min(...hcps); const res={}; plrs.forEach((p,i)=>res[p]=hcps[i]-min); return res; }
+function _stateNet(st,player,strokes){ const c=stateCourse(st), sc=(st.scores||{})[player]; if(!c||!sc)return null; let net=0; for(let h=0;h<18;h++){ if(sc[h]==null)return null; net+=sc[h]-(getsStroke(strokes[player]||0,c.si[h])?1:0); } return net; }
+function _stateSkins(st){ const c=stateCourse(st), plrs=[...(st.team1||[]),...(st.team2||[])], strk=_stateStrokes(st), by={}; plrs.forEach(p=>by[p]=0); if(!c)return{skinsByPlayer:by}; for(let h=0;h<18;h++){ if(!plrs.every(p=>(st.scores||{})[p]?.[h]!=null))break; const nets={}; plrs.forEach(p=>nets[p]=st.scores[p][h]-(getsStroke(strk[p]||0,c.si[h])?1:0)); const mn=Math.min(...Object.values(nets)), win=plrs.filter(p=>nets[p]===mn); if(win.length===1)by[win[0]]++; } return {skinsByPlayer:by}; }
+
+(function init(){ showScreen('home'); if(loadState()){ if(GROUP){ if(ROUND?.course && !ROUND.completed){ initScores(); initPutts(); } showHub(); } } })();
 </script>
 </body>
 </html>
