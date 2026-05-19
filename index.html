@@ -3137,23 +3137,6 @@ function _stateSkins(st) {
 /* ─────────────────────────────────────────────
    DYNAMIC PLAYER MANAGEMENT
 ───────────────────────────────────────────── */
-let _ghinToken = null;
-
-async function getGhinToken() {
-  if (_ghinToken) return _ghinToken;
-  try {
-    const res = await fetch('https://api2.ghin.com/api/v1/golfer_login.json', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ user: { token_type: 'guest', source_code: 'GHINcomMobile' } }),
-      signal: AbortSignal.timeout(6000)
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    _ghinToken = data.golfer_user_token || data.token || null;
-    return _ghinToken;
-  } catch { return null; }
-}
 
 function bootstrapPresetPlayers() {
   if (!APP.players) APP.players = {};
@@ -3178,34 +3161,30 @@ async function lookupGhin() {
   if (btn) btn.disabled = true;
   setGhinStatus('Looking up…');
   try {
-    const token = await getGhinToken();
-    if (!token) throw new Error('ghin_auth');
-    const res = await fetch(
-      `https://api2.ghin.com/api/v1/golfers.json?ghin=${encodeURIComponent(raw)}&per_page=1`,
-      { headers: { 'Authorization': `Bearer ${token}` }, signal: AbortSignal.timeout(8000) }
-    );
-    if (res.status === 401) throw new Error('ghin_auth');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const res = await fetch(`${_SUPA_URL}/functions/v1/ghin-lookup`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${_SUPA_KEY}`,
+      },
+      body: JSON.stringify({ ghin: raw }),
+      signal: AbortSignal.timeout(12000)
+    });
     const data = await res.json();
-    const g = data?.golfers?.[0];
-    if (!g) { setGhinStatus('GHIN number not found', true); return; }
-    const name = `${g.first_name} ${g.last_name}`.trim();
-    const idx  = parseFloat(g.handicap_index ?? g.display_handicap ?? 0) || 0;
+    if (!res.ok) {
+      setGhinStatus(data.error || `Error ${res.status}`, true);
+      return;
+    }
+    const name = data.name;
+    const idx  = parseFloat(data.handicap_index ?? 0) || 0;
     addPlayerToPool(name, idx, 'ghin');
     setGhinStatus(`Added ${name} (Idx ${idx})`);
     const inp = document.getElementById('ghin-input');
     if (inp) inp.value = '';
-    _ghinToken = null; // reset so next lookup gets a fresh token
   } catch (e) {
-    let msg = 'GHIN lookup unavailable — add manually below';
-    if (e.message === 'ghin_auth') msg = 'GHIN login failed — add manually below';
-    else if (e.name === 'TimeoutError' || e.name === 'AbortError') msg = 'Lookup timed out — add manually below';
+    const msg = (e.name === 'TimeoutError' || e.name === 'AbortError')
+      ? 'Lookup timed out — try again' : `Error: ${e.message}`;
     setGhinStatus(msg, true);
-    // Auto-open manual form so user can proceed immediately
-    const box = document.getElementById('manual-add-box');
-    if (box && box.style.display === 'none') toggleManualAdd();
-    const nameEl = document.getElementById('manual-name');
-    if (nameEl) nameEl.focus();
   } finally {
     if (btn) btn.disabled = false;
   }
