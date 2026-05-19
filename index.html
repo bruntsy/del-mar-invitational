@@ -1056,6 +1056,26 @@
     .stats-stat { display: flex; flex-direction: column; align-items: center; min-width: 56px; }
     .stats-stat-val { font-size: 1.05rem; font-weight: 700; color: var(--text-dark); }
     .stats-stat-lbl { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-light); margin-top: 2px; }
+
+    /* ─── GHIN / Dynamic Player UI ─── */
+    .player-add-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.6rem; }
+    .ghin-input { height: 40px; border: 1.5px solid var(--panel-border); border-radius: 2px; padding: 0 0.75rem; font-family: 'Lato', sans-serif; font-size: 0.88rem; background: var(--panel-white); color: var(--text-dark); width: 130px; -moz-appearance: textfield; }
+    .ghin-input::-webkit-outer-spin-button, .ghin-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+    .ghin-input:focus { outline: none; border-color: var(--gold); background: #fffce8; }
+    .name-input { height: 40px; border: 1.5px solid var(--panel-border); border-radius: 2px; padding: 0 0.75rem; font-family: 'Lato', sans-serif; font-size: 0.88rem; background: var(--panel-white); color: var(--text-dark); flex: 1; min-width: 100px; }
+    .name-input:focus { outline: none; border-color: var(--gold); background: #fffce8; }
+    .hcp-idx-input { height: 40px; width: 80px; border: 1.5px solid var(--panel-border); border-radius: 2px; padding: 0 0.5rem; font-family: 'Lato', sans-serif; font-size: 0.88rem; text-align: center; background: var(--panel-white); color: var(--text-dark); -moz-appearance: textfield; }
+    .hcp-idx-input::-webkit-outer-spin-button, .hcp-idx-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+    .hcp-idx-input:focus { outline: none; border-color: var(--gold); background: #fffce8; }
+    .ghin-status { font-size: 0.7rem; min-height: 1.1em; margin-bottom: 0.35rem; font-style: italic; color: var(--text-light); }
+    .ghin-status.err { color: #c0392b; font-style: normal; }
+    .manual-add-box { background: var(--slot-bg); border: 1px solid var(--slot-border); border-radius: 3px; padding: 0.6rem 0.75rem; margin-bottom: 0.6rem; }
+    .player-chip-sub { font-size: 0.6rem; color: var(--text-faint); display: block; line-height: 1.3; margin-top: 1px; }
+    .chip-x { font-size: 0.6rem; color: var(--text-faint); padding: 0 0 0 0.35rem; cursor: pointer; line-height: 1; display: inline-block; opacity: 0.5; transition: opacity 0.12s, color 0.12s; vertical-align: middle; }
+    .chip-x:hover { color: #c0392b; opacity: 1; }
+    @media (max-width: 600px) {
+      .ghin-input { width: 110px; }
+    }
   </style>
 </head>
 <body>
@@ -1148,7 +1168,27 @@
 
       <div class="pool-wrap">
         <div class="pool-label">Players</div>
-        <div class="pool-hint">tap to assign</div>
+
+        <div class="player-add-row">
+          <input id="ghin-input" class="ghin-input" type="number" inputmode="numeric" placeholder="GHIN #"
+                 onkeydown="if(event.key==='Enter')lookupGhin()">
+          <button class="room-btn sm" id="ghin-btn" onclick="lookupGhin()">Lookup</button>
+          <span class="room-divider">or</span>
+          <button class="room-btn sm" onclick="toggleManualAdd()">+ Manual</button>
+        </div>
+        <div id="manual-add-box" class="manual-add-box" style="display:none">
+          <div class="player-add-row">
+            <input id="manual-name" class="name-input" type="text" placeholder="Player name"
+                   onkeydown="if(event.key==='Enter')addManualPlayer()">
+            <input id="manual-hcp" class="hcp-idx-input" type="number" inputmode="decimal" step="0.1" min="0" max="54" placeholder="Hcp Idx"
+                   onkeydown="if(event.key==='Enter')addManualPlayer()">
+            <button class="room-btn sm" onclick="addManualPlayer()">Add</button>
+            <button class="room-btn sm" onclick="toggleManualAdd()">Cancel</button>
+          </div>
+        </div>
+        <div id="ghin-status" class="ghin-status"></div>
+
+        <div class="pool-hint">tap to assign · ✕ to remove</div>
         <div class="pool-drop-zone" id="pool-zone"></div>
       </div>
 
@@ -1225,7 +1265,7 @@
 
     <div class="start-section">
       <button class="start-btn" id="start-btn" onclick="startRound()" disabled>Begin Round &rarr;</button>
-      <div class="val-msg" id="val-msg">Select a course and assign all 6 players to begin</div>
+      <div class="val-msg" id="val-msg">Select a course and assign players to begin</div>
     </div>
   </div>
 </div>
@@ -1342,6 +1382,15 @@ const COURSES = {
 
 const ALL_PLAYERS = ['Robbie', 'Jack', 'Brunts', 'Michael', 'Cole', 'Tom'];
 
+const PRESET_PLAYERS = [
+  { name: 'Robbie',  handicapIndex: 8   },
+  { name: 'Jack',    handicapIndex: 9   },
+  { name: 'Brunts',  handicapIndex: 14  },
+  { name: 'Michael', handicapIndex: 9   },
+  { name: 'Cole',    handicapIndex: 10  },
+  { name: 'Tom',     handicapIndex: 16  },
+];
+
 /* ─────────────────────────────────────────────
    APP STATE + PERSISTENCE
 ───────────────────────────────────────────── */
@@ -1353,7 +1402,8 @@ let APP = {
   team2: [],
   matchups: [],
   bets: { ...DEFAULT_BETS },
-  scores: {}
+  scores: {},
+  players: {}
 };
 
 function saveState() {
@@ -1367,6 +1417,7 @@ function loadState() {
     const s = JSON.parse(raw);
     if (!s.course || !s.team1.length || !s.team2.length) return false;
     if (s.course === 'fairbanks') s.course = 'fairbanks_vl'; // backwards compat
+    if (!s.players) s.players = {};
     APP = s;
     return true;
   } catch (e) { return false; }
@@ -1408,9 +1459,13 @@ function showScreen(name) {
 function getPlayerStrokes() {
   const course = COURSES[APP.course];
   const players = [...APP.team1, ...APP.team2];
-  const minHcp = Math.min(...players.map(p => course.hcp[p]));
+  const hcps = players.map(p => {
+    if (course?.hcp?.[p] !== undefined) return course.hcp[p];
+    return Math.round(APP.players?.[p]?.handicapIndex ?? 0);
+  });
+  const minHcp = Math.min(...hcps);
   const result = {};
-  players.forEach(p => { result[p] = course.hcp[p] - minHcp; });
+  players.forEach((p, i) => { result[p] = hcps[i] - minHcp; });
   return result;
 }
 
@@ -1645,6 +1700,7 @@ function buildPlayerRow(player, playerStrokes, skinsWon, course) {
 
   // Name cell
   const _pExpanded = expandedPuttRows.has(player);
+  const _courseHcp = course?.hcp?.[player] ?? Math.round(APP.players?.[player]?.handicapIndex ?? 0);
   html += `<td class="name-cell">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:3px">
       <div class="cell-pname">${player}</div>
@@ -1652,7 +1708,7 @@ function buildPlayerRow(player, playerStrokes, skinsWon, course) {
               onclick="event.stopPropagation();togglePuttRow('${player}')"
               title="Toggle putt tracking">${_pExpanded ? '▲' : '▼'}</button>
     </div>
-    <div class="cell-hcp">Hcp ${course.hcp[player]} &bull; +${playerStrokes} strokes</div>
+    <div class="cell-hcp">Hcp ${_courseHcp} &bull; +${playerStrokes} strokes</div>
   </td>`;
 
   // Holes 1-9
@@ -2331,11 +2387,12 @@ function showResults() {
 ───────────────────────────────────────────── */
 function resetRound() {
   if (!confirm('Reset this round? All scores will be lost.')) return;
-  const _keepCode = ROOM_CODE;
+  const _keepCode    = ROOM_CODE;
+  const _keepPlayers = { ...(APP.players || {}) };
   localStorage.removeItem('golf_scorecard_v1');
   expandedPuttRows.clear();
   APP = { course: null, team1: [], team2: [], scores: {}, putts: {}, bets: { ...DEFAULT_BETS },
-          roomCode: _keepCode || null, completed: false };
+          roomCode: _keepCode || null, completed: false, players: _keepPlayers };
 
   // Reset setup UI
   document.querySelectorAll('.course-card').forEach(c => c.classList.remove('selected'));
@@ -2344,7 +2401,7 @@ function resetRound() {
   setupState.course = null;
   setupState.team1 = [];
   setupState.team2 = [];
-  setupState.pool = [...ALL_PLAYERS];
+  setupState.pool = Object.keys(_keepPlayers);
   setupState.matchupOrder = [];
   loadBetsToInputs();
   renderSetup();
@@ -2373,20 +2430,29 @@ const setupState = {
   course: null,
   team1: [],
   team2: [],
-  pool: [...ALL_PLAYERS],
+  pool: [],   // populated from APP.players in init
   matchupOrder: [],
 };
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 function renderPool() {
   const zone = document.getElementById('pool-zone');
   if (!setupState.pool.length) {
-    zone.innerHTML = '<div class="pool-empty">All players assigned</div>';
+    zone.innerHTML = '<div class="pool-empty">Add players above to begin</div>';
     return;
   }
-  zone.innerHTML = setupState.pool.map(p => `
-    <div class="player-chip" data-player="${p}"
-         onclick="clickAssign('${p}')">${p}</div>
-  `).join('');
+  zone.innerHTML = setupState.pool.map(p => {
+    const pd  = APP.players?.[p];
+    const sub = pd?.handicapIndex !== undefined
+      ? `<span class="player-chip-sub">Idx ${pd.handicapIndex}</span>` : '';
+    const safe = p.replace(/'/g, "\\'");
+    return `<div class="player-chip" data-player="${escHtml(p)}" onclick="clickAssign('${safe}')">
+      <span>${escHtml(p)}</span>${sub}<span class="chip-x" onclick="event.stopPropagation();removePlayer('${safe}')" title="Remove">✕</span>
+    </div>`;
+  }).join('');
 }
 
 function renderTeam(t) {
@@ -2486,10 +2552,10 @@ function updateCTA() {
   const msg = document.getElementById('val-msg');
   const ready = !!COURSES[setupState.course] && setupState.team1.length === 3 && setupState.team2.length === 3;
   btn.disabled = !ready;
-  if (!setupState.course && setupState.pool.length === ALL_PLAYERS.length) {
-    msg.textContent = 'Select a course and assign all 6 players to begin';
+  if (!setupState.course && !setupState.team1.length && !setupState.team2.length) {
+    msg.textContent = 'Select a course and assign players to begin';
   } else if (setupState.course === 'fairbanks') {
-    msg.textContent = setupState.pool.length > 0 ? 'Choose your nines and assign all 6 players to begin' : 'Choose your nines to begin';
+    msg.textContent = setupState.pool.length > 0 ? 'Choose your nines and assign players to begin' : 'Choose your nines to begin';
   } else if (!setupState.course) {
     msg.textContent = 'Select a course to begin';
   } else if (setupState.pool.length > 0) {
@@ -2618,7 +2684,7 @@ function syncAppToSetup() {
   setupState.course       = s.course || null;
   setupState.team1        = [...(s.team1 || [])];
   setupState.team2        = [...(s.team2 || [])];
-  setupState.pool         = [...(s.pool  || [...ALL_PLAYERS])];
+  setupState.pool         = [...(s.pool  || Object.keys(APP.players || {}))];
   setupState.matchupOrder = [...(s.matchupOrder || [])];
 }
 
@@ -2898,7 +2964,6 @@ async function showStats() {
 function renderStats(rounds) {
   const wrap = document.getElementById('stats-wrap');
   const agg = {};
-  ALL_PLAYERS.forEach(p => { agg[p] = { rounds:0, skinsWon:0, nets:[], bestNet:Infinity, h2hW:0, h2hL:0, h2hT:0 }; });
 
   rounds.forEach(r => {
     const st   = typeof r.state === 'string' ? JSON.parse(r.state) : r.state;
@@ -2906,7 +2971,7 @@ function renderStats(rounds) {
     const strk = _stateStrokes(st);
     const { skinsByPlayer } = _stateSkins(st);
     plrs.forEach(p => {
-      if (!agg[p]) return;
+      if (!agg[p]) agg[p] = { rounds:0, skinsWon:0, nets:[], bestNet:Infinity, h2hW:0, h2hL:0, h2hT:0 };
       agg[p].rounds++;
       agg[p].skinsWon += skinsByPlayer[p] || 0;
       const net = _stateNet(st, p, strk);
@@ -2921,7 +2986,7 @@ function renderStats(rounds) {
     });
   });
 
-  const sorted = ALL_PLAYERS.slice().sort((a, b) =>
+  const sorted = Object.keys(agg).sort((a, b) =>
     (agg[b].rounds - agg[a].rounds) || (agg[b].skinsWon - agg[a].skinsWon)
   );
 
@@ -2957,12 +3022,15 @@ function renderStats(rounds) {
    HELPERS FOR COMPUTING FROM ARBITRARY STATE BLOB
 ───────────────────────────────────────────── */
 function _stateStrokes(st) {
-  const crs = COURSES[st.course];
-  if (!crs) return {};
+  const crs  = COURSES[st.course];
   const plrs = [...(st.team1||[]), ...(st.team2||[])];
-  const minH = Math.min(...plrs.map(p => crs.hcp[p] || 0));
-  const res = {};
-  plrs.forEach(p => { res[p] = (crs.hcp[p] || 0) - minH; });
+  const hcps = plrs.map(p => {
+    if (crs?.hcp?.[p] !== undefined) return crs.hcp[p];
+    return Math.round((st.players?.[p]?.handicapIndex) ?? 0);
+  });
+  const minH = Math.min(...hcps);
+  const res  = {};
+  plrs.forEach((p, i) => { res[p] = hcps[i] - minH; });
   return res;
 }
 
@@ -3005,6 +3073,11 @@ function _stateSkins(st) {
   document.getElementById('setup-screen').style.display = '';
 
   if (loadState()) {
+    bootstrapPresetPlayers();
+    saveState();
+    setupState.pool = Object.keys(APP.players || {}).filter(
+      p => !APP.team1.includes(p) && !APP.team2.includes(p)
+    );
     initScores();
     initPutts();
     if (!APP.bets) APP.bets = { ...DEFAULT_BETS };
@@ -3012,6 +3085,9 @@ function _stateSkins(st) {
     renderScorecard();
     showScreen('scorecard');
   } else {
+    bootstrapPresetPlayers();
+    saveState();
+    setupState.pool = Object.keys(APP.players || {});
     showScreen('setup');
     renderSetup();
   }
@@ -3057,6 +3133,102 @@ function _stateSkins(st) {
     if (data) applyRemoteState(typeof data.state === 'string' ? JSON.parse(data.state) : data.state, false);
   }, 10000);
 })();
+
+/* ─────────────────────────────────────────────
+   DYNAMIC PLAYER MANAGEMENT
+───────────────────────────────────────────── */
+function bootstrapPresetPlayers() {
+  if (!APP.players) APP.players = {};
+  PRESET_PLAYERS.forEach(({ name, handicapIndex }) => {
+    if (!APP.players[name]) {
+      APP.players[name] = { name, handicapIndex, source: 'preset' };
+    }
+  });
+}
+
+function setGhinStatus(msg, isErr) {
+  const el = document.getElementById('ghin-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'ghin-status' + (isErr ? ' err' : '');
+}
+
+async function lookupGhin() {
+  const raw = (document.getElementById('ghin-input')?.value || '').trim();
+  if (!raw) { setGhinStatus('Enter a GHIN number', true); return; }
+  const btn = document.getElementById('ghin-btn');
+  if (btn) btn.disabled = true;
+  setGhinStatus('Looking up…');
+  try {
+    const res = await fetch(
+      `https://api2.ghin.com/api/v1/golfers.json?token=guest&ghin=${encodeURIComponent(raw)}`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const g = data?.golfers?.[0];
+    if (!g) { setGhinStatus('GHIN number not found', true); return; }
+    const name = `${g.first_name} ${g.last_name}`.trim();
+    const idx  = parseFloat(g.handicap_index ?? g.display_handicap ?? 0) || 0;
+    addPlayerToPool(name, idx, 'ghin');
+    setGhinStatus(`Added ${name} (Idx ${idx})`);
+    const inp = document.getElementById('ghin-input');
+    if (inp) inp.value = '';
+  } catch (e) {
+    let msg = `Error: ${e.message}`;
+    if (e.name === 'TimeoutError' || e.name === 'AbortError') msg = 'Lookup timed out — add manually';
+    else if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) msg = 'Network error — add manually';
+    setGhinStatus(msg, true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function toggleManualAdd() {
+  const box = document.getElementById('manual-add-box');
+  if (!box) return;
+  const opening = box.style.display === 'none';
+  box.style.display = opening ? '' : 'none';
+  if (opening) {
+    setGhinStatus('');
+    document.getElementById('manual-name')?.focus();
+  }
+}
+
+function addManualPlayer() {
+  const nameEl = document.getElementById('manual-name');
+  const hcpEl  = document.getElementById('manual-hcp');
+  const name   = (nameEl?.value || '').trim();
+  const idx    = parseFloat(hcpEl?.value ?? '') || 0;
+  if (!name) { setGhinStatus('Enter a player name', true); return; }
+  addPlayerToPool(name, idx, 'manual');
+  setGhinStatus(`Added ${name}`);
+  if (nameEl) nameEl.value = '';
+  if (hcpEl)  hcpEl.value  = '';
+  document.getElementById('manual-add-box').style.display = 'none';
+}
+
+function addPlayerToPool(name, handicapIndex, source) {
+  if (!APP.players) APP.players = {};
+  APP.players[name] = { name, handicapIndex, source };
+  if (!setupState.pool.includes(name)) setupState.pool.push(name);
+  saveState();
+  renderPool();
+  syncSetupAndSchedule();
+  updateCTA();
+}
+
+function removePlayer(name) {
+  if (!confirm(`Remove ${name} from your player list?`)) return;
+  delete APP.players[name];
+  setupState.pool  = setupState.pool.filter(p => p !== name);
+  setupState.team1 = setupState.team1.filter(p => p !== name);
+  setupState.team2 = setupState.team2.filter(p => p !== name);
+  saveState();
+  renderSetup();
+  syncSetupAndSchedule();
+  updateCTA();
+}
 </script>
 </body>
 </html>
