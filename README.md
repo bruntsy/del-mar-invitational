@@ -1,78 +1,138 @@
 # Del Mar Invitational
 
-Live golf scorecard app for the Del Mar Invitational group (Robbie, Jack, Brunts, Michael, Cole, Tom).
+Live golf scorecard and games app for Del Mar Invitational groups.
 
-**Live URL:** https://bruntsy.github.io/del-mar-invitational/
+Production: https://bruntsy.github.io/del-mar-invitational/
 
----
+## Overview
+
+This is a single-page application for creating a golf group, building rounds, scoring live with multiple devices, and settling common golf games. The app is intentionally lightweight: the browser owns the UI and round logic, Supabase stores group/round state, and GitHub Pages serves the static app.
+
+The current product model is:
+
+- A **Group** is the persistent home for a roster and group code.
+- A **Round** belongs to one group and contains the selected course, teams, games, scores, putts, and completion status.
+- A group can have one active round and many completed rounds.
+- Completed rounds feed history and all-time stats scoped to that group.
 
 ## Stack
 
-- Pure HTML/CSS/JS — single `index.html`, no build system
-- [Supabase](https://supabase.com) for real-time sync and round history
-- Hosted on GitHub Pages
+- `index.html`: all frontend HTML, CSS, and JavaScript.
+- Supabase Postgres: `groups`, `rounds`, and `courses_cache`.
+- Supabase Realtime: live sync for active rounds.
+- Supabase Edge Functions: course search proxy/cache.
+- GolfCourseAPI: course/tee data source.
+- GitHub Pages: static production hosting from `main`.
 
----
+There is no frontend build step and no runtime package install required for the static app.
 
-## Features
+## Repository Layout
 
-### Group Flow
-- Create or join a group with a 4-character group code
-- Group hub with active round status, roster, past rounds, and all-time stats
-- Group roster persists across rounds
+```text
+.
+├── index.html
+├── README.md
+└── supabase
+    ├── config.toml
+    └── functions
+        ├── course-search
+        │   └── index.ts
+        └── ghin-lookup
+            └── index.ts
+```
 
-### Round Setup
-- Course search via Supabase Edge Function and GolfCourseAPI
-- Tee selection with WHS course handicap preview
-- Team builder (6 players → 2 teams of 3)
-- Head-to-head matchup pairing (reorder with ▲▼)
-- Bet amount inputs: Skins (pot), Best Ball (front/back/total), 2-Ball (front/back/total), H2H, Putt Poker
+Notes:
 
-### Scorecard Screen
-- Horizontally scrollable 18-hole table
-- Score inputs with live color coding (eagle/birdie/par/bogey/double)
-- Stroke dots for handicap strokes
-- Live skins count, net totals, Best Ball and 2-Ball team rows
-- Auto-saves to localStorage on every keystroke
-- Group code displayed in top-right corner
+- `course-search` is the active Edge Function.
+- `ghin-lookup` is not part of the current product flow. GHIN access is deferred/dead for now, so players are added manually.
+- `package-lock.json` is not required for the app.
 
-### Results Screen
-- Settlement table: who pays who (P&L by Skins, Best Ball, 2-Ball, H2H)
-- Individual leaderboard (sorted by net score)
-- Team scores
-- Skins breakdown (hole-by-hole, no carry, with $/skin summary)
-- H2H matchup results
-- Best Ball and 2-Ball competition results
+## Local Development
 
-### Groups (Supabase Real-Time)
-- **Create Group** → generates a 4-char code
-- **Join Group** → enter code to load the group and latest active round
-- Active round setup, team assignments, bet amounts, scores, and putts sync in real time (~600ms)
-- Group code persists across page reloads
-- One group can host many completed rounds
+Run a local static server from the repo root:
 
-### Round History & Stats
-- **Complete Round** button marks a round as finished and saves it to Supabase
-- **Past Rounds** screen: all completed rounds with final leaderboard per round
-- **All-Time Stats** screen: cumulative stats per player across all completed rounds
-  - Rounds played, total skins won, avg net, best net, H2H record (W-L)
+```bash
+python3 -m http.server 5173
+```
 
----
+Open:
 
-## Skins Format
+```text
+http://localhost:5173/
+```
 
-Skins use a **pot model**: each player contributes `$X` to a shared pot upfront. Tied holes award no skin. At the end of the round, the pot is divided evenly by total skins won to determine `$/skin`.
+You can also open `index.html` directly, but a local HTTP server is closer to production behavior.
 
----
+## Dependencies
 
-## Supabase Setup
+### Browser
 
-Project: `del-mar-invitational` (us-west-1)
+The app loads Supabase JS from CDN in `index.html`.
 
-### Table Schema
+No npm dependencies are required for the frontend.
+
+### Supabase Edge Function
+
+`supabase/functions/course-search/index.ts` runs on Supabase Edge Runtime / Deno and imports:
+
+```ts
+https://deno.land/std@0.168.0/http/server.ts
+https://esm.sh/@supabase/supabase-js@2
+```
+
+### External Services
+
+- Supabase project: `dhpkeueubhpmvaungjfj`
+- GolfCourseAPI: used only by the `course-search` function
+
+## Supabase Configuration
+
+`supabase/config.toml` makes course search public:
+
+```toml
+[functions.course-search]
+verify_jwt = false
+```
+
+This is intentional because the public static app calls the function directly from the browser.
+
+## Required Supabase Secrets
+
+The course-search function requires:
+
+```bash
+supabase secrets set GOLF_COURSE_API_KEY=...
+```
+
+Supabase injects these automatically for deployed Edge Functions:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+The service role key is used only inside the Edge Function to read/write `courses_cache`.
+
+## Database Schema
+
+The app expects these tables and policies.
 
 ```sql
-create table rounds (
+create table if not exists groups (
+  id         uuid primary key default gen_random_uuid(),
+  room_code  text unique not null,
+  name       text not null default '',
+  players    jsonb not null default '{}',
+  created_at timestamptz not null default now()
+);
+
+alter table groups enable row level security;
+
+create policy "anon full access"
+on groups
+for all
+using (true)
+with check (true);
+
+create table if not exists rounds (
   id           uuid primary key default gen_random_uuid(),
   code         text not null,
   group_id     uuid references groups(id),
@@ -82,77 +142,385 @@ create table rounds (
   created_at   timestamptz not null default now()
 );
 
-create table groups (
-  id         uuid primary key default gen_random_uuid(),
-  room_code  text unique not null,
-  name       text not null default '',
-  players    jsonb not null default '{}',
-  created_at timestamptz not null default now()
-);
+alter table rounds enable row level security;
 
-create table courses_cache (
+create policy "anon full access"
+on rounds
+for all
+using (true)
+with check (true);
+
+create index if not exists rounds_group_id_idx on rounds(group_id);
+
+create table if not exists courses_cache (
   cache_key  text primary key,
   data       jsonb not null,
   cached_at  timestamptz not null default now()
 );
 
-alter table rounds enable row level security;
-create policy "anon full access" on rounds for all using (true) with check (true);
-
-alter table groups enable row level security;
-create policy "anon full access" on groups for all using (true) with check (true);
-
 alter table courses_cache enable row level security;
-create policy "anon full access" on courses_cache for all using (true) with check (true);
 
-create index if not exists rounds_group_id_idx on rounds(group_id);
+create policy "anon full access"
+on courses_cache
+for all
+using (true)
+with check (true);
+```
 
+Realtime must include `rounds`:
+
+```sql
 alter publication supabase_realtime add table rounds;
 ```
 
-`groups.room_code` is unique. `rounds.group_id` scopes active and completed rounds to a group.
+If schema changes do not appear immediately:
 
-### Edge Function Environment
-
-`course-search` requires:
-
-```bash
-GOLF_COURSE_API_KEY=...
-```
-
-### Force schema cache reload (if needed)
 ```sql
 notify pgrst, 'reload schema';
 ```
 
----
+## Security Model
 
-## Local Development
+This is a public invite-style app, not an authenticated app.
 
-No build step — just open `index.html` in a browser:
+- The browser uses the Supabase publishable key.
+- RLS policies currently allow anonymous full access.
+- Group codes provide lightweight obscurity, not hard security.
+- Do not store sensitive data in group/round state.
 
-```bash
-open index.html
+If this becomes a broader public product, add authentication and tighten RLS by group membership.
+
+## State Model
+
+### Local Storage Keys
+
+- `dmi_group`: current group state
+- `dmi_round`: current active round state
+- `golf_scorecard_v1`: legacy key used only for migration fallback
+
+### Group Object
+
+Persisted in Supabase `groups.players` and localStorage:
+
+```js
+GROUP = {
+  id,
+  roomCode,
+  name,
+  players: {
+    [name]: {
+      name,
+      handicapIndex
+    }
+  }
+}
 ```
 
-Real-time sync requires the Supabase credentials already embedded in the file. The anon/publishable key is safe to commit.
+### Round Object
 
-## Deploying
+Persisted as `rounds.state` JSONB and localStorage:
+
+```js
+ROUND = {
+  id,
+  groupId,
+  course: {
+    id,
+    clubName,
+    courseName,
+    location,
+    tee: {
+      name,
+      gender,
+      rating,
+      slope,
+      parTotal,
+      yards
+    },
+    par: [18 values],
+    si: [18 stroke index values],
+    yds: [18 values]
+  },
+  team1: [],
+  team2: [],
+  teamNames: {
+    team1: 'Team 1',
+    team2: 'Team 2'
+  },
+  matchups: [
+    { t1, t2 }
+  ],
+  pairMatches: [
+    {
+      a: ['Team 1 player', 'Team 1 player'],
+      b: ['Team 2 player', 'Team 2 player']
+    }
+  ],
+  games: {
+    skins: { enabled, pot, type, carry },
+    bestBall: { enabled, front, back, total, balls, type },
+    pairMatch: { enabled, pointsPerHole, type },
+    twoBall: { enabled, front, back, total, type },
+    aggy: { enabled, front, back, total, type },
+    h2h: { enabled, perMatchup, type },
+    stableford: { enabled, buyIn, type, points },
+    wolf: { enabled, amount, type },
+    puttPoker: { enabled, pot }
+  },
+  scores: {
+    [player]: [18 values]
+  },
+  putts: {
+    [player]: [18 values]
+  },
+  wolf: {
+    holes: {
+      [holeIndex]: { wolf, mode, partner }
+    }
+  },
+  completed
+}
+```
+
+### Legacy Compatibility
+
+Legacy course constants are kept in `index.html` for old completed rounds and migrated localStorage data. New rounds use searched course objects from GolfCourseAPI.
+
+## Course Search
+
+Course search is browser -> Supabase Edge Function -> GolfCourseAPI.
+
+Function:
+
+```text
+supabase/functions/course-search/index.ts
+```
+
+Behavior:
+
+- Requires query text.
+- Checks `courses_cache` first.
+- Cache TTL is 30 days.
+- Calls GolfCourseAPI when cache is absent/stale.
+- Normalizes course, location, tee, and hole data for the frontend.
+
+Deploy:
 
 ```bash
-git add index.html
-git commit -m "your message"
+supabase functions deploy course-search --no-verify-jwt
+```
+
+## Round Flow
+
+1. Home screen: create or join a group.
+2. Group hub: view active round, roster, history, and stats.
+3. Course setup: search course, select tee, preview WHS course handicap.
+4. Player setup: add/remove manual players.
+5. Team setup: assign players to two teams and set team names.
+6. Games setup: enable game formats and configure amounts/scoring.
+7. Scorecard: enter scores/putts.
+8. Results: view standings, game results, and settlement.
+9. Complete round: saves as historical completed round.
+
+## Handicap Logic
+
+Course handicap uses the WHS formula:
+
+```text
+round(handicapIndex * slope / 113 + rating - par)
+```
+
+Stroke dots and net scores are relative to the lowest course handicap in the match:
+
+```text
+player strokes = player course handicap - lowest course handicap
+```
+
+## Game Mechanics
+
+All games are disabled by default for a new round. The setup screen has presets, but users can enable games individually.
+
+### Skins
+
+- Pot model.
+- Each player contributes `pot`.
+- Tied holes award no skin.
+- No carry-forward.
+- Final pot is split evenly by number of skins won.
+
+### Best Ball
+
+- Team game.
+- Uses low score per team per hole.
+- Supports front/back/total amounts.
+- Supports net or gross.
+
+### Pair Match Play
+
+- Two-person best-ball match play.
+- Explicit pairing builder in setup.
+- Each match selects up to two players from each team.
+- Points per hole are configurable.
+- Points roll up across all pair matches to team totals.
+- Supports net or gross.
+
+This handles multi-match scenarios inside one round, but it is not yet a full event/foursome architecture for many physical groups and tee times.
+
+### 2-Ball
+
+- Team game.
+- Uses sum of two low scores per team per hole.
+- Supports front/back/total amounts.
+- Supports net or gross.
+
+### Aggy
+
+- Team aggregate.
+- Every player on the team counts.
+- Supports front/back/total amounts.
+- Supports net or gross.
+
+### Head-to-Head
+
+- Individual matchup list from team setup.
+- Team 2 order can be rearranged to set matchups.
+- Supports net or gross.
+
+### Stableford
+
+Default points:
+
+- Double bogey or worse: 0
+- Bogey: 1
+- Par: 2
+- Birdie: 3
+- Eagle: 4
+- Albatross or better: 5
+
+Current settlement model is winner-take-pot among highest Stableford points, split on ties.
+
+### Wolf
+
+Wolf scoring support exists in state/results and can be enabled, with per-hole choices on scorecard. Larger Wolf UX improvements are intentionally deferred.
+
+### Putt Poker
+
+- Optional per-person buy-in/pot.
+- Card count starts at 2.
+- 0-putt adds 2 cards.
+- 1-putt adds 1 card.
+- 3-putt moves the coin and adds $1 to the pot.
+- 4+ putt moves the coin and adds $2 to the pot.
+
+## Realtime Sync
+
+Sync target:
+
+```text
+rounds.state
+```
+
+Mechanics:
+
+- Local edits write immediately to localStorage.
+- Remote push is debounced by about 600ms.
+- Supabase Realtime listens for `rounds` changes filtered by `group_id`.
+- A 10-second polling fallback also refreshes active round state.
+- Score and putt merge logic avoids remote nulls wiping out local non-null values.
+
+For multi-device testing, use two browsers/devices joined to the same group code.
+
+## Deployment
+
+### App
+
+Commit and push to `main`:
+
+```bash
+git add index.html README.md
+git commit -m "Describe change"
 git push
 ```
 
-GitHub Pages auto-deploys from `main`. Changes are live in ~1-2 minutes.
+GitHub Pages deploys automatically from `main`.
 
----
+Check latest Pages build:
 
-## Things To Work On
+```bash
+gh api repos/bruntsy/del-mar-invitational/pages/builds/latest
+```
 
-- [ ] Mobile score input UX improvements
-- [ ] Show per-round money results in Past Rounds history
-- [ ] Weekend leaderboard across multiple rounds (cumulative net)
-- [ ] Push notifications when a score is entered
-- [ ] Add more courses
+### Edge Function
+
+Deploy course search:
+
+```bash
+supabase functions deploy course-search --no-verify-jwt
+```
+
+Set/update GolfCourseAPI key:
+
+```bash
+supabase secrets set GOLF_COURSE_API_KEY=...
+```
+
+## Testing Checklist
+
+### Smoke Test
+
+- Load production URL.
+- Create a group.
+- Add players.
+- Search a course.
+- Select tee.
+- Build teams.
+- Name teams.
+- Enable games.
+- Start round.
+
+### Sync Test
+
+- Open the same group on two devices/browsers.
+- Enter scores from both.
+- Confirm both scorecards converge.
+- Confirm results reflect all scores.
+
+### Game Test
+
+Test at least:
+
+- Skins only
+- Best Ball
+- Pair Match Play with custom pairings
+- Aggy
+- H2H
+- Putt Poker
+
+### Mobile Test
+
+- Games setup cards
+- Sticky setup actions
+- Mobile hole-entry panel
+- Scorecard horizontal scrolling
+- Results readability
+
+## Known Limitations
+
+- No authentication.
+- GHIN lookup is not active.
+- Wolf UX needs more work before heavy use.
+- Pair Match Play supports multiple matches, but the app does not yet model physical foursomes, tee times, or a full 12-group event board.
+- Larger event architecture should add `foursomes` and `matches` as explicit concepts.
+
+## Future Architecture Direction
+
+For larger events, move from a single-round/two-team model toward:
+
+- Event/group roster
+- Round course and games
+- Foursomes with tee order / tee time
+- Matches assigned to foursomes
+- Match formats: four-ball, singles, alternate shot, scramble, stableford, skins
+- Event scoreboard aggregating all match points by team
+
+This would support scenarios like 12 physical groups going out across two large teams with multiple simultaneous match types.
