@@ -1334,6 +1334,252 @@
       .pair-live-hole { min-height: 32px; }
     }
 
+    @media (max-width: 760px) {
+      body { background: #f3efe3; }
+      #scorecard-screen { background: #f3efe3; color: var(--text-dark); }
+      .sc-topbar {
+        align-items: flex-start;
+        gap: 0.65rem;
+        padding: calc(0.7rem + env(safe-area-inset-top)) 0.85rem 0.7rem;
+      }
+      .sc-topbar > div:first-child { min-width: 0; flex: 1; }
+      .sc-course-title {
+        max-width: 46vw;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.82rem;
+        letter-spacing: 0.06em;
+      }
+      .sc-course-sub { display: none; }
+      .sc-topbar-btns {
+        gap: 0.35rem;
+        max-width: 48vw;
+      }
+      .sc-topbar .btn-ghost,
+      .sc-topbar .btn-danger {
+        min-height: 34px;
+        padding: 0.42rem 0.5rem;
+        font-size: 0.58rem;
+        letter-spacing: 0.06em;
+      }
+      .mobile-hole-entry {
+        min-height: calc(100vh - 74px);
+        padding: 0.75rem 0.75rem calc(1rem + env(safe-area-inset-bottom));
+        background: linear-gradient(180deg, #fbf8ef 0%, #eee8d8 100%);
+      }
+      .mobile-score-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .mobile-command-card,
+      .mobile-player-card,
+      .mobile-live-card {
+        background: rgba(255,255,255,0.82);
+        border: 1px solid rgba(221,213,190,0.9);
+        border-radius: 8px;
+        box-shadow: 0 8px 22px rgba(35,32,24,0.08);
+      }
+      .mobile-command-card { padding: 0.8rem; }
+      .mobile-hole-head {
+        align-items: flex-start;
+        margin-bottom: 0.75rem;
+      }
+      .mobile-hole-title {
+        font-size: 1.25rem;
+        letter-spacing: 0;
+      }
+      .mobile-hole-kicker {
+        margin-top: 0.14rem;
+        color: var(--text-light);
+        font-size: 0.74rem;
+      }
+      .mobile-hole-select {
+        height: 42px;
+        border-radius: 7px;
+        background: #fff;
+        font-weight: 700;
+      }
+      .mobile-status-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.5rem;
+      }
+      .mobile-stat {
+        min-width: 0;
+        border-radius: 7px;
+        background: #f6f1e5;
+        padding: 0.6rem 0.65rem;
+      }
+      .mobile-stat-label {
+        font-size: 0.55rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--text-light);
+      }
+      .mobile-stat-value {
+        margin-top: 0.18rem;
+        font-size: 0.9rem;
+        font-weight: 800;
+        color: var(--text-dark);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .mobile-stat-note {
+        margin-top: 0.12rem;
+        color: var(--text-light);
+        font-size: 0.66rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .mobile-hole-grid { gap: 0.65rem; }
+      .mobile-hole-row {
+        display: block;
+        padding: 0;
+        overflow: hidden;
+      }
+      .mobile-player-card { overflow: hidden; }
+      .mobile-player-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        align-items: flex-start;
+        padding: 0.75rem 0.8rem 0.55rem;
+        background: #fffdf6;
+      }
+      .mobile-player-name {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--text-dark);
+      }
+      .mobile-player-meta {
+        margin-top: 0.18rem;
+        color: var(--text-light);
+        font-size: 0.68rem;
+      }
+      .mobile-player-total {
+        text-align: right;
+        color: var(--text-light);
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .mobile-player-total strong {
+        display: block;
+        color: var(--text-dark);
+        font-size: 1.05rem;
+        letter-spacing: 0;
+      }
+      .mobile-score-controls {
+        display: grid;
+        grid-template-columns: 1fr 0.9fr;
+        gap: 0.7rem;
+        padding: 0.75rem 0.8rem 0.85rem;
+      }
+      .mobile-control-label {
+        font-size: 0.55rem;
+        font-weight: 800;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+        color: var(--text-light);
+        margin-bottom: 0.35rem;
+      }
+      .mobile-chip-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.35rem;
+        margin-bottom: 0.45rem;
+      }
+      .score-chip {
+        min-height: 42px;
+        border: 1px solid var(--panel-border);
+        border-radius: 7px;
+        background: #f7f2e8;
+        color: var(--text-dark);
+        font-size: 0.72rem;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      .score-chip.selected {
+        border-color: var(--gold);
+        background: var(--gold);
+        color: var(--bg);
+      }
+      .mobile-stepper {
+        display: grid;
+        grid-template-columns: 42px minmax(0, 1fr) 42px;
+        gap: 0.35rem;
+        align-items: center;
+      }
+      .stepper-btn {
+        width: 42px;
+        height: 42px;
+        border: 1px solid var(--panel-border);
+        border-radius: 7px;
+        background: #fff;
+        color: var(--text-dark);
+        font-size: 1.1rem;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      .mobile-score-input {
+        width: 100%;
+        height: 42px;
+        border-radius: 7px;
+        background: #fffdf8;
+      }
+      .mobile-hole-actions {
+        position: sticky;
+        bottom: 0;
+        z-index: 8;
+        margin: 0 -0.75rem calc(-1rem - env(safe-area-inset-bottom));
+        padding: 0.75rem 0.75rem calc(0.75rem + env(safe-area-inset-bottom));
+        background: rgba(243,239,227,0.95);
+        border-top: 1px solid rgba(221,213,190,0.9);
+        backdrop-filter: blur(14px);
+      }
+      .mobile-hole-actions .group-btn {
+        min-height: 46px;
+        border-radius: 8px;
+      }
+      .mobile-live-card { padding: 0.75rem 0.8rem; }
+      .mobile-live-title {
+        font-size: 0.58rem;
+        font-weight: 800;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--text-light);
+        margin-bottom: 0.5rem;
+      }
+      .mobile-game-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.45rem 0;
+        border-top: 1px solid rgba(221,213,190,0.75);
+        font-size: 0.78rem;
+      }
+      .mobile-game-row:first-of-type { border-top: none; }
+      .mobile-game-row strong { color: var(--text-dark); }
+      .mobile-game-row span:last-child {
+        color: var(--text-mid);
+        text-align: right;
+      }
+      .sc-table-wrap { display: none; }
+      .sc-table-wrap.mobile-table-open {
+        display: block;
+        max-height: 52vh;
+        border-top: 2px solid var(--gold);
+      }
+      .pp-content { flex-direction: column; }
+      .pair-live-panel { display: none !important; }
+    }
+
   </style>
 </head>
 
@@ -1457,6 +1703,7 @@ let _courseSearchResults = [];
 let _gamesReturnScreen = 'scorecard';
 let _setupMode = 'games';
 let _scorecardGroupKey = null;
+let mobileShowFullCard = false;
 const expandedPuttRows = new Set();
 
 const setupState = { course:null, players:[], team1:[], team2:[], pool:[], matchupOrder:[], playingGroups:[] };
@@ -1983,7 +2230,7 @@ function renderPairMatchLiveHole(h,t1Label,t2Label){
 function stablefordPointsForScore(score,par,points){ const diff=score-par; if(diff<=-3)return points.albatross; if(diff===-2)return points.eagle; if(diff===-1)return points.birdie; if(diff===0)return points.par; if(diff===1)return points.bogey; return points.double; }
 function computeStableford(strokes){ const cfg=normalizeGames(ROUND.games).stableford, pts=cfg.points||DEFAULT_GAMES.stableford.points, out={}; currentPlayers().forEach(p=>{ let total=0, holes=0; for(let h=0;h<18;h++){ const v=playerHoleScore(p,h,strokes,cfg.type); if(v==null)continue; total+=stablefordPointsForScore(v,ROUND.course.par[h],pts); holes++; } out[p]={points:total,holes}; }); return out; }
 
-function renderScorecard(){ const course=ROUND.course, players=scorecardPlayers(), strokes=getPlayerStrokes(), games=normalizeGames(ROUND.games), {skinsByPlayer}=computeSkins(); ensureTeamNames(); document.getElementById('sc-course-title').textContent=courseDisplayName(course); document.getElementById('sc-course-sub').textContent=[course.location, course.tee?.name].filter(Boolean).join(' / '); renderScorecardGroupPicker(); const gc=document.getElementById('sc-group-code'); if(gc){ gc.textContent=GROUP?`Group: ${groupCode()}`:''; gc.style.display=GROUP?'':'none'; } let html='<colgroup><col class="col-name">'; for(let i=0;i<9;i++)html+='<col class="col-hole">'; html+='<col class="col-out">'; for(let i=0;i<9;i++)html+='<col class="col-hole">'; html+='<col class="col-sum"><col class="col-sum"><col class="col-net"><col class="col-skins"></colgroup><thead>'; const outPar=sum(course.par.slice(0,9)), inPar=sum(course.par.slice(9)), totalPar=outPar+inPar; html+='<tr class="row-holes"><th></th>'; for(let h=1;h<=9;h++)html+=`<th>${h}</th>`; html+='<th class="col-out-h">OUT</th>'; for(let h=10;h<=18;h++)html+=`<th>${h}</th>`; html+='<th class="col-in-h">IN</th><th>TOT</th><th>NET</th><th>SKN</th></tr>'; html+=metaRow('row-par','Par',course.par,outPar,inPar,totalPar,'—','—'); const outY=sum(course.yds.slice(0,9)), inY=sum(course.yds.slice(9)), totalY=sum(course.yds); html+=metaRow('row-ydg','Yds',course.yds,outY,inY,totalY,'',''); html+=metaRow('row-si','Handicap',course.si,'—','—','—','',''); html+='</thead><tbody>'; [{key:'team1',label:teamName('team1'),players:(ROUND.team1||[]).filter(p=>players.includes(p))},{key:'team2',label:teamName('team2'),players:(ROUND.team2||[]).filter(p=>players.includes(p))}].forEach(({key,label,players:teamPlayers})=>{ if(!teamPlayers.length)return; html+=`<tr class="row-team-divider"><td colspan="24">${escHtml(label)} &mdash; ${teamPlayers.map(escHtml).join(' &middot; ')}</td></tr>`; teamPlayers.forEach(p=>{ html+=buildPlayerRow(p,strokes[p],skinsByPlayer[p],course); html+=buildPuttRow(p); }); if(games.bestBall.enabled)html+=buildBestBallRow(key,teamPlayers,strokes,course); if(games.twoBall.enabled)html+=build2BallRow(key,teamPlayers,strokes,course); }); html+='</tbody>'; const table=document.createElement('table'); table.className='sc-table'; table.innerHTML=html; const wrap=document.getElementById('sc-table-wrap'); wrap.innerHTML=''; wrap.appendChild(table); renderPairMatchLivePanel(strokes); renderMobileHoleEntry(); renderWolfPanel(); renderPuttPoker(); }
+function renderScorecard(){ const course=ROUND.course, players=scorecardPlayers(), strokes=getPlayerStrokes(), games=normalizeGames(ROUND.games), {skinsByPlayer}=computeSkins(); ensureTeamNames(); document.getElementById('sc-course-title').textContent=courseDisplayName(course); document.getElementById('sc-course-sub').textContent=[course.location, course.tee?.name].filter(Boolean).join(' / '); renderScorecardGroupPicker(); const gc=document.getElementById('sc-group-code'); if(gc){ gc.textContent=GROUP?`Group: ${groupCode()}`:''; gc.style.display=GROUP?'':'none'; } let html='<colgroup><col class="col-name">'; for(let i=0;i<9;i++)html+='<col class="col-hole">'; html+='<col class="col-out">'; for(let i=0;i<9;i++)html+='<col class="col-hole">'; html+='<col class="col-sum"><col class="col-sum"><col class="col-net"><col class="col-skins"></colgroup><thead>'; const outPar=sum(course.par.slice(0,9)), inPar=sum(course.par.slice(9)), totalPar=outPar+inPar; html+='<tr class="row-holes"><th></th>'; for(let h=1;h<=9;h++)html+=`<th>${h}</th>`; html+='<th class="col-out-h">OUT</th>'; for(let h=10;h<=18;h++)html+=`<th>${h}</th>`; html+='<th class="col-in-h">IN</th><th>TOT</th><th>NET</th><th>SKN</th></tr>'; html+=metaRow('row-par','Par',course.par,outPar,inPar,totalPar,'—','—'); const outY=sum(course.yds.slice(0,9)), inY=sum(course.yds.slice(9)), totalY=sum(course.yds); html+=metaRow('row-ydg','Yds',course.yds,outY,inY,totalY,'',''); html+=metaRow('row-si','Handicap',course.si,'—','—','—','',''); html+='</thead><tbody>'; [{key:'team1',label:teamName('team1'),players:(ROUND.team1||[]).filter(p=>players.includes(p))},{key:'team2',label:teamName('team2'),players:(ROUND.team2||[]).filter(p=>players.includes(p))}].forEach(({key,label,players:teamPlayers})=>{ if(!teamPlayers.length)return; html+=`<tr class="row-team-divider"><td colspan="24">${escHtml(label)} &mdash; ${teamPlayers.map(escHtml).join(' &middot; ')}</td></tr>`; teamPlayers.forEach(p=>{ html+=buildPlayerRow(p,strokes[p],skinsByPlayer[p],course); html+=buildPuttRow(p); }); if(games.bestBall.enabled)html+=buildBestBallRow(key,teamPlayers,strokes,course); if(games.twoBall.enabled)html+=build2BallRow(key,teamPlayers,strokes,course); }); html+='</tbody>'; const table=document.createElement('table'); table.className='sc-table'; table.innerHTML=html; const wrap=document.getElementById('sc-table-wrap'); wrap.innerHTML=''; wrap.classList.toggle('mobile-table-open', mobileShowFullCard); wrap.appendChild(table); renderPairMatchLivePanel(strokes); renderMobileHoleEntry(); renderWolfPanel(); renderPuttPoker(); }
 function metaRow(cls,label,vals,outVal,inVal,totalVal,net,skins){ let html=`<tr class="${cls}"><td>${label}</td>`; for(let h=0;h<9;h++)html+=`<td>${vals[h]??''}</td>`; html+=`<td class="out-col">${outVal}</td>`; for(let h=9;h<18;h++)html+=`<td>${vals[h]??''}</td>`; html+=`<td class="in-col">${inVal}</td><td class="total-col">${totalVal}</td><td class="net-col">${net}</td><td class="skins-col">${skins}</td></tr>`; return html; }
 function buildPlayerRow(player,playerStrokes,skinsWon,course){ const outVal=sumRange(player,0,9), inVal=sumRange(player,9,18), totalVal=(outVal!=null||inVal!=null)?(outVal||0)+(inVal||0):null, netVal=computeNetTotal(player,getPlayerStrokes()), expanded=expandedPuttRows.has(player), courseHcp=getCourseHandicap(player); let html=`<tr class="row-player" data-player="${escHtml(player)}"><td class="name-cell"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:3px"><div class="cell-pname">${escHtml(player)}</div><button class="putt-toggle-btn" id="putts-toggle-${escHtml(player)}" onclick="event.stopPropagation();togglePuttRow('${escJs(player)}')" title="Toggle putt tracking">${expanded?'▲':'▼'}</button></div><div class="cell-hcp">Hcp ${courseHcp} &bull; +${playerStrokes} strokes</div></td>`; for(let h=0;h<9;h++)html+=buildScoreCell(player,h,playerStrokes,ROUND.scores[player]?.[h],course); html+=`<td class="sum-cell out-col" id="out-${escHtml(player)}">${outVal??'—'}</td>`; for(let h=9;h<18;h++)html+=buildScoreCell(player,h,playerStrokes,ROUND.scores[player]?.[h],course); html+=`<td class="sum-cell in-col" id="in-${escHtml(player)}">${inVal??'—'}</td><td class="sum-cell total-col" id="total-${escHtml(player)}">${totalVal??'—'}</td><td class="sum-cell net-col" id="net-${escHtml(player)}">${netVal??'—'}</td><td class="sum-cell skins-col" id="skins-${escHtml(player)}">${skinsWon>0?skinsWon:'—'}</td></tr>`; return html; }
 function buildFormatRow(rowClass,teamKey,teamPlayers,strokes,course,label,sublabel,valKey){ const fmt=v=>v!=null?v:'<span style="color:var(--text-faint);font-weight:400">—</span>'; const totals=computeTeamTotals(teamPlayers,strokes), outKey=valKey==='bestBall'?'bbOut':'tbOut', inKey=valKey==='bestBall'?'bbIn':'tbIn', totKey=valKey==='bestBall'?'bbTotal':'tbTotal', prefix=valKey==='bestBall'?'bb':'tb'; let html=`<tr class="${rowClass}"><td class="name-cell"><div class="fmt-row-label">${label}</div><div class="fmt-row-sub">${sublabel}</div></td>`; for(let h=0;h<9;h++)html+=`<td class="fmt-cell" id="${prefix}-${teamKey}-h${h}">${fmt(computeTeamHoleStats(teamPlayers,strokes,h)[valKey])}</td>`; html+=`<td class="sum-cell out-col" id="${prefix}-${teamKey}-out">${fmt(totals[outKey])}</td>`; for(let h=9;h<18;h++)html+=`<td class="fmt-cell" id="${prefix}-${teamKey}-h${h}">${fmt(computeTeamHoleStats(teamPlayers,strokes,h)[valKey])}</td>`; html+=`<td class="sum-cell in-col" id="${prefix}-${teamKey}-in">${fmt(totals[inKey])}</td><td class="sum-cell total-col" id="${prefix}-${teamKey}-total">${fmt(totals[totKey])}</td><td class="sum-cell net-col">—</td><td class="sum-cell skins-col">—</td></tr>`; return html; }
@@ -1991,14 +2238,72 @@ function buildBestBallRow(teamKey,teamPlayers,strokes,course){ return buildForma
 function build2BallRow(teamKey,teamPlayers,strokes,course){ return buildFormatRow('row-two-ball',teamKey,teamPlayers,strokes,course,'2-Ball','sum of 2 low nets','twoBall'); }
 function buildScoreCell(player,h,playerStrokes,gross,course){ const cls=gross!=null?getColorClass(gross,course.par[h]):'', dot=getsStroke(playerStrokes,course.si[h]); return `<td class="score-cell ${cls}" data-player="${escHtml(player)}" data-hole="${h}"><div class="sc-cell-inner"><input type="number" inputmode="numeric" min="1" max="20" value="${gross??''}" oninput="onScoreInput('${escJs(player)}',${h},this.value)" onfocus="this.select()">${dot?'<span class="stroke-dot">●</span>':''}</div></td>`; }
 function updateTeamFormatRows(teamKey){ const teamPlayers=ROUND[teamKey], strokes=getPlayerStrokes(), totals=computeTeamTotals(teamPlayers,strokes), el=id=>document.getElementById(id), fmt=v=>v!=null?String(v):'—'; for(let h=0;h<18;h++){ const {bestBall,twoBall}=computeTeamHoleStats(teamPlayers,strokes,h); if(el(`bb-${teamKey}-h${h}`))el(`bb-${teamKey}-h${h}`).textContent=fmt(bestBall); if(el(`tb-${teamKey}-h${h}`))el(`tb-${teamKey}-h${h}`).textContent=fmt(twoBall); } [['bb','bbOut','bbIn','bbTotal'],['tb','tbOut','tbIn','tbTotal']].forEach(([p,o,i,t])=>{ if(el(`${p}-${teamKey}-out`))el(`${p}-${teamKey}-out`).textContent=fmt(totals[o]); if(el(`${p}-${teamKey}-in`))el(`${p}-${teamKey}-in`).textContent=fmt(totals[i]); if(el(`${p}-${teamKey}-total`))el(`${p}-${teamKey}-total`).textContent=fmt(totals[t]); }); }
-function onScoreInput(player,h,rawVal){ const gross=rawVal===''?null:parseInt(rawVal,10); if(rawVal!==''&&isNaN(gross))return; ROUND.scores[player][h]=gross; saveState(); scheduleSync(); const cell=document.querySelector(`td.score-cell[data-player="${CSS.escape(player)}"][data-hole="${h}"]`); if(cell)cell.className='score-cell'+(gross!=null?' '+getColorClass(gross,ROUND.course.par[h]):''); updatePlayerSums(player); updateAllSkins(); updateTeamFormatRows(ROUND.team1.includes(player)?'team1':'team2'); renderPairMatchLivePanel(); renderWolfPanel(); }
+function onScoreInput(player,h,rawVal){ const gross=rawVal===''?null:parseInt(rawVal,10); if(rawVal!==''&&isNaN(gross))return; ROUND.scores[player][h]=gross; saveState(); scheduleSync(); const cell=document.querySelector(`td.score-cell[data-player="${CSS.escape(player)}"][data-hole="${h}"]`); if(cell)cell.className='score-cell'+(gross!=null?' '+getColorClass(gross,ROUND.course.par[h]):''); updatePlayerSums(player); updateAllSkins(); updateTeamFormatRows(ROUND.team1.includes(player)?'team1':'team2'); renderPairMatchLivePanel(); renderMobileLiveContext(); renderWolfPanel(); }
 function updatePlayerSums(player){ const strokes=getPlayerStrokes(), outVal=sumRange(player,0,9), inVal=sumRange(player,9,18), totalVal=(outVal!=null||inVal!=null)?(outVal||0)+(inVal||0):null, netVal=computeNetTotal(player,strokes), el=id=>document.getElementById(id), fmt=v=>v!=null?v:'—'; if(el(`out-${player}`))el(`out-${player}`).textContent=fmt(outVal); if(el(`in-${player}`))el(`in-${player}`).textContent=fmt(inVal); if(el(`total-${player}`))el(`total-${player}`).textContent=fmt(totalVal); if(el(`net-${player}`))el(`net-${player}`).textContent=fmt(netVal); }
 function updateAllSkins(){ const {skinsByPlayer}=computeSkins(); currentPlayers().forEach(p=>{ const el=document.getElementById(`skins-${p}`); if(el)el.textContent=skinsByPlayer[p]>0?skinsByPlayer[p]:'—'; }); }
 
-function renderMobileHoleEntry(){ const el=document.getElementById('mobile-hole-entry'); if(!el||!ROUND?.course)return; const h=Math.max(0,Math.min(17,mobileHole)), strokes=getPlayerStrokes(), players=scorecardPlayers(); mobileHole=h; el.innerHTML=`<div class="mobile-hole-head"><div><div class="mobile-hole-title">Hole ${h+1}</div><div class="muted">Par ${ROUND.course.par[h]} / Handicap ${ROUND.course.si[h]}</div></div><select class="form-input" onchange="setMobileHole(this.value)">${Array.from({length:18},(_,i)=>`<option value="${i}" ${i===h?'selected':''}>Hole ${i+1}</option>`).join('')}</select></div><div class="mobile-hole-grid">${players.map(p=>{ const gross=ROUND.scores[p]?.[h]??'', putts=ROUND.putts?.[p]?.[h]??'', dot=getsStroke(strokes[p],ROUND.course.si[h]); return `<div class="mobile-hole-row"><div><div class="mobile-hole-player">${escHtml(p)}</div><div class="mobile-hole-meta">${dot?'Stroke':'Even'}</div></div><label class="mobile-hole-field"><span class="mobile-hole-label">Score</span><input class="mobile-score-input" type="number" inputmode="numeric" min="1" max="20" value="${gross}" oninput="onMobileScoreInput('${escJs(p)}',${h},this.value)" onfocus="this.select()"></label><label class="mobile-hole-field"><span class="mobile-hole-label">Putts</span><input class="mobile-score-input" type="number" inputmode="numeric" min="0" max="9" value="${putts}" oninput="onMobilePuttInput('${escJs(p)}',${h},this.value)" onfocus="this.select()"></label></div>`; }).join('')}</div><div class="mobile-hole-actions"><button class="group-btn" onclick="setMobileHole(${Math.max(0,h-1)})" ${h===0?'disabled':''}>Back</button><button class="group-btn primary" onclick="setMobileHole(${Math.min(17,h+1)})" ${h===17?'disabled':''}>Next Hole</button></div>`; }
+function thruForPlayer(player){ return (ROUND.scores[player]||[]).filter(v=>v!=null).length; }
+function mobileScoreToParLabel(score,par){ if(score==null)return 'Tap score'; const diff=score-par; if(diff===0)return 'Par'; if(diff===-1)return 'Birdie'; if(diff===1)return 'Bogey'; if(diff<=-2)return 'Eagle'; return `+${diff}`; }
+function mobileLeaderSummary(strokes=getPlayerStrokes()){
+  const rows=currentPlayers().map(p=>({ player:p, net:computeNetTotal(p,strokes), thru:thruForPlayer(p) })).filter(r=>r.net!=null).sort((a,b)=>a.net-b.net || b.thru-a.thru);
+  if(!rows.length)return {value:'No scores yet', note:'Enter hole scores to start the board'};
+  const top=rows[0], tied=rows.filter(r=>r.net===top.net);
+  return { value:tied.length>1?`${tied.length} tied at ${top.net}`:`${top.player} ${top.net}`, note:`${top.thru} hole${top.thru===1?'':'s'} posted` };
+}
+function mobileTeamSummary(strokes=getPlayerStrokes()){
+  const t1=ROUND.team1||[], t2=ROUND.team2||[], t1Net=t1.map(p=>computeNetTotal(p,strokes)).filter(v=>v!=null), t2Net=t2.map(p=>computeNetTotal(p,strokes)).filter(v=>v!=null);
+  if(!t1Net.length&&!t2Net.length)return {value:'Match pending', note:'Team totals appear as scores come in'};
+  const a=sum(t1Net), b=sum(t2Net), note=`${teamName('team1')} ${a || '-'} / ${teamName('team2')} ${b || '-'}`;
+  if(!t1Net.length||!t2Net.length)return {value:'In progress', note};
+  if(a===b)return {value:'All square', note};
+  return {value:`${a<b?teamName('team1'):teamName('team2')} by ${Math.abs(a-b)}`, note};
+}
+function mobileSkinsSummary(){
+  const {skinsByPlayer,holeResults}=computeSkins(), leaders=Object.entries(skinsByPlayer).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  if(!holeResults.length)return {value:'Skins open', note:'No completed holes yet'};
+  if(!leaders.length)return {value:'No skins won', note:`${holeResults.length} hole${holeResults.length===1?'':'s'} complete`};
+  const top=leaders[0];
+  return {value:`${top[0]} ${top[1]}`, note:`${sum(Object.values(skinsByPlayer))} skin${sum(Object.values(skinsByPlayer))===1?'':'s'} won`};
+}
+function mobileGameRows(strokes=getPlayerStrokes()){
+  const g=normalizeGames(ROUND.games), rows=[];
+  if(g.pairMatch.enabled){ const r=computePairMatchPlay(strokes); rows.push(['Pair Match', `${teamName('team1')} ${r.team1Points} - ${r.team2Points} ${teamName('team2')}`]); }
+  if(g.bestBall.enabled){ const a=computeTeamTotals(ROUND.team1,strokes,g.bestBall.type), b=computeTeamTotals(ROUND.team2,strokes,g.bestBall.type); rows.push(['Best Ball', `${a.bbTotal ?? '-'} / ${b.bbTotal ?? '-'}`]); }
+  if(g.twoBall.enabled){ const a=computeTeamTotals(ROUND.team1,strokes,g.twoBall.type), b=computeTeamTotals(ROUND.team2,strokes,g.twoBall.type); rows.push(['2-Ball', `${a.tbTotal ?? '-'} / ${b.tbTotal ?? '-'}`]); }
+  if(g.aggy.enabled){ const a=computeTeamTotals(ROUND.team1,strokes,g.aggy.type), b=computeTeamTotals(ROUND.team2,strokes,g.aggy.type); rows.push(['Aggy', `${a.agTotal ?? '-'} / ${b.agTotal ?? '-'}`]); }
+  if(g.stableford.enabled){ const sf=computeStableford(strokes), leader=Object.entries(sf).sort((a,b)=>b[1].points-a[1].points)[0]; rows.push(['Stableford', leader?`${leader[0]} ${leader[1].points} pts`:'No points']); }
+  if(g.wolf.enabled){ const played=Array.from({length:18},(_,h)=>wolfHoleResult(h,strokes)).filter(r=>r?.winner).length; rows.push(['Wolf', `${played} hole${played===1?'':'s'} settled`]); }
+  if(g.puttPoker.enabled){ const pot=(g.puttPoker.pot||0)*currentPlayers().length; rows.push(['Putt Poker', `$${pot} base pot`]); }
+  return rows;
+}
+function renderMobileLiveContext(){
+  const el=document.getElementById('mobile-live-context');
+  if(!el||!ROUND?.course)return;
+  const strokes=getPlayerStrokes(), team=mobileTeamSummary(strokes), leader=mobileLeaderSummary(strokes), skins=mobileSkinsSummary(), games=mobileGameRows(strokes);
+  el.innerHTML=`<div class="mobile-status-grid"><div class="mobile-stat"><div class="mobile-stat-label">Team</div><div class="mobile-stat-value">${escHtml(team.value)}</div><div class="mobile-stat-note">${escHtml(team.note)}</div></div><div class="mobile-stat"><div class="mobile-stat-label">Leader</div><div class="mobile-stat-value">${escHtml(leader.value)}</div><div class="mobile-stat-note">${escHtml(leader.note)}</div></div><div class="mobile-stat"><div class="mobile-stat-label">Skins</div><div class="mobile-stat-value">${escHtml(skins.value)}</div><div class="mobile-stat-note">${escHtml(skins.note)}</div></div><div class="mobile-stat"><div class="mobile-stat-label">Group</div><div class="mobile-stat-value">${escHtml(selectedScorecardGroupKey()==='all'?'All players':activePlayingGroups()[Number(selectedScorecardGroupKey())]?.name || 'Group')}</div><div class="mobile-stat-note">${scorecardPlayers().length} scorer${scorecardPlayers().length===1?'':'s'} shown</div></div></div>${games.length?`<div class="mobile-live-card"><div class="mobile-live-title">Games</div>${games.map(([label,value])=>`<div class="mobile-game-row"><strong>${escHtml(label)}</strong><span>${escHtml(value)}</span></div>`).join('')}</div>`:''}`;
+}
+function renderMobileScoreChips(player,h,gross){
+  const par=ROUND.course.par[h], vals=[par-1,par,par+1].filter(v=>v>0);
+  return `<div class="mobile-chip-row">${vals.map(v=>`<button class="score-chip ${gross===v?'selected':''}" type="button" onclick="setMobileScore('${escJs(player)}',${h},${v})">${escHtml(mobileScoreToParLabel(v,par))}</button>`).join('')}</div>`;
+}
+function updateMobilePlayerCard(player,h){
+  const card=document.querySelector(`.mobile-player-card[data-player="${CSS.escape(player)}"]`);
+  if(!card||!ROUND?.course)return;
+  const gross=ROUND.scores[player]?.[h]??null, strokes=getPlayerStrokes(), total=sumRange(player,0,18), net=computeNetTotal(player,strokes);
+  const meta=card.querySelector('.mobile-player-meta'), totalEl=card.querySelector('.mobile-player-total strong'), netEl=card.querySelector('.mobile-player-total span');
+  if(meta) meta.textContent=`${getsStroke(strokes[player],ROUND.course.si[h])?'Gets a stroke here':'No stroke'} / ${mobileScoreToParLabel(gross,ROUND.course.par[h])}`;
+  if(totalEl) totalEl.textContent=total??'-';
+  if(netEl) netEl.textContent=`Net ${net??'-'}`;
+}
+function renderMobileHoleEntry(){ const el=document.getElementById('mobile-hole-entry'); if(!el||!ROUND?.course)return; const h=Math.max(0,Math.min(17,mobileHole)), strokes=getPlayerStrokes(), players=scorecardPlayers(); mobileHole=h; el.innerHTML=`<div class="mobile-score-shell"><div class="mobile-command-card"><div class="mobile-hole-head"><div><div class="mobile-hole-title">Hole ${h+1}</div><div class="mobile-hole-kicker">Par ${ROUND.course.par[h]} / Handicap ${ROUND.course.si[h]} / ${ROUND.course.yds[h] || '-'} yds</div></div><select class="form-input mobile-hole-select" onchange="setMobileHole(this.value)">${Array.from({length:18},(_,i)=>`<option value="${i}" ${i===h?'selected':''}>Hole ${i+1}</option>`).join('')}</select></div><div id="mobile-live-context"></div></div><div class="mobile-hole-grid">${players.map(p=>{ const gross=ROUND.scores[p]?.[h]??null, putts=ROUND.putts?.[p]?.[h]??null, dot=getsStroke(strokes[p],ROUND.course.si[h]), total=sumRange(p,0,18), net=computeNetTotal(p,strokes), scoreVal=gross??'', puttVal=putts??''; return `<div class="mobile-hole-row mobile-player-card" data-player="${escHtml(p)}"><div class="mobile-player-head"><div><div class="mobile-player-name">${escHtml(p)}</div><div class="mobile-player-meta">${dot?'Gets a stroke here':'No stroke'} / ${escHtml(mobileScoreToParLabel(gross,ROUND.course.par[h]))}</div></div><div class="mobile-player-total">Total<strong>${total??'-'}</strong><span>Net ${net??'-'}</span></div></div><div class="mobile-score-controls"><div><div class="mobile-control-label">Score</div>${renderMobileScoreChips(p,h,gross)}<div class="mobile-stepper"><button class="stepper-btn" type="button" onclick="adjustMobileScore('${escJs(p)}',${h},-1)">-</button><input class="mobile-score-input" type="number" inputmode="numeric" min="1" max="20" value="${scoreVal}" oninput="onMobileScoreInput('${escJs(p)}',${h},this.value)" onfocus="this.select()"><button class="stepper-btn" type="button" onclick="adjustMobileScore('${escJs(p)}',${h},1)">+</button></div></div><div><div class="mobile-control-label">Putts</div><div class="mobile-stepper"><button class="stepper-btn" type="button" onclick="adjustMobilePutt('${escJs(p)}',${h},-1)">-</button><input class="mobile-score-input" type="number" inputmode="numeric" min="0" max="9" value="${puttVal}" oninput="onMobilePuttInput('${escJs(p)}',${h},this.value)" onfocus="this.select()"><button class="stepper-btn" type="button" onclick="adjustMobilePutt('${escJs(p)}',${h},1)">+</button></div></div></div></div>`; }).join('')}</div><div class="mobile-hole-actions"><button class="group-btn" onclick="setMobileHole(${Math.max(0,h-1)})" ${h===0?'disabled':''}>Back</button><button class="group-btn" onclick="toggleMobileScorecardTable()">${mobileShowFullCard?'Hide Card':'Full Card'}</button><button class="group-btn primary" onclick="setMobileHole(${Math.min(17,h+1)})" ${h===17?'disabled':''}>Next</button></div></div>`; renderMobileLiveContext(); }
 function setMobileHole(h){ mobileHole=Math.max(0,Math.min(17,parseInt(h,10)||0)); renderMobileHoleEntry(); }
-function onMobileScoreInput(player,h,val){ onScoreInput(player,h,val); }
-function onMobilePuttInput(player,h,val){ onPuttInput(player,h,val); }
+function toggleMobileScorecardTable(){ mobileShowFullCard=!mobileShowFullCard; const wrap=document.getElementById('sc-table-wrap'); if(wrap)wrap.classList.toggle('mobile-table-open', mobileShowFullCard); renderMobileHoleEntry(); }
+function setMobileScore(player,h,value){ onScoreInput(player,h,String(value)); renderMobileHoleEntry(); }
+function adjustMobileScore(player,h,delta){ const cur=ROUND.scores[player]?.[h]??ROUND.course.par[h]; setMobileScore(player,h,Math.max(1,Math.min(20,Number(cur)+delta))); }
+function setMobilePutt(player,h,value){ onPuttInput(player,h,String(value)); renderMobileHoleEntry(); }
+function adjustMobilePutt(player,h,delta){ const cur=ROUND.putts?.[player]?.[h]??2; setMobilePutt(player,h,Math.max(0,Math.min(9,Number(cur)+delta))); }
+function onMobileScoreInput(player,h,val){ onScoreInput(player,h,val); updateMobilePlayerCard(player,h); renderMobileLiveContext(); }
+function onMobilePuttInput(player,h,val){ onPuttInput(player,h,val); updateMobilePlayerCard(player,h); renderMobileLiveContext(); }
 
 function defaultWolfHole(h){ const players=currentPlayers(), wolf=players[h % Math.max(players.length,1)] || ''; const others=players.filter(p=>p!==wolf); return { wolf, mode:'partner', partner:others[0] || '' }; }
 function wolfHole(h){ if(!ROUND.wolf)ROUND.wolf={holes:{}}; if(!ROUND.wolf.holes)ROUND.wolf.holes={}; if(!ROUND.wolf.holes[h])ROUND.wolf.holes[h]=defaultWolfHole(h); return ROUND.wolf.holes[h]; }
