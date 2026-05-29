@@ -44,7 +44,7 @@ There is no frontend build step and no runtime package install required for the 
 Notes:
 
 - `course-search` is the active Edge Function.
-- `ghin-lookup` is not part of the current product flow. GHIN access is deferred/dead for now, so players are added manually.
+- `ghin-lookup` is disabled for production. It returns HTTP 410 and makes no GHIN/API calls, so players are added manually.
 - `package-lock.json` is not required for the app.
 
 ## Local Development
@@ -196,6 +196,7 @@ If this becomes a broader public product, add authentication and tighten RLS by 
 
 - `dmi_group`: current group state
 - `dmi_round`: current active round state
+- `dmi_recent_groups`: recent groups opened on this browser for quick switching
 - `golf_scorecard_v1`: legacy key used only for migration fallback
 
 ### Group Object
@@ -507,7 +508,7 @@ Test at least:
 ## Known Limitations
 
 - No authentication.
-- GHIN lookup is not active.
+- GHIN lookup is disabled for production to avoid GHIN/API usage limits and paid access.
 - Wolf UX needs more work before heavy use.
 - Pair Match Play supports multiple matches, but the app does not yet model physical foursomes, tee times, or a full 12-group event board.
 - Larger event architecture should add `foursomes` and `matches` as explicit concepts.

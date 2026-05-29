@@ -1305,6 +1305,11 @@
     .hub-panel { background:var(--panel-white); border:1.5px solid var(--panel-border); border-radius:3px; padding:1rem 1.1rem; }
     .hub-panel-title { font-size:0.66rem; font-weight:700; letter-spacing:0.22em; text-transform:uppercase; color:var(--text-light); margin-bottom:0.75rem; }
     .active-round-name { font-family:'Playfair Display',serif; font-size:1.12rem; font-weight:700; color:var(--text-dark); margin-bottom:0.25rem; }
+    .recent-groups { margin-top:1.8rem; }
+    .recent-group-row { display:flex; align-items:center; justify-content:space-between; gap:0.75rem; border:1px solid var(--panel-border); border-radius:3px; background:var(--panel-white); padding:0.75rem 0.85rem; margin-bottom:0.6rem; }
+    .recent-group-name { font-family:'Playfair Display',serif; font-size:0.95rem; font-weight:700; color:var(--text-dark); }
+    .recent-group-meta { margin-top:0.14rem; font-size:0.62rem; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-light); }
+    .recent-group-actions { display:flex; gap:0.45rem; align-items:center; flex-shrink:0; }
     .muted { color:var(--text-light); font-size:0.78rem; }
     .roster-row, .course-result-item, .tee-option, .hcp-preview-row { display:flex; justify-content:space-between; align-items:center; gap:0.8rem; border:1px solid var(--panel-border); background:var(--panel-white); border-radius:3px; padding:0.72rem 0.85rem; margin-bottom:0.5rem; }
     .course-result-item, .tee-option { cursor:pointer; transition:border-color 0.15s, background 0.15s; }
@@ -1321,7 +1326,7 @@
     .pair-match-vs { color:var(--text-faint); font-family:'Playfair Display',serif; font-style:italic; padding-bottom:0.65rem; }
     .selected-course-box { background:#fffce8; border:1.5px solid var(--gold); border-radius:3px; padding:0.9rem 1rem; margin:0.8rem 0; }
     .empty-state { color:var(--text-light); font-style:italic; font-size:0.82rem; padding:0.8rem 0; }
-    @media (max-width: 760px) { .hub-grid { grid-template-columns:1fr; } .form-row { align-items:stretch; } .form-input.grow, .group-btn { width:100%; } .code-input { width:100%; } .team-name-row { grid-template-columns:1fr; } .pair-match-row { grid-template-columns:1fr; } .pair-match-side { grid-template-columns:1fr; } .pair-match-vs { padding:0; text-align:center; } .mobile-hole-entry { display:block; background:var(--panel); border-bottom:2px solid var(--gold); padding:0.8rem; } .mobile-hole-head { display:flex; justify-content:space-between; align-items:center; gap:0.6rem; margin-bottom:0.7rem; } .mobile-hole-title { font-family:'Playfair Display',serif; font-size:1rem; font-weight:700; color:var(--text-dark); } .mobile-hole-grid { display:grid; gap:0.55rem; } .mobile-hole-row { display:grid; grid-template-columns:minmax(0,1fr) 74px 74px; align-items:center; gap:0.55rem; background:var(--panel-white); border:1px solid var(--panel-border); border-radius:4px; padding:0.55rem 0.65rem; } .mobile-hole-player { font-weight:700; color:var(--text-dark); } .mobile-hole-meta { color:var(--text-light); font-size:0.68rem; margin-top:0.1rem; } .mobile-hole-field { display:flex; flex-direction:column; gap:0.18rem; } .mobile-hole-label { font-size:0.56rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-faint); text-align:center; } .mobile-score-input { width:74px; height:42px; border:1.5px solid var(--panel-border); border-radius:3px; text-align:center; font-size:1rem; font-weight:700; background:var(--panel); color:var(--text-dark); } .mobile-hole-actions { display:flex; gap:0.5rem; margin-top:0.75rem; } .mobile-hole-actions .group-btn { width:auto; flex:1; } }
+    @media (max-width: 760px) { .hub-grid { grid-template-columns:1fr; } .form-row { align-items:stretch; } .form-input.grow, .group-btn { width:100%; } .code-input { width:100%; } .recent-group-row { align-items:stretch; flex-direction:column; } .recent-group-actions { width:100%; } .recent-group-actions .group-btn { width:auto; flex:1; } .team-name-row { grid-template-columns:1fr; } .pair-match-row { grid-template-columns:1fr; } .pair-match-side { grid-template-columns:1fr; } .pair-match-vs { padding:0; text-align:center; } .mobile-hole-entry { display:block; background:var(--panel); border-bottom:2px solid var(--gold); padding:0.8rem; } .mobile-hole-head { display:flex; justify-content:space-between; align-items:center; gap:0.6rem; margin-bottom:0.7rem; } .mobile-hole-title { font-family:'Playfair Display',serif; font-size:1rem; font-weight:700; color:var(--text-dark); } .mobile-hole-grid { display:grid; gap:0.55rem; } .mobile-hole-row { display:grid; grid-template-columns:minmax(0,1fr) 74px 74px; align-items:center; gap:0.55rem; background:var(--panel-white); border:1px solid var(--panel-border); border-radius:4px; padding:0.55rem 0.65rem; } .mobile-hole-player { font-weight:700; color:var(--text-dark); } .mobile-hole-meta { color:var(--text-light); font-size:0.68rem; margin-top:0.1rem; } .mobile-hole-field { display:flex; flex-direction:column; gap:0.18rem; } .mobile-hole-label { font-size:0.56rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-faint); text-align:center; } .mobile-score-input { width:74px; height:42px; border:1.5px solid var(--panel-border); border-radius:3px; text-align:center; font-size:1rem; font-weight:700; background:var(--panel); color:var(--text-dark); } .mobile-hole-actions { display:flex; gap:0.5rem; margin-top:0.75rem; } .mobile-hole-actions .group-btn { width:auto; flex:1; } }
     @media (max-width: 760px) {
       .pair-live-panel { padding: 0.75rem 0.8rem; }
       .pair-live-title { flex-direction: column; gap: 0.25rem; }
@@ -1604,6 +1609,7 @@
         <button class="group-btn" onclick="joinGroup()">Join Group</button>
       </div>
       <div id="group-status" class="group-status-msg"></div>
+      <div id="recent-groups" class="recent-groups"></div>
     </div>
   </div>
 </div>
@@ -1691,6 +1697,7 @@ const DEFAULT_GAMES = {
 const _SUPA_URL = 'https://dhpkeueubhpmvaungjfj.supabase.co';
 const _SUPA_KEY = 'sb_publishable_O9usNlh7G_lO7s7yy0QQXQ_JlWlf_Oe';
 const _db = window.supabase.createClient(_SUPA_URL, _SUPA_KEY);
+const RECENT_GROUPS_KEY = 'dmi_recent_groups';
 
 let GROUP = null;
 let ROUND = null;
@@ -1753,6 +1760,32 @@ function groupName(){ return GROUP?.name || 'Del Mar Invitational'; }
 function teamName(key){ return ROUND?.teamNames?.[key] || (key==='team1'?'Team 1':'Team 2'); }
 function ensureTeamNames(){ if(!ROUND.teamNames) ROUND.teamNames={team1:'Team 1',team2:'Team 2'}; }
 
+function loadRecentGroups(){
+  try{
+    const groups=JSON.parse(localStorage.getItem(RECENT_GROUPS_KEY) || '[]');
+    return Array.isArray(groups) ? groups.filter(g=>g?.id && g?.roomCode) : [];
+  }catch{ return []; }
+}
+function saveRecentGroups(groups){ localStorage.setItem(RECENT_GROUPS_KEY, JSON.stringify(groups.slice(0,12))); }
+function rememberGroup(group=GROUP){
+  if(!group?.id || !(group.roomCode || group.room_code)) return;
+  const code=group.roomCode || group.room_code;
+  const next={ id:group.id, roomCode:code, name:group.name || 'Del Mar Invitational', updatedAt:new Date().toISOString() };
+  saveRecentGroups([next, ...loadRecentGroups().filter(g=>g.id!==next.id && g.roomCode!==next.roomCode)]);
+  renderRecentGroups();
+}
+function forgetRecentGroup(id){
+  saveRecentGroups(loadRecentGroups().filter(g=>g.id!==id));
+  renderRecentGroups();
+}
+function renderRecentGroups(){
+  const el=document.getElementById('recent-groups');
+  if(!el) return;
+  const groups=loadRecentGroups();
+  if(!groups.length){ el.innerHTML=''; return; }
+  el.innerHTML=`<div class="section-label">Recent Groups</div>${groups.map(g=>`<div class="recent-group-row"><div><div class="recent-group-name">${escHtml(g.name)}</div><div class="recent-group-meta">Group ${escHtml(g.roomCode)}</div></div><div class="recent-group-actions"><button class="group-btn sm primary" onclick="switchToRecentGroup('${escJs(g.roomCode)}')">Open</button><button class="group-btn sm" onclick="forgetRecentGroup('${escJs(g.id)}')">Forget</button></div></div>`).join('')}`;
+}
+
 function normalizeGroup(row){ if(!row) return null; return { id:row.id, roomCode:row.room_code || row.roomCode, name:row.name || 'Del Mar Invitational', players:row.players || {} }; }
 function groupForDb(){ return { room_code:GROUP.roomCode, name:GROUP.name, players:GROUP.players || {} }; }
 function normalizeRound(row){ if(!row) return null; const st=typeof row.state==='string'?JSON.parse(row.state):row.state; const out={ ...st, id:row.id || st.id, groupId:row.group_id || st.groupId, completed:row.completed ?? st.completed ?? false }; out.games=normalizeGames(out.games); if(!out.wolf) out.wolf={holes:{}}; if(!out.teamNames) out.teamNames={team1:'Team 1',team2:'Team 2'}; if(!Array.isArray(out.pairMatches)) out.pairMatches=[]; out.playingGroups=normalizePlayingGroups(out.playingGroups, [...(out.team1||[]), ...(out.team2||[])]); return out; }
@@ -1792,6 +1825,7 @@ async function openSharedLink(){
   const { data:groupRow, error:groupError } = await _db.from('groups').select('id,room_code,name,players').eq('room_code', group).single();
   if(groupError || !groupRow){ setGroupStatus(`Group not found: ${group}`, true); return true; }
   GROUP=normalizeGroup(groupRow);
+  rememberGroup();
   let roundRow=null;
   if(round){
     const { data } = await _db.from('rounds').select('id,group_id,state,completed,created_at').eq('id', round).eq('group_id', GROUP.id).maybeSingle();
@@ -1852,6 +1886,7 @@ function showScreen(name){
     else if(screen==='results') el.style.display = name===screen ? 'block' : 'none';
     else el.style.display = name===screen ? '' : 'none';
   });
+  if(name==='home') renderRecentGroups();
 }
 
 async function createGroup(){
@@ -1861,7 +1896,7 @@ async function createGroup(){
   for(let attempt=0; attempt<5; attempt++){
     const room_code=generateCode();
     const { data, error } = await _db.from('groups').insert({ room_code, name, players:{} }).select('id,room_code,name,players').single();
-    if(!error && data){ GROUP=normalizeGroup(data); ROUND=null; saveState(); setGroupStatus(''); showHub(); return; }
+    if(!error && data){ GROUP=normalizeGroup(data); ROUND=null; saveState(); rememberGroup(); setGroupStatus(''); showHub(); return; }
     if(error && !String(error.message||'').includes('duplicate')){ setGroupStatus('Error: '+error.message, true); return; }
   }
   setGroupStatus('Could not create a unique group code. Try again.', true);
@@ -1876,13 +1911,20 @@ async function joinGroup(){
   GROUP=normalizeGroup(data);
   const roundRes=await _db.from('rounds').select('id,group_id,state,completed,created_at').eq('group_id', GROUP.id).eq('completed', false).order('created_at',{ascending:false}).limit(1).maybeSingle();
   ROUND=roundRes.data ? normalizeRound(roundRes.data) : null;
-  saveState(); setGroupStatus(''); showHub();
+  saveState(); rememberGroup(); setGroupStatus(''); showHub();
+}
+
+async function switchToRecentGroup(code){
+  const input=document.getElementById('join-code-input');
+  if(input) input.value=code;
+  await joinGroup();
 }
 
 async function persistGroup(){
   if(!GROUP?.id) return;
   await _db.from('groups').update({ name:GROUP.name, players:GROUP.players || {} }).eq('id', GROUP.id);
   saveState();
+  rememberGroup();
 }
 
 async function loadActiveRound(){
@@ -2063,7 +2105,7 @@ function renderSetupPlayers(){
   const wrap=document.getElementById('setup-players-content'); const roster=Object.values(GROUP.players||{}).sort((a,b)=>a.name.localeCompare(b.name));
   wrap.innerHTML=`<div class="setup-step-top"><div class="setup-step-title">Round Players</div><button class="group-btn sm" onclick="showSetupCourse()">Back</button></div>
     <div class="form-row"><input id="manual-name" class="form-input grow" placeholder="Player name"><input id="manual-hcp" class="form-input" style="width:110px" type="number" step="0.1" min="0" max="54" placeholder="Index"><button class="group-btn" onclick="addManualPlayer()">Add</button></div>
-    <div id="ghin-status" class="group-status-msg">GHIN lookup is deferred; add players manually for now.</div>
+    <div id="ghin-status" class="group-status-msg">GHIN lookup is disabled; add players manually.</div>
     <div id="player-roster-list">${roster.length?roster.map(p=>playerRosterRow(p)).join(''):'<div class="empty-state">Add an even number of players to continue.</div>'}</div>
     <div class="muted" style="margin-top:0.75rem">${playerCountMessage(Object.keys(GROUP.players||{}).length)}</div>
     <div class="setup-step-nav"><button class="group-btn" onclick="showSetupCourse()">Back</button><button class="group-btn primary" onclick="showSetupTeams()" ${canBuildTeams(Object.keys(GROUP.players||{}).length)?'':'disabled'}>Next &rarr;</button></div>`;
