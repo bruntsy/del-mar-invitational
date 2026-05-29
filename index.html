@@ -1445,23 +1445,38 @@
         margin-top: 0.28rem;
         display: flex;
         flex-direction: column;
-        gap: 0.18rem;
+        gap: 0.34rem;
       }
       .mobile-team-game-row {
-        display: flex;
-        justify-content: space-between;
-        gap: 0.45rem;
-        font-size: 0.66rem;
+        display: grid;
+        grid-template-columns: minmax(54px, auto) minmax(0, 1fr);
+        gap: 0.5rem;
         line-height: 1.25;
       }
-      .mobile-team-game-row span:first-child {
+      .mobile-team-game-name {
         color: var(--text-light);
         font-weight: 800;
+        font-size: 0.62rem;
       }
-      .mobile-team-game-row span:last-child {
+      .mobile-team-game-status {
+        min-width: 0;
+        text-align: right;
+      }
+      .mobile-team-game-primary {
         color: var(--text-dark);
         font-weight: 800;
+        font-size: 0.72rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .mobile-team-game-note {
+        color: var(--text-light);
+        font-size: 0.6rem;
         text-align: right;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       .mobile-hole-grid { gap: 0.65rem; }
       .mobile-hole-row {
@@ -2335,12 +2350,28 @@ function mobileTeamSummary(strokes=getPlayerStrokes()){
   return {value:`${a<b?teamName('team1'):teamName('team2')} by ${Math.abs(a-b)}`, note};
 }
 function mobileTeamGameRows(strokes=getPlayerStrokes()){
-  const g=normalizeGames(ROUND.games), rows=[], label=(a,b)=>`${teamName('team1')} ${formatToPar(a)} / ${teamName('team2')} ${formatToPar(b)}`;
-  if(g.bestBall.enabled) rows.push(['Best Ball', label(teamGameToPar(ROUND.team1,strokes,g.bestBall.type,'bestBall'), teamGameToPar(ROUND.team2,strokes,g.bestBall.type,'bestBall'))]);
-  if(g.twoBall.enabled) rows.push(['2-Ball', label(teamGameToPar(ROUND.team1,strokes,g.twoBall.type,'twoBall'), teamGameToPar(ROUND.team2,strokes,g.twoBall.type,'twoBall'))]);
-  if(g.aggy.enabled) rows.push(['Aggy', label(teamGameToPar(ROUND.team1,strokes,g.aggy.type,'aggy'), teamGameToPar(ROUND.team2,strokes,g.aggy.type,'aggy'))]);
-  if(g.pairMatch.enabled){ const r=computePairMatchPlay(strokes); rows.push(['Pair Match', `${teamName('team1')} ${r.team1Points} / ${teamName('team2')} ${r.team2Points}`]); }
+  const g=normalizeGames(ROUND.games), rows=[];
+  if(g.bestBall.enabled) rows.push(['Best Ball', teamGameStatus(teamGameToPar(ROUND.team1,strokes,g.bestBall.type,'bestBall'), teamGameToPar(ROUND.team2,strokes,g.bestBall.type,'bestBall'))]);
+  if(g.twoBall.enabled) rows.push(['2-Ball', teamGameStatus(teamGameToPar(ROUND.team1,strokes,g.twoBall.type,'twoBall'), teamGameToPar(ROUND.team2,strokes,g.twoBall.type,'twoBall'))]);
+  if(g.aggy.enabled) rows.push(['Aggy', teamGameStatus(teamGameToPar(ROUND.team1,strokes,g.aggy.type,'aggy'), teamGameToPar(ROUND.team2,strokes,g.aggy.type,'aggy'))]);
+  if(g.pairMatch.enabled){ const r=computePairMatchPlay(strokes); rows.push(['Pair Match', pointsGameStatus(r.team1Points,r.team2Points)]); }
   return rows;
+}
+function teamGameStatus(a,b){
+  const t1=shortTeamLabel('team1'), t2=shortTeamLabel('team2');
+  if(a==null&&b==null)return {primary:'Pending', note:'enter scores'};
+  if(a==null)return {primary:`${t2} ${formatToPar(b)}`, note:`waiting on ${t1}`};
+  if(b==null)return {primary:`${t1} ${formatToPar(a)}`, note:`waiting on ${t2}`};
+  if(a===b)return {primary:'All square', note:`both ${formatToPar(a)}`};
+  const lead=a<b?t1:t2, score=a<b?a:b;
+  return {primary:`${lead} ${formatToPar(score)}`, note:`leads by ${Math.abs(a-b)}`};
+}
+function pointsGameStatus(a,b){
+  const t1=shortTeamLabel('team1'), t2=shortTeamLabel('team2');
+  if(!a&&!b)return {primary:'Pending', note:'enter scores'};
+  if(a===b)return {primary:'All square', note:`${a} each`};
+  const lead=a>b?t1:t2;
+  return {primary:`${lead} ${Math.max(a,b)}`, note:`leads by ${Math.abs(a-b)}`};
 }
 function teamGameToPar(teamPlayers,strokes,type,format){
   const multiplier=format==='twoBall'?2:format==='aggy'?teamPlayers.length:1;
@@ -2357,8 +2388,8 @@ function mobileSkinsSummary(){
   const {skinsByPlayer,holeResults}=computeSkins(), leaders=Object.entries(skinsByPlayer).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
   if(!holeResults.length)return {value:'Skins open', note:'No completed holes yet'};
   if(!leaders.length)return {value:'No skins won', note:`${holeResults.length} hole${holeResults.length===1?'':'s'} complete`};
-  const top=leaders[0];
-  return {value:`${top[0]} ${top[1]}`, note:`${sum(Object.values(skinsByPlayer))} skin${sum(Object.values(skinsByPlayer))===1?'':'s'} won`};
+  const top=leaders[0], tied=leaders.filter(([,v])=>v===top[1]), total=sum(Object.values(skinsByPlayer));
+  return {value:tied.length>1?`${tied.length} tied: ${top[1]} skins`:`${top[0]}: ${top[1]} skin${top[1]===1?'':'s'}`, note:`${total} skin${total===1?'':'s'} won`};
 }
 function mobileGameRows(strokes=getPlayerStrokes()){
   const g=normalizeGames(ROUND.games), rows=[];
@@ -2371,7 +2402,7 @@ function renderMobileLiveContext(){
   const el=document.getElementById('mobile-live-context');
   if(!el||!ROUND?.course)return;
   const strokes=getPlayerStrokes(), team=mobileTeamSummary(strokes), teamGames=mobileTeamGameRows(strokes), leader=mobileLeaderSummary(strokes), skins=mobileSkinsSummary(), games=mobileGameRows(strokes);
-  const teamBody=teamGames.length?`<div class="mobile-team-games">${teamGames.map(([label,value])=>`<div class="mobile-team-game-row"><span>${escHtml(label)}</span><span>${escHtml(value)}</span></div>`).join('')}</div>`:`<div class="mobile-stat-value">${escHtml(team.value)}</div><div class="mobile-stat-note">${escHtml(team.note)}</div>`;
+  const teamBody=teamGames.length?`<div class="mobile-team-games">${teamGames.map(([label,status])=>`<div class="mobile-team-game-row"><div class="mobile-team-game-name">${escHtml(label)}</div><div class="mobile-team-game-status"><div class="mobile-team-game-primary">${escHtml(status.primary)}</div><div class="mobile-team-game-note">${escHtml(status.note)}</div></div></div>`).join('')}</div>`:`<div class="mobile-stat-value">${escHtml(team.value)}</div><div class="mobile-stat-note">${escHtml(team.note)}</div>`;
   el.innerHTML=`<div class="mobile-status-grid"><div class="mobile-stat"><div class="mobile-stat-label">Team Games</div>${teamBody}</div><div class="mobile-stat"><div class="mobile-stat-label">Leader</div><div class="mobile-stat-value">${escHtml(leader.value)}</div><div class="mobile-stat-note">${escHtml(leader.note)}</div></div><div class="mobile-stat"><div class="mobile-stat-label">Skins</div><div class="mobile-stat-value">${escHtml(skins.value)}</div><div class="mobile-stat-note">${escHtml(skins.note)}</div></div><div class="mobile-stat"><div class="mobile-stat-label">Group</div><div class="mobile-stat-value">${escHtml(selectedScorecardGroupKey()==='all'?'All players':activePlayingGroups()[Number(selectedScorecardGroupKey())]?.name || 'Group')}</div><div class="mobile-stat-note">${scorecardPlayers().length} scorer${scorecardPlayers().length===1?'':'s'} shown</div></div></div>${games.length?`<div class="mobile-live-card"><div class="mobile-live-title">Other Games</div>${games.map(([label,value])=>`<div class="mobile-game-row"><strong>${escHtml(label)}</strong><span>${escHtml(value)}</span></div>`).join('')}</div>`:''}`;
 }
 function renderMobileScoreChips(player,h,gross){
