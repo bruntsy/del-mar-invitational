@@ -1937,6 +1937,7 @@ async function loadActiveRound(){
 
 function showHub(){
   if(!GROUP){ showScreen('home'); return; }
+  rememberGroup();
   stopGroupSubscription();
   subscribeToGroup();
   renderHub();
