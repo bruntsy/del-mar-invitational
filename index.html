@@ -2355,7 +2355,7 @@ function toggleMobileScorecardTable(){ mobileShowFullCard=!mobileShowFullCard; c
 function setMobileScore(player,h,value){ onScoreInput(player,h,String(value)); renderMobileHoleEntry(); }
 function adjustMobileScore(player,h,delta){ const cur=ROUND.scores[player]?.[h]??ROUND.course.par[h]; setMobileScore(player,h,Math.max(1,Math.min(20,Number(cur)+delta))); }
 function setMobilePutt(player,h,value){ onPuttInput(player,h,String(value)); renderMobileHoleEntry(); }
-function adjustMobilePutt(player,h,delta){ const cur=ROUND.putts?.[player]?.[h]??2; setMobilePutt(player,h,Math.max(0,Math.min(9,Number(cur)+delta))); }
+function adjustMobilePutt(player,h,delta){ const cur=ROUND.putts?.[player]?.[h]; setMobilePutt(player,h,cur==null?2:Math.max(0,Math.min(9,Number(cur)+delta))); }
 function onMobileScoreInput(player,h,val){ onScoreInput(player,h,val); updateMobilePlayerCard(player,h); renderMobileLiveContext(); }
 function onMobilePuttInput(player,h,val){ onPuttInput(player,h,val); updateMobilePlayerCard(player,h); renderMobileLiveContext(); }
 
