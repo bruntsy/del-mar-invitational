@@ -2286,6 +2286,8 @@ function pairBestBallScore(pair,h,strokes,type){ const vals=pair.map(p=>playerHo
 function computePairMatchPlay(strokes){ const cfg=normalizeGames(ROUND.games).pairMatch, pts=Number(cfg.pointsPerHole||1), matches=pairMatchups().map(m=>{ let aPts=0,bPts=0,aWon=0,bWon=0,tied=0,played=0; const holes=[]; for(let h=0;h<18;h++){ const a=pairBestBallScore(m.a,h,strokes,cfg.type), b=pairBestBallScore(m.b,h,strokes,cfg.type); let winner=null; if(a!=null&&b!=null){ played++; if(a<b){aPts+=pts; aWon++; winner='a';} else if(b<a){bPts+=pts; bWon++; winner='b';} else {tied++; winner='tie';} } holes.push({hole:h+1,a,b,winner}); } return {...m,aPts,bPts,aWon,bWon,tied,played,holes}; }); return {matches,team1Points:sum(matches.map(m=>m.aPts)),team2Points:sum(matches.map(m=>m.bPts)),team1Holes:sum(matches.map(m=>m.aWon)),team2Holes:sum(matches.map(m=>m.bWon)),tiedHoles:sum(matches.map(m=>m.tied))}; }
 function shortTeamLabel(key){
   const clean=teamName(key).replace(/[^a-z0-9 ]/gi,' ').trim();
+  if(/^team\s*1$/i.test(clean)) return 'T1';
+  if(/^team\s*2$/i.test(clean)) return 'T2';
   return (clean.split(/\s+/)[0] || (key==='team1'?'T1':'T2')).slice(0,3).toUpperCase();
 }
 function renderPairMatchLivePanel(strokes=getPlayerStrokes()){
