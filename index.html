@@ -2287,11 +2287,22 @@ function updateAllSkins(){ const {skinsByPlayer}=computeSkins(); currentPlayers(
 
 function thruForPlayer(player){ return (ROUND.scores[player]||[]).filter(v=>v!=null).length; }
 function mobileScoreToParLabel(score,par){ if(score==null)return 'Tap score'; const diff=score-par; if(diff===0)return 'Par'; if(diff===-1)return 'Birdie'; if(diff===1)return 'Bogey'; if(diff<=-2)return 'Eagle'; return `+${diff}`; }
+function formatToPar(diff){ if(diff==null)return '—'; if(diff===0)return 'E'; return diff>0?`+${diff}`:String(diff); }
+function playerToPar(player,strokes){
+  const scores=ROUND.scores[player]||[];
+  let total=0, any=false;
+  for(let h=0;h<18;h++){
+    if(scores[h]==null) continue;
+    any=true;
+    total+=scores[h]-(getsStroke(strokes[player],ROUND.course.si[h])?1:0)-ROUND.course.par[h];
+  }
+  return any?total:null;
+}
 function mobileLeaderSummary(strokes=getPlayerStrokes()){
-  const rows=currentPlayers().map(p=>({ player:p, net:computeNetTotal(p,strokes), thru:thruForPlayer(p) })).filter(r=>r.net!=null).sort((a,b)=>a.net-b.net || b.thru-a.thru);
+  const rows=currentPlayers().map(p=>({ player:p, toPar:playerToPar(p,strokes), thru:thruForPlayer(p) })).filter(r=>r.toPar!=null).sort((a,b)=>a.toPar-b.toPar || b.thru-a.thru);
   if(!rows.length)return {value:'No scores yet', note:'Enter hole scores to start the board'};
-  const top=rows[0], tied=rows.filter(r=>r.net===top.net);
-  return { value:tied.length>1?`${tied.length} tied at ${top.net}`:`${top.player} ${top.net}`, note:`${top.thru} hole${top.thru===1?'':'s'} posted` };
+  const top=rows[0], tied=rows.filter(r=>r.toPar===top.toPar);
+  return { value:tied.length>1?`${tied.length} tied at ${formatToPar(top.toPar)}`:`${top.player} ${formatToPar(top.toPar)}`, note:`through ${top.thru}` };
 }
 function mobileTeamSummary(strokes=getPlayerStrokes()){
   const t1=ROUND.team1||[], t2=ROUND.team2||[], t1Net=t1.map(p=>computeNetTotal(p,strokes)).filter(v=>v!=null), t2Net=t2.map(p=>computeNetTotal(p,strokes)).filter(v=>v!=null);
