@@ -197,6 +197,7 @@ If this becomes a broader public product, add authentication and tighten RLS by 
 - `dmi_group`: current group state
 - `dmi_round`: current active round state
 - `dmi_recent_groups`: recent groups opened on this browser for quick switching
+- `dmi_mobile_hole_*`: last selected mobile scoring hole for a round
 - `golf_scorecard_v1`: legacy key used only for migration fallback
 
 ### Group Object
