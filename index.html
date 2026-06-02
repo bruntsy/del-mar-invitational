@@ -1746,6 +1746,8 @@ let _courseSearchTimer = null;
 let _courseSearchResults = [];
 let _gamesReturnScreen = 'scorecard';
 let _setupMode = 'games';
+let _teamsBackAction = 'showSetupPlayers()';
+let _setupTeamsConfirmed = false;
 let _scorecardGroupKey = null;
 let mobileShowFullCard = false;
 const expandedPuttRows = new Set();
@@ -2046,13 +2048,12 @@ function resumeRound(){
   if(!ROUND) return;
   hydrateSetupStateFromRound();
   if(!ROUND.course){ showSetupCourse(); return; }
-  if(!canBuildTeams(Object.keys(GROUP.players || {}).length)){ showSetupPlayers(); return; }
-  if(!teamsAreReady(ROUND.team1 || [], ROUND.team2 || [])){ showSetupTeams(); return; }
   if(!ROUND.id){ showSetupGames(); return; }
   initScores(); initPutts(); restoreMobileHole(); renderScorecard(); showScreen('scorecard');
 }
 function startNewRound(){
   ROUND={ id:null, groupId:GROUP.id, course:null, team1:[], team2:[], teamNames:{team1:'Team 1',team2:'Team 2'}, pairMatches:[], playingGroups:[], matchups:[], games:cloneDefaultGames(), scores:{}, putts:{}, wolf:{holes:{}}, completed:false };
+  _setupTeamsConfirmed=false;
   setupState.course=null; setupState.players=Object.keys(GROUP.players || {}); setupState.team1=[]; setupState.team2=[]; setupState.pool=[...setupState.players]; setupState.matchupOrder=[]; setupState.playingGroups=[];
   saveState(); showSetupCourse();
 }
@@ -2145,9 +2146,9 @@ function renderSetupPlayers(){
   wrap.innerHTML=`<div class="setup-step-top"><div class="setup-step-title">Round Players</div><button class="group-btn sm" onclick="showSetupCourse()">Back</button></div>
     <div class="form-row"><input id="manual-name" class="form-input grow" placeholder="Player name"><input id="manual-hcp" class="form-input" style="width:110px" type="number" step="0.1" min="0" max="54" placeholder="Index"><button class="group-btn" onclick="addManualPlayer()">Add</button></div>
     <div id="ghin-status" class="group-status-msg">GHIN lookup is disabled; add players manually.</div>
-    <div id="player-roster-list">${roster.length?roster.map(p=>playerRosterRow(p)).join(''):'<div class="empty-state">Add an even number of players to continue.</div>'}</div>
+    <div id="player-roster-list">${roster.length?roster.map(p=>playerRosterRow(p)).join(''):'<div class="empty-state">Add at least 2 players to continue.</div>'}</div>
     <div class="muted" style="margin-top:0.75rem">${playerCountMessage(Object.keys(GROUP.players||{}).length)}</div>
-    <div class="setup-step-nav"><button class="group-btn" onclick="showSetupCourse()">Back</button><button class="group-btn primary" onclick="showSetupTeams()" ${canBuildTeams(Object.keys(GROUP.players||{}).length)?'':'disabled'}>Next &rarr;</button></div>`;
+    <div class="setup-step-nav"><button class="group-btn" onclick="showSetupCourse()">Back</button><button class="group-btn primary" onclick="showSetupGames()" ${canBuildTeams(Object.keys(GROUP.players||{}).length)?'':'disabled'}>Next &rarr;</button></div>`;
 }
 function playerRosterRow(p){ const ch=ROUND?.course?computeWHSCourseHcp(p.handicapIndex,ROUND.course.tee.slope,ROUND.course.tee.rating,ROUND.course.tee.parTotal):0; return `<div class="roster-row"><div><strong>${escHtml(p.name)}</strong><div class="muted">Idx ${Number(p.handicapIndex||0).toFixed(1).replace('.0','')} / Course Hcp ${ch}</div></div><button class="group-btn sm" onclick="removePlayer('${escJs(p.name)}')">Remove</button></div>`; }
 function escJs(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
@@ -2163,12 +2164,38 @@ function playerCountMessage(count){
   if(count % 2 !== 0) return `${count} players will split ${Math.ceil(count / 2)} vs ${Math.floor(count / 2)}.`;
   return `${count} players will split into ${count / 2} vs ${count / 2}.`;
 }
-function showSetupTeams(){ setupState.players=Object.keys(GROUP.players||{}); setupState.team1=setupState.team1.filter(p=>setupState.players.includes(p)); setupState.team2=setupState.team2.filter(p=>setupState.players.includes(p)); setupState.pool=setupState.players.filter(p=>!setupState.team1.includes(p)&&!setupState.team2.includes(p)); renderSetupTeams(); showScreen('setup-teams'); }
+function setupPlayerNames(){ return Object.keys(GROUP.players||{}); }
+function autoAssignSetupTeams(){
+  setupState.players=setupPlayerNames();
+  const existing=[...setupState.team1, ...setupState.team2].filter(p=>setupState.players.includes(p));
+  if(existing.length===setupState.players.length && new Set(existing).size===setupState.players.length) return;
+  const players=[...setupState.players];
+  const split=Math.ceil(players.length/2);
+  setupState.team1=players.slice(0,split);
+  setupState.team2=players.slice(split);
+  setupState.pool=[];
+  setupState.matchupOrder=[...setupState.team2];
+}
+function applySetupTeamsToRound(){
+  autoAssignSetupTeams();
+  ensureTeamNames();
+  ROUND.team1=[...setupState.team1];
+  ROUND.team2=[...setupState.team2];
+  ROUND.matchups=setupState.team1.map((t1,i)=>({t1,t2:setupState.matchupOrder[i]})).filter(m=>m.t1&&m.t2);
+  ensureSetupPlayingGroups();
+  ROUND.playingGroups=normalizePlayingGroups(setupState.playingGroups, currentPlayers());
+}
+function gamesNeedTeams(games){
+  const g=normalizeGames(games);
+  return !!(g.bestBall.enabled||g.pairMatch.enabled||g.twoBall.enabled||g.aggy.enabled||g.h2h.enabled);
+}
+function roundTeamsReady(){ return teamsAreReady(ROUND.team1||[], ROUND.team2||[]); }
+function showSetupTeams(backAction='showSetupPlayers()'){ _teamsBackAction=backAction; setupState.players=setupPlayerNames(); setupState.team1=setupState.team1.filter(p=>setupState.players.includes(p)); setupState.team2=setupState.team2.filter(p=>setupState.players.includes(p)); setupState.pool=setupState.players.filter(p=>!setupState.team1.includes(p)&&!setupState.team2.includes(p)); if(!setupState.team1.length&&!setupState.team2.length) autoAssignSetupTeams(); renderSetupTeams(); showScreen('setup-teams'); }
 function renderSetupTeams(){
   ensureTeamNames();
-  document.getElementById('setup-teams-content').innerHTML=`<div class="setup-step-top"><div class="setup-step-title">Build Teams</div><button class="group-btn sm" onclick="showSetupPlayers()">Back</button></div>
+  document.getElementById('setup-teams-content').innerHTML=`<div class="setup-step-top"><div class="setup-step-title">Build Teams</div><button class="group-btn sm" onclick="${_teamsBackAction}">Back</button></div>
     <div class="team-name-row"><input id="team1-name" class="form-input" value="${escHtml(teamName('team1'))}" placeholder="Team 1 name" oninput="setTeamName('team1',this.value)"><input id="team2-name" class="form-input" value="${escHtml(teamName('team2'))}" placeholder="Team 2 name" oninput="setTeamName('team2',this.value)"></div>
-    <div class="team-builder"><div class="team-panel"><div class="team-hdr"><div class="team-title" id="team1-title">${escHtml(teamName('team1'))}</div><div class="team-ct" id="team1-ct"></div></div><div class="team-slots" id="team1-slots"></div></div><div class="pool-wrap"><div class="pool-label">Players</div><div class="pool-hint">tap to assign</div><div class="pool-drop-zone" id="pool-zone"></div></div><div class="team-panel"><div class="team-hdr"><div class="team-title" id="team2-title">${escHtml(teamName('team2'))}</div><div class="team-ct" id="team2-ct"></div></div><div class="team-slots" id="team2-slots"></div></div></div><div id="matchup-section" style="display:none"><div class="section-label">Head-to-Head Matchups</div><div class="matchup-card"><div class="matchup-hint">Reorder ${escHtml(teamName('team2'))} with ▲▼ to set who plays who</div><div id="matchup-rows"></div></div></div><div id="playing-groups-section" style="display:none"><div class="section-label">Playing Groups</div><div class="matchup-card"><div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.65rem"><button class="group-btn sm" type="button" onclick="autoBuildPlayingGroups()">Auto</button><button class="group-btn sm" type="button" onclick="addPlayingGroup()">Add Group</button></div><div id="playing-group-rows"></div></div></div><div class="setup-step-nav"><button class="group-btn" onclick="showSetupPlayers()">Back</button><button id="teams-next-btn" class="group-btn primary" onclick="showSetupGames()">Next &rarr;</button></div>`;
+    <div class="team-builder"><div class="team-panel"><div class="team-hdr"><div class="team-title" id="team1-title">${escHtml(teamName('team1'))}</div><div class="team-ct" id="team1-ct"></div></div><div class="team-slots" id="team1-slots"></div></div><div class="pool-wrap"><div class="pool-label">Players</div><div class="pool-hint">tap to assign</div><div class="pool-drop-zone" id="pool-zone"></div></div><div class="team-panel"><div class="team-hdr"><div class="team-title" id="team2-title">${escHtml(teamName('team2'))}</div><div class="team-ct" id="team2-ct"></div></div><div class="team-slots" id="team2-slots"></div></div></div><div id="matchup-section" style="display:none"><div class="section-label">Head-to-Head Matchups</div><div class="matchup-card"><div class="matchup-hint">Reorder ${escHtml(teamName('team2'))} with ▲▼ to set who plays who</div><div id="matchup-rows"></div></div></div><div id="playing-groups-section" style="display:none"><div class="section-label">Playing Groups</div><div class="matchup-card"><div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.65rem"><button class="group-btn sm" type="button" onclick="autoBuildPlayingGroups()">Auto</button><button class="group-btn sm" type="button" onclick="addPlayingGroup()">Add Group</button></div><div id="playing-group-rows"></div></div></div><div class="setup-step-nav"><button class="group-btn" onclick="${_teamsBackAction}">Back</button><button id="teams-next-btn" class="group-btn primary" onclick="finishSetupTeams()">Next &rarr;</button></div>`;
   renderSetup(); updateTeamsNext();
 }
 function setTeamName(key,value){ ensureTeamNames(); ROUND.teamNames[key]=(value||'').trim() || (key==='team1'?'Team 1':'Team 2'); saveState(); const title=document.getElementById(`${key}-title`); if(title) title.textContent=teamName(key); }
@@ -2188,9 +2215,10 @@ function renderPlayingGroups(){ const section=document.getElementById('playing-g
 function setPlayingGroup(player,groupIdx){ const idx=parseInt(groupIdx,10); if(Number.isNaN(idx)||!setupState.playingGroups[idx])return; setupState.playingGroups.forEach(g=>g.players=g.players.filter(p=>p!==player)); setupState.playingGroups[idx].players.push(player); renderPlayingGroups(); }
 function addPlayingGroup(){ ensureSetupPlayingGroups(); setupState.playingGroups.push({name:`Group ${setupState.playingGroups.length+1}`,players:[]}); renderPlayingGroups(); }
 function autoBuildPlayingGroups(){ setupState.playingGroups=autoPlayingGroupsForTeams(setupState.team1, setupState.team2); renderPlayingGroups(); }
+function finishSetupTeams(){ applySetupTeamsToRound(); _setupTeamsConfirmed=true; showSetupGames(); }
 
-function showSetupGames(){ ensureTeamNames(); ROUND.team1=[...setupState.team1]; ROUND.team2=[...setupState.team2]; ROUND.matchups=setupState.team1.map((t1,i)=>({t1,t2:setupState.matchupOrder[i]})).filter(m=>m.t1&&m.t2); ensureSetupPlayingGroups(); ROUND.playingGroups=normalizePlayingGroups(setupState.playingGroups, currentPlayers()); ROUND.games=normalizeGames(ROUND.games); ensurePairMatches(); initScores(); initPutts(); renderSetupGames(); showScreen('setup-games'); }
-function showRoundSetupConfig(returnScreen='scorecard'){ if(!ROUND?.id) return; _gamesReturnScreen=returnScreen; _setupMode='round'; hydrateSetupStateFromRound(); showSetupTeams(); }
+function showSetupGames(){ applySetupTeamsToRound(); ROUND.games=normalizeGames(ROUND.games); ensurePairMatches(); initScores(); initPutts(); renderSetupGames(); showScreen('setup-games'); }
+function showRoundSetupConfig(returnScreen='scorecard'){ if(!ROUND?.id) return; _gamesReturnScreen=returnScreen; _setupMode='round'; hydrateSetupStateFromRound(); showSetupTeams('returnFromGamesConfig()'); }
 function showRoundGamesConfig(returnScreen='scorecard'){ if(!ROUND?.id) return; _gamesReturnScreen=returnScreen; _setupMode='games'; hydrateSetupStateFromRound(); showSetupGames(); }
 function renderSetupGames(){ const g=normalizeGames(ROUND.games); ROUND.games=g; const gamesHtml=[
   gameBlock('Skins','skins','Individual hole winners split the pot evenly.',g.skins,`${moneyField('Pot','bet-skins',g.skins.pot,'/ player')}${scoreField('skins',g.skins.type)}`),
@@ -2202,7 +2230,7 @@ function renderSetupGames(){ const g=normalizeGames(ROUND.games); ROUND.games=g;
   gameBlock('Stableford','stableford','Players earn points by score relative to par.',g.stableford,`${moneyField('Pot','bet-stableford',g.stableford.buyIn,'/ player')}${scoreField('stableford',g.stableford.type)}`),
   gameBlock('Wolf','wolf','Wolf rotates each hole. Score low net for points; pushes do not carry.',g.wolf,`${moneyField('Buy-in','bet-wolf',g.wolf.amount,'/ player')}${wolfFormatField(g.wolf.format)}${wolfNassauField(g.wolf.nassau)}${scoreField('wolf',g.wolf.type)}`),
   gameBlock('Putt Poker','puttPoker','Track cards, coin, and putt penalties from the scorecard.',g.puttPoker,`${moneyField('Pot','bet-pp',g.puttPoker.pot,'/ person')}`)
-].join(''); const editing=!!ROUND.id, backAction=editing?(_setupMode==='round'?'showSetupTeams()':'returnFromGamesConfig()'):'showSetupTeams()', primaryAction=editing?'saveRoundGamesConfig()':'startRound()', primaryLabel=editing?'Save & Return':'Begin Round &rarr;'; document.getElementById('setup-games-content').innerHTML=`<div class="setup-step-top"><div class="setup-step-title">Games</div><button class="group-btn sm" onclick="${backAction}">Back</button></div><div class="game-presets"><button class="group-btn sm" onclick="applyGamePreset('skins')">Skins Only</button><button class="group-btn sm" onclick="applyGamePreset('team')">Team Match</button><button class="group-btn sm" onclick="applyGamePreset('full')">Full DMI</button><button class="group-btn sm" onclick="applyGamePreset('clear')">Clear</button></div><div class="game-list">${gamesHtml}</div>${gameSummary(g)}<div class="setup-step-nav sticky-mobile"><button class="group-btn" onclick="${backAction}">Back</button><button class="group-btn primary" onclick="${primaryAction}">${primaryLabel}</button></div>`; }
+].join(''); const editing=!!ROUND.id, backAction=editing?(_setupMode==='round'?'showSetupTeams(\'showSetupGames()\')':'returnFromGamesConfig()'):'showSetupPlayers()', primaryAction=editing?'saveRoundGamesConfig()':'continueFromGamesSetup()', primaryLabel=editing?'Save & Return':'Begin Round &rarr;'; document.getElementById('setup-games-content').innerHTML=`<div class="setup-step-top"><div class="setup-step-title">Games</div><button class="group-btn sm" onclick="${backAction}">Back</button></div><div class="game-presets"><button class="group-btn sm" onclick="applyGamePreset('skins')">Skins Only</button><button class="group-btn sm" onclick="applyGamePreset('team')">Team Match</button><button class="group-btn sm" onclick="applyGamePreset('full')">Full DMI</button><button class="group-btn sm" onclick="applyGamePreset('clear')">Clear</button></div><div class="game-list">${gamesHtml}</div>${gameSummary(g)}<div class="setup-step-nav sticky-mobile"><button class="group-btn" onclick="${backAction}">Back</button><button class="group-btn primary" onclick="${primaryAction}">${primaryLabel}</button></div>`; }
 function gameBlock(label,key,desc,g,body){ return `<div class="game-card ${g.enabled?'enabled':''}"><div class="game-card-head"><div><div class="game-title">${label}</div><div class="game-desc">${desc}</div></div><label class="game-toggle"><input type="checkbox" id="game-${key}" ${g.enabled?'checked':''} onchange="toggleGameConfig()"> Enabled</label></div>${g.enabled?`<div class="game-card-body">${body}</div>`:''}</div>`; }
 function scoreField(key,val){ return `<div class="game-field"><label class="game-field-label" for="type-${key}">Scoring</label><select id="type-${key}" class="form-input" onchange="saveGames()"><option value="net" ${val!=='gross'?'selected':''}>Net</option><option value="gross" ${val==='gross'?'selected':''}>Gross</option></select></div>`; }
 function wolfFormatField(val){ return `<div class="game-field"><label class="game-field-label" for="wolf-format">Format</label><select id="wolf-format" class="form-input" onchange="saveGames()"><option value="partners" ${val!=='everyone'?'selected':''}>2 v 1 / Wolf Partner</option><option value="everyone" ${val==='everyone'?'selected':''}>Every Man</option></select></div>`; }
@@ -2225,6 +2253,7 @@ function readEnabled(key){ return !!document.getElementById(`game-${key}`)?.chec
 function readType(key){ return document.getElementById(`type-${key}`)?.value || 'net'; }
 function saveGames(){ ROUND.games=normalizeGames({ skins:{enabled:readEnabled('skins'),pot:readMoney('bet-skins'),type:readType('skins'),carry:false}, bestBall:{enabled:readEnabled('bestBall'),front:readMoney('bet-bb-front'),back:readMoney('bet-bb-back'),total:readMoney('bet-bb-total'),balls:1,type:readType('bestBall')}, pairMatch:{enabled:readEnabled('pairMatch'),pointsPerHole:readMoney('pts-pair-match')||1,type:readType('pairMatch')}, twoBall:{enabled:readEnabled('twoBall'),front:readMoney('bet-tb-front'),back:readMoney('bet-tb-back'),total:readMoney('bet-tb-total'),type:readType('twoBall')}, aggy:{enabled:readEnabled('aggy'),front:readMoney('bet-aggy-front'),back:readMoney('bet-aggy-back'),total:readMoney('bet-aggy-total'),type:readType('aggy')}, h2h:{enabled:readEnabled('h2h'),perMatchup:readMoney('bet-h2h'),type:readType('h2h')}, stableford:{enabled:readEnabled('stableford'),buyIn:readMoney('bet-stableford'),type:readType('stableford'),points:DEFAULT_GAMES.stableford.points}, wolf:{enabled:readEnabled('wolf'),amount:readMoney('bet-wolf'),type:readType('wolf'),format:document.getElementById('wolf-format')?.value || 'partners',nassau:!!document.getElementById('wolf-nassau')?.checked}, puttPoker:{enabled:readEnabled('puttPoker'),pot:readMoney('bet-pp')} }); updateGameSummary(); saveState(); scheduleSync(); }
 function toggleGameConfig(){ saveGames(); renderSetupGames(); }
+function continueFromGamesSetup(){ saveGames(); applySetupTeamsToRound(); if(gamesNeedTeams(ROUND.games)&&(!_setupTeamsConfirmed||!roundTeamsReady())){ showSetupTeams('showSetupGames()'); return; } startRound(); }
 async function startRound(){ saveGames(); ROUND.groupId=GROUP.id; ROUND.completed=false; initScores(); initPutts(); const payload=roundForDb(); const { data,error }=await _db.from('rounds').insert({ group_id:GROUP.id, code:groupCode(), state:payload, completed:false }).select('id,group_id,state,completed').single(); if(error){ alert('Error starting round: '+error.message); return; } ROUND=normalizeRound(data); mobileHole=0; localStorage.setItem(mobileHoleStorageKey(), '0'); saveState(); subscribeToGroup(); renderScorecard(); showScreen('scorecard'); }
 function returnFromGamesConfig(){ if(_gamesReturnScreen==='results'){ renderResults(); showScreen('results'); return; } renderScorecard(); showScreen('scorecard'); }
 async function saveRoundGamesConfig(){ if(!ROUND?.id)return; saveGames(); initScores(); initPutts(); await pushToSupabase(); returnFromGamesConfig(); }
