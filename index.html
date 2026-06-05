@@ -1250,8 +1250,8 @@
     .pp-pot strong { color: var(--gold); font-size: 0.85rem; }
 
     /* ─── History / Stats Screens ─── */
-    #history-screen, #stats-screen { min-height: 100vh; padding: 1.5rem 1rem; display: flex; justify-content: center; }
-    .hist-wrap, .stats-wrap { width: 100%; max-width: 860px; }
+    #history-screen, #stats-screen, #event-board-screen { min-height: 100vh; padding: 1.5rem 1rem; display: flex; justify-content: center; }
+    .hist-wrap, .stats-wrap, .event-board-wrap { width: 100%; max-width: 980px; }
     .screen-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem; }
     .screen-topbar-title { font-family: 'Playfair Display', serif; font-size: 1.3rem; font-weight: 700; color: var(--gold); letter-spacing: 0.12em; }
     .hist-round-card { background: var(--panel); border-radius: 3px; padding: 1.1rem 1.4rem; margin-bottom: 0.9rem; box-shadow: 0 2px 12px rgba(0,0,0,0.3); border: 1px solid rgba(195,122,50,0.2); }
@@ -1263,6 +1263,19 @@
     .stats-player-name { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 700; color: var(--text-dark); min-width: 80px; }
     .stats-stat { display: flex; flex-direction: column; align-items: center; min-width: 56px; }
     .stats-stat-val { font-size: 1.05rem; font-weight: 700; color: var(--text-dark); }
+    .event-board-hero { background: var(--panel); border: 1px solid rgba(195,122,50,0.25); border-radius: 4px; padding: 1.15rem 1.35rem; margin-bottom: 1rem; box-shadow: 0 12px 34px rgba(0,0,0,0.28); }
+    .event-board-score { display:grid; grid-template-columns:1fr auto 1fr; gap:1rem; align-items:center; margin-top:0.7rem; }
+    .event-board-team { background:var(--panel-white); border:1px solid var(--panel-border); border-radius:4px; padding:0.85rem; text-align:center; }
+    .event-board-team.win { border-color:var(--gold); background:#fff7ea; }
+    .event-board-team-name { font-size:0.68rem; font-weight:800; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-light); }
+    .event-board-team-score { font-family:'Playfair Display',serif; font-size:2rem; font-weight:800; color:var(--gold-dark); line-height:1; margin-top:0.3rem; }
+    .event-board-vs { font-family:'Playfair Display',serif; color:var(--text-faint); font-style:italic; }
+    .event-board-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.9rem; }
+    .event-board-card { background:var(--panel); border:1px solid rgba(195,122,50,0.2); border-radius:4px; padding:1rem; margin-bottom:0.9rem; }
+    .event-board-card.wide { grid-column:1 / -1; }
+    .event-board-card-title { font-size:0.66rem; font-weight:800; letter-spacing:0.18em; text-transform:uppercase; color:var(--gold-dark); margin-bottom:0.7rem; }
+    .event-board-pill { display:inline-flex; border:1px solid var(--panel-border); background:var(--panel-white); border-radius:3px; padding:0.3rem 0.45rem; margin:0.12rem; font-size:0.72rem; font-weight:700; color:var(--text-dark); }
+    @media (max-width: 760px) { .event-board-grid, .event-board-score { grid-template-columns:1fr; } .event-board-vs { text-align:center; } }
     .stats-stat-lbl { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-light); margin-top: 2px; }
 
     /* ─── GHIN / Dynamic Player UI ─── */
@@ -1736,6 +1749,7 @@
 <div id="results-screen"><div class="results-wrap" id="results-wrap"></div></div>
 <div id="history-screen" style="display:none"><div class="hist-wrap" id="history-wrap"></div></div>
 <div id="stats-screen" style="display:none"><div class="stats-wrap" id="stats-wrap"></div></div>
+<div id="event-board-screen" style="display:none"><div class="event-board-wrap" id="event-board-wrap"></div></div>
 
 <script>
 const LEGACY_COURSES = {
@@ -2044,7 +2058,7 @@ function legacyBetsToGames(b){ return normalizeGames({ skins:{enabled:!!b.skins,
 function sum(arr){ return (arr||[]).reduce((a,b)=>a+Number(b||0),0); }
 
 function showScreen(name){
-  ['home','hub','setup-course','setup-players','setup-teams','setup-games','setup-confirm','scorecard','results','history','stats'].forEach(screen=>{
+  ['home','hub','setup-course','setup-players','setup-teams','setup-games','setup-confirm','scorecard','results','history','stats','event-board'].forEach(screen=>{
     const el=document.getElementById(`${screen}-screen`);
     if(!el) return;
     if(screen==='scorecard') el.style.display = name===screen ? 'flex' : 'none';
@@ -2178,7 +2192,7 @@ function renderHub(){
 function renderEventHubPanel(){
   if(!EVENT) return `<div class="hub-panel wide"><div class="hub-panel-title">Team Event</div><div class="empty-state">No active event configured.</div><div style="margin-top:0.8rem"><button class="group-btn primary" onclick="createTeamEvent()">Create Event</button></div></div>`;
   const cfg=normalizeEventConfig(EVENT.config||{}), totals=eventStandings(cfg);
-  return `<div class="hub-panel wide"><div class="hub-panel-title">Team Event</div><div class="event-round-head"><div><div class="active-round-name">${escHtml(EVENT.name || groupName())}</div><div class="muted">${cfg.rounds.length} round${cfg.rounds.length===1?'':'s'} / ${escHtml(cfg.teamNames.team1)} ${totals.team1} - ${totals.team2} ${escHtml(cfg.teamNames.team2)} / Win at ${cfg.winPoints}</div></div><div style="display:flex;gap:0.5rem;flex-wrap:wrap"><button class="group-btn" onclick="renderEventBuilder()">Configure Event</button></div></div>${cfg.rounds.map((r,i)=>`<div class="event-round-card"><div class="event-round-head"><div><div class="event-round-title">${escHtml(r.name || `Round ${i+1}`)}</div><div class="muted">${escHtml(eventFormatLabel(r.format))} / ${Number(r.pointsResult?.team1||0)} - ${Number(r.pointsResult?.team2||0)}</div></div><button class="group-btn sm primary" onclick="launchEventRound(${i})">${r.roundId?'Open Round':'Start Round'}</button></div></div>`).join('')}</div>`;
+  return `<div class="hub-panel wide"><div class="hub-panel-title">Team Event</div><div class="event-round-head"><div><div class="active-round-name">${escHtml(EVENT.name || groupName())}</div><div class="muted">${cfg.rounds.length} round${cfg.rounds.length===1?'':'s'} / ${escHtml(cfg.teamNames.team1)} ${totals.team1} - ${totals.team2} ${escHtml(cfg.teamNames.team2)} / Win at ${cfg.winPoints}</div></div><div style="display:flex;gap:0.5rem;flex-wrap:wrap"><button class="group-btn primary" onclick="showEventLeaderboard()">Leaderboard</button><button class="group-btn" onclick="renderEventBuilder()">Configure Event</button></div></div>${cfg.rounds.map((r,i)=>`<div class="event-round-card"><div class="event-round-head"><div><div class="event-round-title">${escHtml(r.name || `Round ${i+1}`)}</div><div class="muted">${escHtml(eventFormatLabel(r.format))} / ${Number(r.pointsResult?.team1||0)} - ${Number(r.pointsResult?.team2||0)}</div></div><button class="group-btn sm primary" onclick="launchEventRound(${i})">${r.roundId?'Open Round':'Start Round'}</button></div></div>`).join('')}</div>`;
 }
 function leaveGroup(){ stopGroupSubscription(); GROUP=null; ROUND=null; saveState(); showScreen('home'); }
 function setGroupNameStatus(msg,isErr){ const el=document.getElementById('hub-group-name-status'); if(el){ el.textContent=msg||''; el.style.color=isErr?'#c0392b':'var(--text-light)'; } }
@@ -3201,6 +3215,53 @@ async function showHistory(){ if(!GROUP)return; showScreen('history'); const wra
 function renderHistory(rounds){ const wrap=document.getElementById('history-wrap'); let html=`<div class="screen-topbar"><div class="screen-topbar-title">◆ Past Rounds</div><button class="btn-ghost" onclick="showHub()">← Back</button></div>`; if(!rounds.length){ wrap.innerHTML=html+'<div style="color:var(--gold);opacity:0.6;padding:1rem">No completed rounds yet.</div>'; return; } rounds.forEach(r=>{ const st=typeof r.state==='string'?JSON.parse(r.state):r.state, plrs=[...(st.team1||[]),...(st.team2||[])], strk=_stateStrokes(st), {skinsByPlayer}=_stateSkins(st), nets=plrs.map(p=>({p,net:_stateNet(st,p,strk)})).filter(x=>x.net!=null).sort((a,b)=>a.net-b.net), date=r.completed_at?new Date(r.completed_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'; html+=`<div class="hist-round-card"><div class="hist-round-hdr"><div><div class="hist-round-code">${escHtml(groupCode())}</div><div class="hist-round-course">${escHtml(stateCourseName(st))}</div></div><div class="hist-round-date">${date}</div></div><div style="overflow-x:auto"><table class="res-table" style="font-size:0.82rem"><thead><tr><th>Player</th><th>Team</th><th>Net</th><th>Skins</th></tr></thead><tbody>${nets.map(({p,net})=>`<tr><td><strong>${escHtml(p)}</strong></td><td>${(st.team1||[]).includes(p)?'T1':'T2'}</td><td>${net}</td><td>${skinsByPlayer[p]>0?skinsByPlayer[p]:'—'}</td></tr>`).join('')}</tbody></table></div></div>`; }); wrap.innerHTML=html; }
 async function showStats(){ if(!GROUP)return; showScreen('stats'); const wrap=document.getElementById('stats-wrap'); wrap.innerHTML=`<div class="screen-topbar"><div class="screen-topbar-title">◆ All-Time Stats</div><button class="btn-ghost" onclick="showHub()">← Back</button></div><div style="color:var(--gold);padding:1rem;opacity:0.7">Loading...</div>`; const {data,error}=await _db.from('rounds').select('state,completed_at').eq('group_id',GROUP.id).eq('completed',true); if(error){wrap.innerHTML+=`<div style="color:#c0392b">${escHtml(error.message)}</div>`;return;} renderStats(data||[]); }
 function renderStats(rounds){ const agg={}; rounds.forEach(r=>{ const st=typeof r.state==='string'?JSON.parse(r.state):r.state, plrs=[...(st.team1||[]),...(st.team2||[])], strk=_stateStrokes(st), {skinsByPlayer}=_stateSkins(st); plrs.forEach(p=>{ if(!agg[p])agg[p]={rounds:0,skinsWon:0,nets:[],bestNet:Infinity,h2hW:0,h2hL:0,h2hT:0}; agg[p].rounds++; agg[p].skinsWon+=skinsByPlayer[p]||0; const net=_stateNet(st,p,strk); if(net!=null){agg[p].nets.push(net); agg[p].bestNet=Math.min(agg[p].bestNet,net);} }); (st.matchups||[]).forEach(m=>{ const n1=_stateNet(st,m.t1,strk), n2=_stateNet(st,m.t2,strk); if(n1==null||n2==null)return; if(n1<n2){if(agg[m.t1])agg[m.t1].h2hW++; if(agg[m.t2])agg[m.t2].h2hL++;} else if(n2<n1){if(agg[m.t2])agg[m.t2].h2hW++; if(agg[m.t1])agg[m.t1].h2hL++;} else {if(agg[m.t1])agg[m.t1].h2hT++; if(agg[m.t2])agg[m.t2].h2hT++;} }); }); let html=`<div class="screen-topbar"><div class="screen-topbar-title">◆ All-Time Stats</div><button class="btn-ghost" onclick="showHub()">← Back</button></div>`; const sorted=Object.keys(agg).sort((a,b)=>(agg[b].rounds-agg[a].rounds)||(agg[b].skinsWon-agg[a].skinsWon)); if(!sorted.length){document.getElementById('stats-wrap').innerHTML=html+'<div style="color:var(--gold);opacity:0.6;padding:1rem">No completed rounds yet.</div>';return;} sorted.forEach(p=>{ const a=agg[p], avg=a.nets.length?(sum(a.nets)/a.nets.length).toFixed(1):'—', best=a.bestNet<Infinity?a.bestNet:'—', h2h=`${a.h2hW}-${a.h2hL}${a.h2hT?'-'+a.h2hT:''}`; html+=`<div class="stats-player-card"><div class="stats-player-name">${escHtml(p)}</div><div class="stats-stat"><div class="stats-stat-val">${a.rounds}</div><div class="stats-stat-lbl">Rounds</div></div><div class="stats-stat"><div class="stats-stat-val">${a.skinsWon}</div><div class="stats-stat-lbl">Skins</div></div><div class="stats-stat"><div class="stats-stat-val">${avg}</div><div class="stats-stat-lbl">Avg Net</div></div><div class="stats-stat"><div class="stats-stat-val">${best}</div><div class="stats-stat-lbl">Best Net</div></div><div class="stats-stat"><div class="stats-stat-val">${h2h}</div><div class="stats-stat-lbl">H2H (W-L)</div></div></div>`; }); document.getElementById('stats-wrap').innerHTML=html; }
+async function showEventLeaderboard(){
+  if(!GROUP)return;
+  if(!EVENT) await loadActiveEvent();
+  showScreen('event-board');
+  const wrap=document.getElementById('event-board-wrap');
+  wrap.innerHTML=`<div class="screen-topbar"><div class="screen-topbar-title">◆ Event Leaderboard</div><button class="btn-ghost" onclick="showHub()">← Back</button></div><div style="color:var(--gold);padding:1rem;opacity:0.7">Loading...</div>`;
+  if(!EVENT){ wrap.innerHTML=`<div class="screen-topbar"><div class="screen-topbar-title">◆ Event Leaderboard</div><button class="btn-ghost" onclick="showHub()">← Back</button></div><div class="hist-round-card">No active event configured.</div>`; return; }
+  const cfg=normalizeEventConfig(EVENT.config||{}), ids=cfg.rounds.map(r=>r.roundId).filter(Boolean);
+  let rows=[];
+  if(ids.length){
+    const {data,error}=await _db.from('rounds').select('id,state,completed,completed_at,created_at').in('id',ids);
+    if(error){ wrap.innerHTML+=`<div style="color:#c0392b">${escHtml(error.message)}</div>`; return; }
+    rows=data||[];
+  }
+  renderEventLeaderboard(cfg, rows);
+}
+function eventRoundResultFromState(st,row,cfg,idx){
+  const prevRound=ROUND, prevEvent=EVENT;
+  ROUND=normalizeRound({id:row?.id||st.id, group_id:GROUP?.id, state:{...st,event:{...(st.event||{}),roundIndex:idx},teamNames:st.teamNames||cfg.teamNames}, completed:row?.completed||st.completed||false});
+  EVENT={...(EVENT||{}),config:cfg};
+  try{ return computeEventRoundResult(_stateStrokes(st)); }
+  finally{ ROUND=prevRound; EVENT=prevEvent; }
+}
+function eventRoundStats(st){
+  const plrs=[...(st.team1||[]),...(st.team2||[])], strk=_stateStrokes(st), skins=_stateSkins(st).skinsByPlayer, nets=plrs.map(p=>({p,net:_stateNet(st,p,strk)})).filter(x=>x.net!=null).sort((a,b)=>a.net-b.net);
+  const birdies={}; plrs.forEach(p=>birdies[p]=0);
+  const c=stateCourse(st);
+  if(c)plrs.forEach(p=>{ for(let h=0;h<18;h++){ const s=st.scores?.[p]?.[h]; if(s!=null && s<c.par[h]) birdies[p]++; } });
+  const skinLeaders=Object.entries(skins).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const birdieLeaders=Object.entries(birdies).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  return {lowNet:nets[0]||null, skins, skinLeaders, birdieLeaders};
+}
+function renderEventLeaderboard(cfg, rows){
+  const wrap=document.getElementById('event-board-wrap'), byId={}; rows.forEach(r=>byId[r.id]=r);
+  const totals=eventStandings(cfg), leader=totals.team1===totals.team2?'All square':totals.team1>totals.team2?cfg.teamNames.team1:cfg.teamNames.team2, completeRounds=cfg.rounds.filter(r=>r.pointsResult?.team1!=null||r.pointsResult?.team2!=null).length;
+  const players=[...cfg.team1,...cfg.team2], agg={}; players.forEach(p=>agg[p]={team:cfg.team1.includes(p)?cfg.teamNames.team1:cfg.teamNames.team2,skins:0,nets:[],bestNet:Infinity,birdies:0,rounds:0});
+  const roundCards=cfg.rounds.map((r,i)=>{
+    const row=byId[r.roundId], st=row? (typeof row.state==='string'?JSON.parse(row.state):row.state) : null, res=st?eventRoundResultFromState(st,row,cfg,i):null, stats=st?eventRoundStats(st):null;
+    if(st&&stats){ players.forEach(p=>{ if(!agg[p])return; agg[p].skins+=stats.skins[p]||0; agg[p].birdies+=(stats.birdieLeaders.find(([n])=>n===p)?.[1]||0); const net=_stateNet(st,p,_stateStrokes(st)); if(net!=null){ agg[p].nets.push(net); agg[p].bestNet=Math.min(agg[p].bestNet,net); agg[p].rounds++; } }); }
+    const pairings=(r.pairMatches||[]).map((m,mi)=>`<span class="event-board-pill">M${mi+1}: ${(m.a||[]).map(escHtml).join(' / ')} vs ${(m.b||[]).map(escHtml).join(' / ')}</span>`).join('') || '<span class="muted">No pairings set</span>';
+    const compRows=res?.rows?.flatMap(rr=>rr.components.map(c=>`<tr><td>${escHtml(rr.label)} ${escHtml(c.label)}</td><td>${c.a??'—'} - ${c.b??'—'} ${escHtml(c.unit||'')}</td><td>${c.team1} - ${c.team2}</td><td>${c.winner==='team1'?escHtml(cfg.teamNames.team1):c.winner==='team2'?escHtml(cfg.teamNames.team2):c.winner==='tie'?'Tie':'Open'}</td></tr>`)).join('') || '';
+    const low=stats?.lowNet?`${stats.lowNet.p} ${stats.lowNet.net}`:'—', skins=stats?.skinLeaders?.length?stats.skinLeaders.slice(0,3).map(([p,v])=>`${p} ${v}`).join(', '):'—', birds=stats?.birdieLeaders?.length?stats.birdieLeaders.slice(0,3).map(([p,v])=>`${p} ${v}`).join(', '):'—';
+    return `<div class="event-board-card wide"><div class="hist-round-hdr"><div><div class="event-board-card-title">${escHtml(r.name||`Round ${i+1}`)}</div><div class="hist-round-course">${st?escHtml(stateCourseName(st)):escHtml(eventFormatLabel(r.format))}</div></div><div class="hist-round-date">${row?.completed?'Complete':row?'In progress':'Not started'}</div></div><div class="event-points-grid"><div class="team-score-box"><div class="tsb-label">${escHtml(cfg.teamNames.team1)}</div><div class="tsb-score">${res?res.team1:Number(r.pointsResult?.team1||0)}</div></div><div class="team-score-box"><div class="tsb-label">${escHtml(cfg.teamNames.team2)}</div><div class="tsb-score">${res?res.team2:Number(r.pointsResult?.team2||0)}</div></div></div><div style="margin:0.55rem 0">${pairings}</div>${compRows?`<div style="overflow-x:auto"><table class="res-table"><thead><tr><th>Nassau</th><th>Score</th><th>Pts</th><th>Winner</th></tr></thead><tbody>${compRows}</tbody></table></div>`:''}<div class="stats-player-card" style="margin-top:0.7rem"><div class="stats-stat"><div class="stats-stat-val">${escHtml(low)}</div><div class="stats-stat-lbl">Low Net</div></div><div class="stats-stat"><div class="stats-stat-val">${escHtml(skins)}</div><div class="stats-stat-lbl">Skins</div></div><div class="stats-stat"><div class="stats-stat-val">${escHtml(birds)}</div><div class="stats-stat-lbl">Birdies+</div></div></div></div>`;
+  }).join('');
+  const leaders=Object.entries(agg).sort((a,b)=>(b[1].skins-a[1].skins)||((a[1].bestNet||999)-(b[1].bestNet||999))).map(([p,a])=>`<tr><td><strong>${escHtml(p)}</strong><div class="muted">${escHtml(a.team)}</div></td><td>${a.rounds}</td><td>${a.skins||'—'}</td><td>${a.bestNet<Infinity?a.bestNet:'—'}</td><td>${a.nets.length?(sum(a.nets)/a.nets.length).toFixed(1):'—'}</td><td>${a.birdies||'—'}</td></tr>`).join('');
+  wrap.innerHTML=`<div class="screen-topbar"><div class="screen-topbar-title">◆ Event Leaderboard</div><button class="btn-ghost" onclick="showHub()">← Back</button></div><div class="event-board-hero"><div class="active-round-name">${escHtml(EVENT.name||groupName())}</div><div class="muted">${completeRounds} of ${cfg.rounds.length} rounds scored / ${escHtml(leader)}${leader==='All square'?'':' leads'}</div><div class="event-board-score"><div class="event-board-team ${totals.team1>totals.team2?'win':''}"><div class="event-board-team-name">${escHtml(cfg.teamNames.team1)}</div><div class="event-board-team-score">${totals.team1}</div></div><div class="event-board-vs">vs</div><div class="event-board-team ${totals.team2>totals.team1?'win':''}"><div class="event-board-team-name">${escHtml(cfg.teamNames.team2)}</div><div class="event-board-team-score">${totals.team2}</div></div></div><div class="provisional-note" style="margin-top:0.7rem">Win at ${cfg.winPoints}${cfg.tiebreaker?` / Tiebreaker: ${escHtml(cfg.tiebreaker)}`:''}</div></div><div class="event-board-grid"><div class="event-board-card wide"><div class="event-board-card-title">Player Board</div><div style="overflow-x:auto"><table class="res-table"><thead><tr><th>Player</th><th>Rds</th><th>Skins</th><th>Best Net</th><th>Avg Net</th><th>Birdies+</th></tr></thead><tbody>${leaders}</tbody></table></div></div>${roundCards}</div>`;
+}
 function stateCourse(st){ if(st.course?.par) return st.course; const c=LEGACY_COURSES[st.course]; return c?legacyCourseToRoundCourse(st.course,c):null; }
 function stateCourseName(st){ const c=stateCourse(st); return c?courseDisplayName(c):(st.course||'Unknown course'); }
 function _stateStrokes(st){ const c=stateCourse(st), plrs=[...(st.team1||[]),...(st.team2||[])]; if(!c)return{}; const hcps=plrs.map(p=>st.players?.[p]?.handicapIndex!=null?computeWHSCourseHcp(st.players[p].handicapIndex,c.tee?.slope,c.tee?.rating,c.tee?.parTotal):Number(LEGACY_COURSES[st.course]?.hcp?.[p]||0)); const min=Math.min(...hcps); const res={}; plrs.forEach((p,i)=>res[p]=hcps[i]-min); return res; }
