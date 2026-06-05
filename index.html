@@ -2084,7 +2084,7 @@ async function saveEvent(){
     EVENT={...data, config:normalizeEventConfig(data.config||{})};
   }
 }
-async function createEvent(){
+async function createTeamEvent(){
   EVENT={ id:null, groupId:GROUP.id, name:groupName(), status:'active', config:defaultEventConfig() };
   await saveEvent();
   renderEventBuilder();
@@ -2139,7 +2139,7 @@ function renderHub(){
     </div>`;
 }
 function renderEventHubPanel(){
-  if(!EVENT) return `<div class="hub-panel wide"><div class="hub-panel-title">Team Event</div><div class="empty-state">No active event configured.</div><div style="margin-top:0.8rem"><button class="group-btn primary" onclick="createEvent()">Create Event</button></div></div>`;
+  if(!EVENT) return `<div class="hub-panel wide"><div class="hub-panel-title">Team Event</div><div class="empty-state">No active event configured.</div><div style="margin-top:0.8rem"><button class="group-btn primary" onclick="createTeamEvent()">Create Event</button></div></div>`;
   const cfg=normalizeEventConfig(EVENT.config||{}), totals=eventStandings(cfg);
   return `<div class="hub-panel wide"><div class="hub-panel-title">Team Event</div><div class="event-round-head"><div><div class="active-round-name">${escHtml(EVENT.name || groupName())}</div><div class="muted">${cfg.rounds.length} round${cfg.rounds.length===1?'':'s'} / ${escHtml(cfg.teamNames.team1)} ${totals.team1} - ${totals.team2} ${escHtml(cfg.teamNames.team2)} / Win at ${cfg.winPoints}</div></div><div style="display:flex;gap:0.5rem;flex-wrap:wrap"><button class="group-btn" onclick="renderEventBuilder()">Configure Event</button></div></div>${cfg.rounds.map((r,i)=>`<div class="event-round-card"><div class="event-round-head"><div><div class="event-round-title">${escHtml(r.name || `Round ${i+1}`)}</div><div class="muted">${escHtml(eventFormatLabel(r.format))} / ${Number(r.pointsResult?.team1||0)} - ${Number(r.pointsResult?.team2||0)}</div></div><button class="group-btn sm primary" onclick="launchEventRound(${i})">${r.roundId?'Open Round':'Start Round'}</button></div></div>`).join('')}</div>`;
 }
