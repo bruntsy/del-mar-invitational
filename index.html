@@ -1334,6 +1334,8 @@
     .recent-group-actions { display:flex; gap:0.45rem; align-items:center; flex-shrink:0; }
     .muted { color:var(--text-light); font-size:0.78rem; }
     .roster-row, .course-result-item, .tee-option, .hcp-preview-row { display:flex; justify-content:space-between; align-items:center; gap:0.8rem; border:1px solid var(--panel-border); background:var(--panel-white); border-radius:3px; padding:0.72rem 0.85rem; margin-bottom:0.5rem; }
+    .confirm-section { margin-bottom:1.4rem; }
+    .confirm-row { padding:0.3rem 0; font-size:0.88rem; color:var(--text-dark); }
     .course-result-item, .tee-option { cursor:pointer; transition:border-color 0.15s, background 0.15s; }
     .course-result-item:hover, .tee-option:hover, .tee-option.selected { border-color:var(--gold); background:#fff7ea; }
     .course-search-input { width:100%; margin-bottom:0.8rem; }
@@ -1688,6 +1690,7 @@
 <div id="setup-players-screen" class="app-shell" style="display:none"><div class="card"><div class="hdr"><div class="hdr-title">Players</div><div class="hdr-sub">Round Setup</div></div><div class="content" id="setup-players-content"></div></div></div>
 <div id="setup-teams-screen" class="app-shell" style="display:none"><div class="card"><div class="hdr"><div class="hdr-title">Teams</div><div class="hdr-sub">Round Setup</div></div><div class="content" id="setup-teams-content"></div></div></div>
 <div id="setup-games-screen" class="app-shell" style="display:none"><div class="card"><div class="hdr"><div class="hdr-title">Games</div><div class="hdr-sub">Round Setup</div></div><div class="content" id="setup-games-content"></div></div></div>
+<div id="setup-confirm-screen" class="app-shell" style="display:none"><div class="card"><div class="hdr"><div class="hdr-title">Review Round</div><div class="hdr-sub">Round Setup</div></div><div class="content" id="setup-confirm-content"></div></div></div>
 
 <div id="scorecard-screen">
   <div class="sc-topbar">
@@ -1802,6 +1805,22 @@ function autoPlayingGroupsForTeams(team1, team2){
   for(let i=0;i<max;i++){ if(team1[i]) ordered.push(team1[i]); if(team2[i]) ordered.push(team2[i]); }
   return autoPlayingGroups(ordered);
 }
+function autoPlayingGroupsFromPairMatches(pairMatches, allPlayers, team1, team2){
+  const valid=new Set(allPlayers), assigned=new Set();
+  const groups=(pairMatches||[]).filter(m=>(m.a||[]).length||(m.b||[]).length).map((m,i)=>{
+    const players=[...(m.a||[]),...(m.b||[])].filter(p=>valid.has(p));
+    players.forEach(p=>assigned.add(p));
+    return {name:`Group ${i+1}`,players};
+  }).filter(g=>g.players.length);
+  const missing=allPlayers.filter(p=>!assigned.has(p));
+  if(!groups.length) return (team1&&team2)?autoPlayingGroupsForTeams(team1,team2):autoPlayingGroups(allPlayers);
+  missing.forEach(p=>{
+    const last=groups[groups.length-1];
+    if(last.players.length<4) last.players.push(p);
+    else groups.push({name:`Group ${groups.length+1}`,players:[p]});
+  });
+  return groups;
+}
 function normalizePlayingGroups(groups, players){
   const valid=new Set(players);
   const normalized=(Array.isArray(groups)?groups:[]).map((g,i)=>({
@@ -1829,6 +1848,10 @@ function groupPlayerNames(){ return Object.keys(groupPlayersMap()); }
 function groupPlayerList(){ return Object.values(groupPlayersMap()).sort((a,b)=>a.name.localeCompare(b.name)); }
 function eventFormatLabel(format){ return ({bestBallNassau:'2v2 Net Best Ball Nassau',scramble2v2Nassau:'2v2 Two-Man Scramble Nassau',fourManScramble:'4-Man Scramble',custom:'Custom Round'})[format] || 'Custom Round'; }
 function eventDefaultRound(i, team1=[], team2=[]){
+  const defaultPairs=[
+    {a:team1.slice(0,2),b:team2.slice(0,2)},
+    {a:team1.slice(2,4),b:team2.slice(2,4)}
+  ].filter(m=>m.a.length||m.b.length);
   return {
     name:`Round ${i+1}`,
     format:i===1?'scramble2v2Nassau':'bestBallNassau',
@@ -1837,11 +1860,8 @@ function eventDefaultRound(i, team1=[], team2=[]){
     puttPoker:{enabled:false,pot:0,scope:'playingGroup'},
     bestBallBet:{front:0,back:0,total:0,type:'net'},
     scrambleBet:{front:0,back:0,total:0,type:'gross'},
-    pairMatches:[
-      {a:team1.slice(0,2),b:team2.slice(0,2)},
-      {a:team1.slice(2,4),b:team2.slice(2,4)}
-    ].filter(m=>m.a.length||m.b.length),
-    playingGroups:autoPlayingGroupsForTeams(team1, team2),
+    pairMatches:defaultPairs,
+    playingGroups:autoPlayingGroupsFromPairMatches(defaultPairs,[...team1,...team2],team1,team2),
     roundId:null,
     pointsResult:{team1:null,team2:null}
   };
@@ -2017,7 +2037,7 @@ function legacyBetsToGames(b){ return normalizeGames({ skins:{enabled:!!b.skins,
 function sum(arr){ return (arr||[]).reduce((a,b)=>a+Number(b||0),0); }
 
 function showScreen(name){
-  ['home','hub','setup-course','setup-players','setup-teams','setup-games','scorecard','results','history','stats'].forEach(screen=>{
+  ['home','hub','setup-course','setup-players','setup-teams','setup-games','setup-confirm','scorecard','results','history','stats'].forEach(screen=>{
     const el=document.getElementById(`${screen}-screen`);
     if(!el) return;
     if(screen==='scorecard') el.style.display = name===screen ? 'flex' : 'none';
@@ -2331,7 +2351,7 @@ async function launchEventRound(roundIdx){
   ROUND={
     id:null, groupId:GROUP.id, event:{id:EVENT.id, roundIndex:roundIdx, name:EVENT.name || groupName()}, course:null,
     team1:[...cfg.team1], team2:[...cfg.team2], teamNames:{team1:cfg.teamNames.team1,team2:cfg.teamNames.team2},
-    pairMatches:[...(r.pairMatches||[])], playingGroups:normalizePlayingGroups(r.playingGroups, [...cfg.team1,...cfg.team2]), matchups:[],
+    pairMatches:[...(r.pairMatches||[])], playingGroups:autoPlayingGroupsFromPairMatches(r.pairMatches||[], [...cfg.team1,...cfg.team2], cfg.team1, cfg.team2), matchups:[],
     games:eventRoundGames(r), scores:{}, putts:{}, wolf:{holes:{}}, completed:false
   };
   setupState.course=null; setupState.players=[...cfg.team1,...cfg.team2]; setupState.team1=[...cfg.team1]; setupState.team2=[...cfg.team2]; setupState.pool=[]; setupState.matchupOrder=[...cfg.team2]; setupState.playingGroups=ROUND.playingGroups;
@@ -2346,6 +2366,7 @@ function renderSetupCourse(){
   const eventRound=!!ROUND?.event;
   const backAction=eventRound?'showHub()':'showHub()';
   const nextAction=eventRound?'continueFromEventCourse()':'showSetupPlayers()';
+  const nextLabel=eventRound?'Review &rarr;':'Next &rarr;';
   wrap.innerHTML=`
     <div class="setup-step-top"><div class="setup-step-title">Course Search</div><button class="group-btn sm" onclick="${backAction}">Back</button></div>
     <input id="course-search-input" class="form-input course-search-input" type="search" placeholder="Search by course name" oninput="onCourseSearchInput(this.value)">
@@ -2353,14 +2374,57 @@ function renderSetupCourse(){
     <div id="course-results"></div>
     <div id="tee-picker"></div>
     <div id="hcp-preview"></div>
-    <div class="setup-step-nav"><button class="group-btn" onclick="${backAction}">Back</button><button id="course-next-btn" class="group-btn primary" onclick="${nextAction}" ${ROUND?.course?'':'disabled'}>Next &rarr;</button></div>`;
+    <div class="setup-step-nav"><button class="group-btn" onclick="${backAction}">Back</button><button id="course-next-btn" class="group-btn primary" onclick="${nextAction}" ${ROUND?.course?'':'disabled'}>${nextLabel}</button></div>`;
   if(ROUND?.course){ renderSelectedCourse(); renderHandicapPreview(); }
 }
 function continueFromEventCourse(){
   if(!ROUND?.event || !ROUND.course) return;
   ROUND.games=normalizeGames(ROUND.games);
   _setupTeamsConfirmed=true;
-  startRound(false);
+  showSetupConfirm();
+}
+function showSetupConfirm(){ renderSetupConfirm(); showScreen('setup-confirm'); }
+function renderSetupConfirm(){
+  const wrap=document.getElementById('setup-confirm-content');
+  const g=ROUND.games, course=ROUND.course, t1=ROUND.team1||[], t2=ROUND.team2||[];
+  const allPlayers=[...t1,...t2];
+  ROUND.playingGroups=normalizePlayingGroups(ROUND.playingGroups,allPlayers);
+  const courseTitle=course?courseDisplayName(course):'—';
+  const courseSub=course?[course.location,course.tee?.name].filter(Boolean).join(' / '):'';
+  const teamsHtml=`<div class="confirm-section"><div class="section-label">Teams</div><div class="confirm-row"><strong>${escHtml(teamName('team1'))}</strong>&ensp;${t1.map(escHtml).join(', ')}</div><div class="confirm-row"><strong>${escHtml(teamName('team2'))}</strong>&ensp;${t2.map(escHtml).join(', ')}</div></div>`;
+  const matchHtml=(ROUND.pairMatches||[]).length?`<div class="confirm-section"><div class="section-label">Pair Matchups</div>${(ROUND.pairMatches||[]).map((m,i)=>`<div class="confirm-row">Match ${i+1}: ${(m.a||[]).map(escHtml).join(' &amp; ')||'&mdash;'} vs ${(m.b||[]).map(escHtml).join(' &amp; ')||'&mdash;'}</div>`).join('')}</div>`:'';
+  const gameRows=gameSummaryRows(g);
+  const gamesHtml=gameRows.length?`<div class="confirm-section"><div class="section-label">Games</div>${gameRows.map(r=>`<div class="confirm-row">${escHtml(r)}</div>`).join('')}</div>`:'';
+  wrap.innerHTML=`<div class="setup-step-top"><div><div class="setup-step-title">${escHtml(courseTitle)}</div>${courseSub?`<div class="muted" style="margin-top:0.2rem">${escHtml(courseSub)}</div>`:''}</div><button class="group-btn sm" onclick="showSetupCourse()">Back</button></div>${teamsHtml}${matchHtml}<div class="confirm-section"><div class="section-label" style="margin-bottom:0.65rem">Playing Groups <button class="group-btn sm" style="font-size:0.65rem;padding:0.2rem 0.55rem;text-transform:none;letter-spacing:0" onclick="autoConfirmPlayingGroups()">Reset</button> <button class="group-btn sm" style="font-size:0.65rem;padding:0.2rem 0.55rem;text-transform:none;letter-spacing:0" onclick="addConfirmPlayingGroup()">+ Group</button></div><div id="confirm-playing-groups">${renderConfirmGroupRows()}</div></div>${gamesHtml}<div class="setup-step-nav sticky-mobile"><button class="group-btn" onclick="showSetupCourse()">Back</button><button class="group-btn primary" onclick="startRound(false)">Begin Round &rarr;</button></div>`;
+}
+function renderConfirmGroupRows(){
+  const allPlayers=[...(ROUND.team1||[]),...(ROUND.team2||[])];
+  ROUND.playingGroups=normalizePlayingGroups(ROUND.playingGroups,allPlayers);
+  return allPlayers.map(p=>{
+    const idx=Math.max(0,ROUND.playingGroups.findIndex(g=>g.players.includes(p)));
+    return `<div class="roster-row"><strong>${escHtml(p)}</strong><select class="form-input" style="width:auto" onchange="setConfirmPlayingGroup('${escJs(p)}',this.value)">${ROUND.playingGroups.map((g,i)=>`<option value="${i}" ${i===idx?'selected':''}>${escHtml(g.name||`Group ${i+1}`)}</option>`).join('')}</select></div>`;
+  }).join('');
+}
+function setConfirmPlayingGroup(player,groupIdx){
+  const idx=parseInt(groupIdx,10);
+  if(Number.isNaN(idx)||!ROUND.playingGroups[idx]) return;
+  ROUND.playingGroups.forEach(g=>{ g.players=g.players.filter(p=>p!==player); });
+  ROUND.playingGroups[idx].players.push(player);
+  const el=document.getElementById('confirm-playing-groups');
+  if(el) el.innerHTML=renderConfirmGroupRows();
+}
+function addConfirmPlayingGroup(){
+  const allPlayers=[...(ROUND.team1||[]),...(ROUND.team2||[])];
+  ROUND.playingGroups=normalizePlayingGroups(ROUND.playingGroups,allPlayers);
+  ROUND.playingGroups.push({name:`Group ${ROUND.playingGroups.length+1}`,players:[]});
+  const el=document.getElementById('confirm-playing-groups');
+  if(el) el.innerHTML=renderConfirmGroupRows();
+}
+function autoConfirmPlayingGroups(){
+  const allPlayers=[...(ROUND.team1||[]),...(ROUND.team2||[])];
+  ROUND.playingGroups=autoPlayingGroupsFromPairMatches(ROUND.pairMatches||[],allPlayers,ROUND.team1||[],ROUND.team2||[]);
+  const el=document.getElementById('confirm-playing-groups');
+  if(el) el.innerHTML=renderConfirmGroupRows();
 }
 function onCourseSearchInput(q){ clearTimeout(_courseSearchTimer); const status=document.getElementById('course-search-status'); if((q||'').trim().length<3){ status.textContent='Enter at least 3 characters.'; document.getElementById('course-results').innerHTML=''; return; } status.textContent='Searching...'; _courseSearchTimer=setTimeout(()=>courseSearch(q),500); }
 async function courseSearch(query){
