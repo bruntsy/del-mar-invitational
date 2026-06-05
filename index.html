@@ -1770,6 +1770,7 @@ let EVENT = null;
 let GROUP_CHANNEL = null;
 let _syncTimer = null;
 let _pollTimer = null;
+let _eventBuilderOpen = false;
 let _lastPushed = null;
 let _courseSearchTimer = null;
 let _courseSearchResults = [];
@@ -2126,10 +2127,11 @@ function showHub(){
   stopGroupSubscription();
   subscribeToGroup();
   renderHub();
-  loadActiveEvent().then(()=>{ if(document.getElementById('hub-content')) renderHub(); });
+  loadActiveEvent().then(()=>{ if(document.getElementById('hub-content') && !_eventBuilderOpen) renderHub(); });
   showScreen('hub');
 }
 function renderHub(){
+  _eventBuilderOpen=false;
   const wrap=document.getElementById('hub-content');
   const players=groupPlayerList();
   const hasRoundDraft=ROUND && !ROUND.completed;
@@ -2196,6 +2198,7 @@ async function updateGroupName(){
   renderHub();
 }
 function renderEventBuilder(){
+  _eventBuilderOpen=true;
   if(!EVENT) EVENT={ id:null, groupId:GROUP.id, name:groupName(), status:'active', config:defaultEventConfig() };
   EVENT.config=normalizeEventConfig(EVENT.config||{});
   const cfg=EVENT.config, players=groupPlayerNames();
@@ -2401,16 +2404,35 @@ function renderSetupConfirm(){
 function renderConfirmGroupRows(){
   const allPlayers=[...(ROUND.team1||[]),...(ROUND.team2||[])];
   ROUND.playingGroups=normalizePlayingGroups(ROUND.playingGroups,allPlayers);
-  return allPlayers.map(p=>{
-    const idx=Math.max(0,ROUND.playingGroups.findIndex(g=>g.players.includes(p)));
-    return `<div class="roster-row"><strong>${escHtml(p)}</strong><select class="form-input" style="width:auto" onchange="setConfirmPlayingGroup('${escJs(p)}',this.value)">${ROUND.playingGroups.map((g,i)=>`<option value="${i}" ${i===idx?'selected':''}>${escHtml(g.name||`Group ${i+1}`)}</option>`).join('')}</select></div>`;
+  const pairs=ROUND.pairMatches||[];
+  const groupOpts=(sel)=>ROUND.playingGroups.map((g,i)=>`<option value="${i}" ${i===sel?'selected':''}>${escHtml(g.name||`Group ${i+1}`)}</option>`).join('');
+  if(!pairs.length){
+    return allPlayers.map(p=>{
+      const idx=Math.max(0,ROUND.playingGroups.findIndex(g=>g.players.includes(p)));
+      const tl=(ROUND.team1||[]).includes(p)?teamName('team1'):(ROUND.team2||[]).includes(p)?teamName('team2'):'';
+      return `<div class="roster-row"><span><strong>${escHtml(p)}</strong>${tl?` <span class="muted" style="font-size:0.75rem">${escHtml(tl)}</span>`:''}</span><select class="form-input" style="width:auto" onchange="setConfirmPairGroup(-1,'x',this.value,'${escJs(p)}')">${groupOpts(idx)}</select></div>`;
+    }).join('');
+  }
+  return pairs.map((m,mi)=>{
+    const aPlayers=(m.a||[]).filter(p=>allPlayers.includes(p));
+    const bPlayers=(m.b||[]).filter(p=>allPlayers.includes(p));
+    if(!aPlayers.length&&!bPlayers.length) return '';
+    const aIdx=aPlayers[0]!=null?Math.max(0,ROUND.playingGroups.findIndex(g=>g.players.includes(aPlayers[0]))):0;
+    const bIdx=bPlayers[0]!=null?Math.max(0,ROUND.playingGroups.findIndex(g=>g.players.includes(bPlayers[0]))):0;
+    const aRow=aPlayers.length?`<div class="roster-row"><span><strong>${aPlayers.map(escHtml).join(' &amp; ')}</strong> <span class="muted" style="font-size:0.75rem">${escHtml(teamName('team1'))}</span></span><select class="form-input" style="width:auto" onchange="setConfirmPairGroup(${mi},'a',this.value)">${groupOpts(aIdx)}</select></div>`:'';
+    const bRow=bPlayers.length?`<div class="roster-row"><span><strong>${bPlayers.map(escHtml).join(' &amp; ')}</strong> <span class="muted" style="font-size:0.75rem">${escHtml(teamName('team2'))}</span></span><select class="form-input" style="width:auto" onchange="setConfirmPairGroup(${mi},'b',this.value)">${groupOpts(bIdx)}</select></div>`:'';
+    return `<div style="margin-bottom:0.5rem">${aRow}${bRow}</div>`;
   }).join('');
 }
-function setConfirmPlayingGroup(player,groupIdx){
+function setConfirmPairGroup(matchIdx, side, groupIdx, singlePlayer){
   const idx=parseInt(groupIdx,10);
   if(Number.isNaN(idx)||!ROUND.playingGroups[idx]) return;
-  ROUND.playingGroups.forEach(g=>{ g.players=g.players.filter(p=>p!==player); });
-  ROUND.playingGroups[idx].players.push(player);
+  const allPlayers=[...(ROUND.team1||[]),...(ROUND.team2||[])];
+  let players;
+  if(singlePlayer){ players=[singlePlayer]; }
+  else { const m=ROUND.pairMatches?.[matchIdx]; if(!m) return; players=(m[side]||[]).filter(p=>allPlayers.includes(p)); }
+  ROUND.playingGroups.forEach(g=>{ g.players=g.players.filter(p=>!players.includes(p)); });
+  ROUND.playingGroups[idx].players.push(...players);
   const el=document.getElementById('confirm-playing-groups');
   if(el) el.innerHTML=renderConfirmGroupRows();
 }
@@ -2562,12 +2584,12 @@ function clickAssign(player){ if(setupState.team1.length<targetTeamSize('team1')
 function moveToTeam(player,to){ if(setupState[to].length>=targetTeamSize(to)) return; setupState.pool=setupState.pool.filter(p=>p!==player); setupState[to].push(player); renderSetup(); updateTeamsNext(); }
 function returnToPool(player,fromTeam){ setupState[fromTeam]=setupState[fromTeam].filter(p=>p!==player); setupState.pool.push(player); renderSetup(); updateTeamsNext(); }
 function updateTeamsNext(){ const btn=document.getElementById('teams-next-btn'); if(btn) btn.disabled=!teamsAreReady(setupState.team1, setupState.team2) || setupState.pool.length > 0; }
-function renderMatchups(){ const section=document.getElementById('matchup-section'); if(!section) return; if(!teamsAreReady(setupState.team1, setupState.team2) || setupState.pool.length > 0 || setupState.team1.length!==setupState.team2.length){ section.style.display='none'; return; } section.style.display=''; if(setupState.matchupOrder.length!==setupState.team2.length || !setupState.matchupOrder.every(p=>setupState.team2.includes(p))) setupState.matchupOrder=[...setupState.team2]; renderMatchupRows(); }
+function renderMatchups(){ const section=document.getElementById('matchup-section'); if(!section) return; if(!teamsAreReady(setupState.team1, setupState.team2) || setupState.pool.length > 0 || setupState.team1.length!==setupState.team2.length || !!ROUND?.event){ section.style.display='none'; return; } section.style.display=''; if(setupState.matchupOrder.length!==setupState.team2.length || !setupState.matchupOrder.every(p=>setupState.team2.includes(p))) setupState.matchupOrder=[...setupState.team2]; renderMatchupRows(); }
 function renderMatchupRows(){ const el=document.getElementById('matchup-rows'); if(!el) return; const last=setupState.matchupOrder.length-1; el.innerHTML=setupState.team1.map((p,i)=>`<div class="matchup-row"><div class="matchup-num">${i+1}</div><div class="matchup-player">${escHtml(p)}</div><div class="matchup-vs">vs</div><div class="matchup-t2-wrap"><div class="matchup-t2-name">${escHtml(setupState.matchupOrder[i])}</div><div class="matchup-arrows"><button class="matchup-btn" onclick="swapMatchup(${i},-1)" ${i===0?'disabled':''}>▲</button><button class="matchup-btn" onclick="swapMatchup(${i},1)" ${i===last?'disabled':''}>▼</button></div></div></div>`).join(''); }
 function swapMatchup(i,dir){ const j=i+dir; if(j<0||j>=setupState.matchupOrder.length) return; [setupState.matchupOrder[i],setupState.matchupOrder[j]]=[setupState.matchupOrder[j],setupState.matchupOrder[i]]; renderMatchupRows(); }
 function setupAssignedPlayers(){ return [...setupState.team1, ...setupState.team2]; }
 function ensureSetupPlayingGroups(){ setupState.playingGroups=normalizePlayingGroups(setupState.playingGroups, setupAssignedPlayers()); }
-function renderPlayingGroups(){ const section=document.getElementById('playing-groups-section'), rows=document.getElementById('playing-group-rows'); if(!section||!rows)return; if(!teamsAreReady(setupState.team1,setupState.team2)||setupState.pool.length>0){ section.style.display='none'; return; } section.style.display=''; ensureSetupPlayingGroups(); rows.innerHTML=setupAssignedPlayers().map(p=>{ const idx=Math.max(0, setupState.playingGroups.findIndex(g=>g.players.includes(p))); return `<div class="roster-row"><strong>${escHtml(p)}</strong><select class="form-input" onchange="setPlayingGroup('${escJs(p)}',this.value)">${setupState.playingGroups.map((g,i)=>`<option value="${i}" ${i===idx?'selected':''}>${escHtml(g.name || `Group ${i+1}`)}</option>`).join('')}</select></div>`; }).join(''); }
+function renderPlayingGroups(){ const section=document.getElementById('playing-groups-section'), rows=document.getElementById('playing-group-rows'); if(!section||!rows)return; if(!teamsAreReady(setupState.team1,setupState.team2)||setupState.pool.length>0){ section.style.display='none'; return; } section.style.display=''; ensureSetupPlayingGroups(); rows.innerHTML=setupAssignedPlayers().map(p=>{ const idx=Math.max(0, setupState.playingGroups.findIndex(g=>g.players.includes(p))); const teamLabel=setupState.team1.includes(p)?teamName('team1'):setupState.team2.includes(p)?teamName('team2'):''; return `<div class="roster-row"><span><strong>${escHtml(p)}</strong>${teamLabel?` <span class="muted" style="font-size:0.75rem">${escHtml(teamLabel)}</span>`:''}</span><select class="form-input" style="width:auto" onchange="setPlayingGroup('${escJs(p)}',this.value)">${setupState.playingGroups.map((g,i)=>`<option value="${i}" ${i===idx?'selected':''}>${escHtml(g.name || `Group ${i+1}`)}</option>`).join('')}</select></div>`; }).join(''); }
 function setPlayingGroup(player,groupIdx){ const idx=parseInt(groupIdx,10); if(Number.isNaN(idx)||!setupState.playingGroups[idx])return; setupState.playingGroups.forEach(g=>g.players=g.players.filter(p=>p!==player)); setupState.playingGroups[idx].players.push(player); renderPlayingGroups(); }
 function addPlayingGroup(){ ensureSetupPlayingGroups(); setupState.playingGroups.push({name:`Group ${setupState.playingGroups.length+1}`,players:[]}); renderPlayingGroups(); }
 function autoBuildPlayingGroups(){ setupState.playingGroups=autoPlayingGroupsForTeams(setupState.team1, setupState.team2); renderPlayingGroups(); }
@@ -2575,7 +2597,7 @@ function finishSetupTeams(){ applySetupTeamsToRound(); _setupTeamsConfirmed=true
 
 function showSetupGames(){ applySetupTeamsToRound(); ROUND.games=normalizeGames(ROUND.games); ensurePairMatches(); initScores(); initPutts(); renderSetupGames(); showScreen('setup-games'); }
 function showRoundSetupConfig(returnScreen='scorecard'){ if(!ROUND?.id) return; _gamesReturnScreen=returnScreen; _setupMode='round'; hydrateSetupStateFromRound(); showSetupTeams('returnFromGamesConfig()'); }
-function showRoundGamesConfig(returnScreen='scorecard'){ if(!ROUND?.id) return; _gamesReturnScreen=returnScreen; _setupMode='games'; hydrateSetupStateFromRound(); showSetupGames(); }
+function showRoundGamesConfig(returnScreen='scorecard'){ if(!ROUND?.id) return; if(ROUND?.event){ showHub(); return; } _gamesReturnScreen=returnScreen; _setupMode='games'; hydrateSetupStateFromRound(); showSetupGames(); }
 function renderSetupGames(){ const g=normalizeGames(ROUND.games); ROUND.games=g; const gamesHtml=[
   gameBlock('Skins','skins','Individual hole winners split the pot evenly.',g.skins,`${moneyField('Pot','bet-skins',g.skins.pot,'/ player')}${scoreField('skins',g.skins.type)}`),
   gameBlock('Best Ball','bestBall','Team score uses the low player score on each hole.',g.bestBall,`${threeMoneyFields('bb',g.bestBall)}${scoreField('bestBall',g.bestBall.type)}`),
@@ -3043,7 +3065,7 @@ async function pushToSupabase(){
   _lastPushed=payload;
   await _db.from('rounds').update({ state, completed:ROUND.completed||false }).eq('id',ROUND.id);
 }
-function subscribeToGroup(){ if(!GROUP?.id)return; stopGroupSubscription(); GROUP_CHANNEL=_db.channel('group-'+GROUP.id).on('postgres_changes',{event:'*',schema:'public',table:'rounds',filter:`group_id=eq.${GROUP.id}`},payload=>{ const row=payload.new; if(!row?.state)return; const incoming=typeof row.state==='string'?row.state:JSON.stringify(row.state); if(incoming===_lastPushed)return; const next=normalizeRound(row); if(payload.eventType==='INSERT' && !next.completed){ ROUND=next; saveState(); renderHub(); return; } if(ROUND?.id && row.id===ROUND.id) applyRemoteRound(next); }).subscribe(); startPolling(); }
+function subscribeToGroup(){ if(!GROUP?.id)return; stopGroupSubscription(); GROUP_CHANNEL=_db.channel('group-'+GROUP.id).on('postgres_changes',{event:'*',schema:'public',table:'rounds',filter:`group_id=eq.${GROUP.id}`},payload=>{ const row=payload.new; if(!row?.state)return; const incoming=typeof row.state==='string'?row.state:JSON.stringify(row.state); if(incoming===_lastPushed)return; const next=normalizeRound(row); if(payload.eventType==='INSERT' && !next.completed){ ROUND=next; saveState(); if(!_eventBuilderOpen) renderHub(); return; } if(ROUND?.id && row.id===ROUND.id) applyRemoteRound(next); }).subscribe(); startPolling(); }
 function stopGroupSubscription(){ if(GROUP_CHANNEL){ _db.removeChannel(GROUP_CHANNEL); GROUP_CHANNEL=null; } if(_pollTimer){ clearInterval(_pollTimer); _pollTimer=null; } }
 function applyRemoteRound(remote){
   const before=JSON.stringify({scores:ROUND?.scores||{}, putts:ROUND?.putts||{}});
@@ -3054,7 +3076,7 @@ function applyRemoteRound(remote){
   const onScorecard=document.getElementById('scorecard-screen').style.display!=='none', onResults=document.getElementById('results-screen').style.display!=='none', onHub=document.getElementById('hub-screen').style.display!=='none';
   if(onScorecard){ const typing=document.activeElement&&document.activeElement.tagName==='INPUT'&&document.getElementById('scorecard-screen').contains(document.activeElement); if(!typing)renderScorecard(); }
   if(onResults)renderResults();
-  if(onHub)renderHub();
+  if(onHub && !_eventBuilderOpen)renderHub();
   if(localHadExtra) scheduleSync();
 }
 function startPolling(){ if(_pollTimer)clearInterval(_pollTimer); _pollTimer=setInterval(async()=>{ if(!ROUND?.id)return; const {data}=await _db.from('rounds').select('id,group_id,state,completed').eq('id',ROUND.id).single(); if(data)applyRemoteRound(normalizeRound(data)); },10000); }
