@@ -1860,6 +1860,7 @@ function eventDefaultRound(i, team1=[], team2=[]){
   return {
     name:`Round ${i+1}`,
     format:i===1?'scramble2v2Nassau':'bestBallNassau',
+    scoringMode:'matchPlay',
     points:{front:1,back:1,total:1},
     skins:{enabled:false,pot:0,type:'net'},
     puttPoker:{enabled:false,pot:0,scope:'playingGroup'},
@@ -1891,6 +1892,7 @@ function normalizeEventConfig(config={}){
       ...src,
       name:src.name || def.name,
       format:src.format || def.format,
+      scoringMode:src.scoringMode || def.scoringMode || 'matchPlay',
       points:{...def.points,...(src.points||{})},
       skins:{...def.skins,...(src.skins||{})},
       puttPoker:{...def.puttPoker,...(src.puttPoker||{})},
@@ -2237,7 +2239,7 @@ function eventInputField(label,control,help=''){
 function renderEventRoundConfig(r,i,cfg){
   const formatOpts=['bestBallNassau','scramble2v2Nassau','fourManScramble','custom'].map(v=>`<option value="${v}" ${r.format===v?'selected':''}>${escHtml(eventFormatLabel(v))}</option>`).join('');
   const pairUi=r.format==='fourManScramble'?'':`<div style="margin-top:0.65rem">${(r.pairMatches||[]).map((m,mi)=>`<div class="pair-match-row"><div class="pair-match-side">${eventPairSelect(i,mi,'a',0,m.a?.[0]||'',cfg.team1,cfg.teamNames.team1)}${eventPairSelect(i,mi,'a',1,m.a?.[1]||'',cfg.team1,cfg.teamNames.team1)}</div><div class="pair-match-vs">vs</div><div class="pair-match-side">${eventPairSelect(i,mi,'b',0,m.b?.[0]||'',cfg.team2,cfg.teamNames.team2)}${eventPairSelect(i,mi,'b',1,m.b?.[1]||'',cfg.team2,cfg.teamNames.team2)}</div></div>`).join('')}<button class="group-btn sm" onclick="addEventPairMatch(${i})">Add Match</button></div>`;
-  return `<div class="event-round-card"><div class="event-round-head">${eventInputField('Round name', `<input id="event-r${i}-name" class="form-input" value="${escHtml(r.name)}" placeholder="Round ${i+1}">`)}${eventInputField('Round format', `<select id="event-r${i}-format" class="form-input" onchange="setEventRoundFormat(${i},this.value)">${formatOpts}</select>`)}</div>
+  return `<div class="event-round-card"><div class="event-round-head">${eventInputField('Round name', `<input id="event-r${i}-name" class="form-input" value="${escHtml(r.name)}" placeholder="Round ${i+1}">`)}${eventInputField('Round format', `<select id="event-r${i}-format" class="form-input" onchange="setEventRoundFormat(${i},this.value)">${formatOpts}</select>`)}${eventInputField('Nassau scoring', `<select id="event-r${i}-scoring-mode" class="form-input"><option value="matchPlay" ${r.scoringMode!=='strokePlay'?'selected':''}>Match play</option><option value="strokePlay" ${r.scoringMode==='strokePlay'?'selected':''}>Stroke total</option></select>`)}</div>
     <div class="event-config-grid">
       ${eventInputField('Front 9 points', `<input id="event-r${i}-front" class="form-input" type="number" min="0" step="0.5" value="${r.points.front}" placeholder="1">`)}
       ${eventInputField('Back 9 points', `<input id="event-r${i}-back" class="form-input" type="number" min="0" step="0.5" value="${r.points.back}" placeholder="1">`)}
@@ -2295,6 +2297,7 @@ function readEventBuilder(normalize=true){
   (cfg.rounds||[]).forEach((r,i)=>{
     r.name=(document.getElementById(`event-r${i}-name`)?.value||r.name||`Round ${i+1}`).trim();
     r.format=document.getElementById(`event-r${i}-format`)?.value||r.format;
+    r.scoringMode=document.getElementById(`event-r${i}-scoring-mode`)?.value||r.scoringMode||'matchPlay';
     r.points={front:parseFloat(document.getElementById(`event-r${i}-front`)?.value||0)||0,back:parseFloat(document.getElementById(`event-r${i}-back`)?.value||0)||0,total:parseFloat(document.getElementById(`event-r${i}-total`)?.value||0)||0};
     r.skins={enabled:!!document.getElementById(`event-r${i}-skins-enabled`)?.checked,pot:parseInt(document.getElementById(`event-r${i}-skins-pot`)?.value||'0',10)||0,type:document.getElementById(`event-r${i}-skins-type`)?.value||'net'};
     r.puttPoker={enabled:!!document.getElementById(`event-r${i}-pp-enabled`)?.checked,pot:parseInt(document.getElementById(`event-r${i}-pp-pot`)?.value||'0',10)||0,scope:'playingGroup'};
@@ -2753,7 +2756,7 @@ function computeNetTotal(player,strokes){ const scores=ROUND.scores[player]||[];
 function sumRange(player,start,end){ const scores=ROUND.scores[player]||[]; let s=0, any=false; for(let h=start;h<end;h++){ if(scores[h]!=null){ s+=scores[h]; any=true; } } return any?s:null; }
 function teamScoreRange(teamKey,start,end){ const scores=ROUND.teamScores?.[teamKey]||[]; let s=0, any=false; for(let h=start;h<end;h++){ if(scores[h]!=null){ s+=scores[h]; any=true; } } return any?s:null; }
 function playerHoleScore(player,h,strokes,type='net'){ const gross=ROUND.scores[player]?.[h]; if(gross==null)return null; return type==='gross'?gross:gross-(getsStroke(strokes[player],ROUND.course.si[h])?1:0); }
-function computeTeamHoleStats(teamPlayers,strokes,h,type='net'){ const vals=teamPlayers.map(p=>playerHoleScore(p,h,strokes,type)).filter(v=>v!=null).sort((a,b)=>a-b); return { bestBall:vals.length>=1?vals[0]:null, twoBall:vals.length>=2?vals[0]+vals[1]:null, aggy:vals.length===teamPlayers.length?sum(vals):null }; }
+function computeTeamHoleStats(teamPlayers,strokes,h,type='net'){ const vals=teamPlayers.map(p=>playerHoleScore(p,h,strokes,type)).filter(v=>v!=null).sort((a,b)=>a-b), complete=teamPlayers.length>0&&vals.length===teamPlayers.length; return { bestBall:complete?vals[0]:null, twoBall:complete&&vals.length>=2?vals[0]+vals[1]:null, aggy:complete?sum(vals):null }; }
 function computeTeamTotals(teamPlayers,strokes,type='net'){ let bbOut=0,bbOutAny=false,bbIn=0,bbInAny=false,tbOut=0,tbOutAny=false,tbIn=0,tbInAny=false,agOut=0,agOutAny=false,agIn=0,agInAny=false; for(let h=0;h<18;h++){ const {bestBall,twoBall,aggy}=computeTeamHoleStats(teamPlayers,strokes,h,type); if(h<9){ if(bestBall!=null){bbOut+=bestBall;bbOutAny=true;} if(twoBall!=null){tbOut+=twoBall;tbOutAny=true;} if(aggy!=null){agOut+=aggy;agOutAny=true;} } else { if(bestBall!=null){bbIn+=bestBall;bbInAny=true;} if(twoBall!=null){tbIn+=twoBall;tbInAny=true;} if(aggy!=null){agIn+=aggy;agInAny=true;} } } return { bbOut:bbOutAny?bbOut:null, bbIn:bbInAny?bbIn:null, bbTotal:(bbOutAny||bbInAny)?(bbOutAny?bbOut:0)+(bbInAny?bbIn:0):null, tbOut:tbOutAny?tbOut:null, tbIn:tbInAny?tbIn:null, tbTotal:(tbOutAny||tbInAny)?(tbOutAny?tbOut:0)+(tbInAny?tbIn:0):null, agOut:agOutAny?agOut:null, agIn:agInAny?agIn:null, agTotal:(agOutAny||agInAny)?(agOutAny?agOut:0)+(agInAny?agIn:0):null }; }
 function playerRangeScore(player,strokes,start,end,type='net'){ let total=0, any=false; for(let h=start;h<end;h++){ const v=playerHoleScore(player,h,strokes,type); if(v!=null){ total+=v; any=true; } } return any?total:null; }
 function bestBallRangeScore(players,strokes,start,end,type='net'){
@@ -2783,7 +2786,7 @@ function threeManNassauResults(strokes){
   return {valid:true,players,rows};
 }
 function pairMatchups(){ ensurePairMatches(); return (ROUND.pairMatches||[]).map((m,i)=>({idx:i+1,a:(m.a||[]).filter(p=>(ROUND.team1||[]).includes(p)),b:(m.b||[]).filter(p=>(ROUND.team2||[]).includes(p))})).filter(m=>m.a.length&&m.b.length); }
-function pairBestBallScore(pair,h,strokes,type){ const vals=pair.map(p=>playerHoleScore(p,h,strokes,type)).filter(v=>v!=null); return vals.length?Math.min(...vals):null; }
+function pairBestBallScore(pair,h,strokes,type){ const vals=pair.map(p=>playerHoleScore(p,h,strokes,type)).filter(v=>v!=null); return pair.length>0&&vals.length===pair.length?Math.min(...vals):null; }
 function computePairMatchPlay(strokes){ const cfg=normalizeGames(ROUND.games).pairMatch, pts=Number(cfg.pointsPerHole||1), matches=pairMatchups().map(m=>{ let aPts=0,bPts=0,aWon=0,bWon=0,tied=0,played=0; const holes=[]; for(let h=0;h<18;h++){ const a=pairBestBallScore(m.a,h,strokes,cfg.type), b=pairBestBallScore(m.b,h,strokes,cfg.type); let winner=null; if(a!=null&&b!=null){ played++; if(a<b){aPts+=pts; aWon++; winner='a';} else if(b<a){bPts+=pts; bWon++; winner='b';} else {tied++; winner='tie';} } holes.push({hole:h+1,a,b,winner}); } return {...m,aPts,bPts,aWon,bWon,tied,played,holes}; }); return {matches,team1Points:sum(matches.map(m=>m.aPts)),team2Points:sum(matches.map(m=>m.bPts)),team1Holes:sum(matches.map(m=>m.aWon)),team2Holes:sum(matches.map(m=>m.bWon)),tiedHoles:sum(matches.map(m=>m.tied))}; }
 function shortTeamLabel(key){
   const clean=teamName(key).replace(/[^a-z0-9 ]/gi,' ').trim();
@@ -3043,27 +3046,23 @@ function eventRoundConfigForCurrent(){
   const cfg=normalizeEventConfig(EVENT?.config||{}), idx=ROUND.event.roundIndex;
   return cfg.rounds?.[idx] ? {cfg, round:cfg.rounds[idx], idx} : null;
 }
-function scorePoint(a,b,pts){ if(a==null||b==null)return{team1:0,team2:0,winner:'open'}; if(a<b)return{team1:pts,team2:0,winner:'team1'}; if(b<a)return{team1:0,team2:pts,winner:'team2'}; return{team1:pts/2,team2:pts/2,winner:'tie'}; }
+function scorePoint(a,b,pts,highWins=false){ if(a==null||b==null)return{team1:0,team2:0,winner:'open'}; if(a===b)return{team1:pts/2,team2:pts/2,winner:'tie'}; const t1Wins=highWins?a>b:a<b; return t1Wins?{team1:pts,team2:0,winner:'team1'}:{team1:0,team2:pts,winner:'team2'}; }
 function pairRangeScore(players,start,end,strokes,type='net'){ let total=0; for(let h=start;h<end;h++){ const v=pairBestBallScore(players,h,strokes,type); if(v==null)return null; total+=v; } return total; }
-function eventComponent(label,a,b,pts){ const p=scorePoint(a,b,Number(pts||0)); return {label,a,b,points:Number(pts||0),team1:p.team1,team2:p.team2,winner:p.winner}; }
+function pairMatchRangeWins(aPlayers,bPlayers,start,end,strokes,type='net'){ let aWon=0,bWon=0; for(let h=start;h<end;h++){ const a=pairBestBallScore(aPlayers,h,strokes,type), b=pairBestBallScore(bPlayers,h,strokes,type); if(a==null||b==null)return null; if(a<b)aWon++; else if(b<a)bWon++; } return {a:aWon,b:bWon}; }
+function teamMatchRangeWins(teamA,teamB,start,end){ let aWon=0,bWon=0; for(let h=start;h<end;h++){ const a=ROUND.teamScores?.[teamA]?.[h]??null, b=ROUND.teamScores?.[teamB]?.[h]??null; if(a==null||b==null)return null; if(a<b)aWon++; else if(b<a)bWon++; } return {a:aWon,b:bWon}; }
+function eventComponent(label,a,b,pts,highWins=false,unit='strokes'){ const p=scorePoint(a,b,Number(pts||0),highWins); return {label,a,b,points:Number(pts||0),team1:p.team1,team2:p.team2,winner:p.winner,unit}; }
 function computeEventRoundResult(strokes=getPlayerStrokes()){
   const ctx=eventRoundConfigForCurrent(); if(!ctx)return null;
-  const r=ctx.round, rows=[]; let team1=0, team2=0, complete=true;
+  const r=ctx.round, rows=[], matchPlay=r.scoringMode!=='strokePlay'; let team1=0, team2=0, complete=true;
   function addMatch(label,aPlayers,bPlayers,type='net'){
-    const comps=[
-      eventComponent('Front', pairRangeScore(aPlayers,0,9,strokes,type), pairRangeScore(bPlayers,0,9,strokes,type), r.points?.front),
-      eventComponent('Back', pairRangeScore(aPlayers,9,18,strokes,type), pairRangeScore(bPlayers,9,18,strokes,type), r.points?.back),
-      eventComponent('Overall', pairRangeScore(aPlayers,0,18,strokes,type), pairRangeScore(bPlayers,0,18,strokes,type), r.points?.total)
-    ];
+    const comp=(label,start,end,pts)=>{ if(matchPlay){ const w=pairMatchRangeWins(aPlayers,bPlayers,start,end,strokes,type); return eventComponent(label,w?.a??null,w?.b??null,pts,true,'holes'); } return eventComponent(label,pairRangeScore(aPlayers,start,end,strokes,type),pairRangeScore(bPlayers,start,end,strokes,type),pts,false,'strokes'); };
+    const comps=[comp('Front',0,9,r.points?.front),comp('Back',9,18,r.points?.back),comp('Overall',0,18,r.points?.total)];
     comps.forEach(c=>{ team1+=c.team1; team2+=c.team2; if(c.winner==='open')complete=false; });
     rows.push({label,aPlayers,bPlayers,components:comps});
   }
   if(r.format==='fourManScramble'){
-    const comps=[
-      eventComponent('Front', teamScoreRange('team1',0,9), teamScoreRange('team2',0,9), r.points?.front),
-      eventComponent('Back', teamScoreRange('team1',9,18), teamScoreRange('team2',9,18), r.points?.back),
-      eventComponent('Overall', teamScoreRange('team1',0,18), teamScoreRange('team2',0,18), r.points?.total)
-    ];
+    const comp=(label,start,end,pts)=>{ if(matchPlay){ const w=teamMatchRangeWins('team1','team2',start,end); return eventComponent(label,w?.a??null,w?.b??null,pts,true,'holes'); } return eventComponent(label,teamScoreRange('team1',start,end),teamScoreRange('team2',start,end),pts,false,'strokes'); };
+    const comps=[comp('Front',0,9,r.points?.front),comp('Back',9,18,r.points?.back),comp('Overall',0,18,r.points?.total)];
     comps.forEach(c=>{ team1+=c.team1; team2+=c.team2; if(c.winner==='open')complete=false; });
     rows.push({label:'4-Man Scramble',aPlayers:ROUND.team1,bPlayers:ROUND.team2,components:comps});
   } else {
@@ -3081,8 +3080,8 @@ function eventStandingsWithResult(result){
 function renderEventRoundResults(){
   const res=computeEventRoundResult(); if(!res)return'';
   const totals=eventStandingsWithResult(res), fmt=v=>v==null?'—':v, win=w=>w==='team1'?teamName('team1'):w==='team2'?teamName('team2'):w==='tie'?'Tie':'In progress';
-  let html=`<div class="results-section"><div class="results-section-hdr">Event Round Results</div><div class="event-points-grid"><div class="team-score-box ${res.team1>res.team2?'winner':''}"><div class="tsb-label">${escHtml(teamName('team1'))}</div><div class="tsb-score">${res.team1}</div><div class="tsb-tag">round points</div></div><div class="team-score-box ${res.team2>res.team1?'winner':''}"><div class="tsb-label">${escHtml(teamName('team2'))}</div><div class="tsb-score">${res.team2}</div><div class="tsb-tag">round points</div></div></div><div class="provisional-note">Event standings: ${escHtml(teamName('team1'))} ${totals.team1} - ${totals.team2} ${escHtml(teamName('team2'))}${EVENT?.config?.winPoints?` / Win at ${EVENT.config.winPoints}`:''}</div>${res.note?`<div class="provisional-note" style="margin-top:0.35rem">${escHtml(res.note)}</div>`:''}`;
-  res.rows.forEach(row=>{ html+=`<div style="margin-top:0.8rem"><div class="event-round-title">${escHtml(row.label)} <span class="muted">${row.aPlayers.map(escHtml).join(' / ')} vs ${row.bPlayers.map(escHtml).join(' / ')}</span></div><table class="res-table"><thead><tr><th>Component</th><th>${escHtml(teamName('team1'))}</th><th>${escHtml(teamName('team2'))}</th><th>Points</th><th>Result</th></tr></thead><tbody>${row.components.map(c=>`<tr><td>${escHtml(c.label)}</td><td>${fmt(c.a)}</td><td>${fmt(c.b)}</td><td>${c.team1} - ${c.team2}</td><td><strong>${escHtml(win(c.winner))}</strong></td></tr>`).join('')}</tbody></table></div>`; });
+  let html=`<div class="results-section"><div class="results-section-hdr">Event Round Results</div><div class="event-points-grid"><div class="team-score-box ${res.team1>res.team2?'winner':''}"><div class="tsb-label">${escHtml(teamName('team1'))}</div><div class="tsb-score">${res.team1}</div><div class="tsb-tag">round points</div></div><div class="team-score-box ${res.team2>res.team1?'winner':''}"><div class="tsb-label">${escHtml(teamName('team2'))}</div><div class="tsb-score">${res.team2}</div><div class="tsb-tag">round points</div></div></div><div class="provisional-note">${res.round.scoringMode==='strokePlay'?'Stroke total Nassau':'Match play Nassau'} / Event standings: ${escHtml(teamName('team1'))} ${totals.team1} - ${totals.team2} ${escHtml(teamName('team2'))}${EVENT?.config?.winPoints?` / Win at ${EVENT.config.winPoints}`:''}</div>${res.note?`<div class="provisional-note" style="margin-top:0.35rem">${escHtml(res.note)}</div>`:''}`;
+  res.rows.forEach(row=>{ html+=`<div style="margin-top:0.8rem"><div class="event-round-title">${escHtml(row.label)} <span class="muted">${row.aPlayers.map(escHtml).join(' / ')} vs ${row.bPlayers.map(escHtml).join(' / ')}</span></div><table class="res-table"><thead><tr><th>Component</th><th>${escHtml(teamName('team1'))}</th><th>${escHtml(teamName('team2'))}</th><th>Points</th><th>Result</th></tr></thead><tbody>${row.components.map(c=>`<tr><td>${escHtml(c.label)} <span class="muted">(${escHtml(c.unit)})</span></td><td>${fmt(c.a)}</td><td>${fmt(c.b)}</td><td>${c.team1} - ${c.team2}</td><td><strong>${escHtml(win(c.winner))}</strong></td></tr>`).join('')}</tbody></table></div>`; });
   return html+'</div>';
 }
 async function saveCurrentEventRoundPoints(){
