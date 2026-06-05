@@ -18,7 +18,7 @@ The current product model is:
 ## Stack
 
 - `index.html`: all frontend HTML, CSS, and JavaScript.
-- Supabase Postgres: `groups`, `rounds`, and `courses_cache`.
+- Supabase Postgres: `groups`, `events`, `rounds`, and `courses_cache`.
 - Supabase Realtime: live sync for active rounds.
 - Supabase Edge Functions: course search proxy/cache.
 - GolfCourseAPI: course/tee data source.
@@ -152,6 +152,27 @@ with check (true);
 
 create index if not exists rounds_group_id_idx on rounds(group_id);
 
+create table if not exists events (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references groups(id) on delete cascade,
+  name text not null default '',
+  config jsonb not null default '{}',
+  status text not null default 'active',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table events enable row level security;
+
+create policy "events are publicly readable and writable"
+on events
+for all
+using (true)
+with check (true);
+
+create index if not exists events_group_id_idx on events(group_id);
+create index if not exists events_status_idx on events(status);
+
 create table if not exists courses_cache (
   cache_key  text primary key,
   data       jsonb not null,
@@ -167,10 +188,11 @@ using (true)
 with check (true);
 ```
 
-Realtime must include `rounds`:
+Realtime must include `rounds` and `events`:
 
 ```sql
 alter publication supabase_realtime add table rounds;
+alter publication supabase_realtime add table events;
 ```
 
 If schema changes do not appear immediately:
@@ -315,7 +337,7 @@ supabase functions deploy course-search --no-verify-jwt
 ## Round Flow
 
 1. Home screen: create or join a group.
-2. Group hub: view active round, roster, history, and stats.
+2. Group hub: view active round, roster, team event, history, and stats.
 3. Course setup: search course, select tee, preview WHS course handicap.
 4. Player setup: add/remove manual players.
 5. Team setup: assign players to two teams and set team names.
@@ -323,6 +345,25 @@ supabase functions deploy course-search --no-verify-jwt
 7. Scorecard: enter scores/putts.
 8. Results: view standings, game results, and settlement.
 9. Complete round: saves as historical completed round.
+
+## Team Events
+
+The group hub can create one active configurable event stored in `events.config`.
+Events define team names, player-team assignments, any number of rounds, round
+formats, pairings, point values, side games, and manual event-point results.
+
+Event rounds still launch as normal `rounds` rows. That keeps the existing
+scorecard, bets, player PnL, and settlement logic intact.
+
+Supported event round formats include:
+
+- 2v2 net best ball Nassau
+- 2v2 two-man scramble Nassau configuration
+- Team A vs Team B 4-man scramble
+- Custom round setup
+
+Skins can be enabled per event round and still run across the round's players.
+Putt poker can be enabled per event round and is displayed by playing group.
 
 ## Handicap Logic
 
@@ -366,7 +407,14 @@ All games are disabled by default for a new round. The setup screen has presets,
 - Points roll up across all pair matches to team totals.
 - Supports net or gross.
 
-This handles multi-match scenarios inside one round, but it is not yet a full event/foursome architecture for many physical groups and tee times.
+Event rounds can also use pair match play via the event builder.
+
+### 4-Man Scramble
+
+- Team game.
+- Uses one gross team score per hole for each side.
+- Supports front/back/total amounts.
+- Settlement pays/charges every player on the winning/losing team.
 
 ### 2-Ball
 
