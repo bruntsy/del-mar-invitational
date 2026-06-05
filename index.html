@@ -1315,7 +1315,14 @@
     .event-round-card { border:1px solid var(--panel-border); border-radius:4px; background:var(--panel); padding:0.8rem; margin-bottom:0.65rem; }
     .event-round-head { display:flex; justify-content:space-between; gap:0.75rem; align-items:flex-start; flex-wrap:wrap; margin-bottom:0.6rem; }
     .event-round-title { font-family:'Playfair Display',serif; font-size:1rem; font-weight:700; color:var(--text-dark); }
-    .event-config-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0.5rem; margin-top:0.6rem; }
+    .event-config-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0.75rem; margin-top:0.75rem; }
+    .event-field { display:flex; flex-direction:column; gap:0.28rem; min-width:0; }
+    .event-field-label { font-size:0.6rem; font-weight:800; letter-spacing:0.16em; text-transform:uppercase; color:var(--text-light); }
+    .event-field-help { color:var(--text-light); font-size:0.68rem; line-height:1.35; }
+    .event-field .form-input { width:100%; }
+    .event-section-note { margin-top:-0.2rem; margin-bottom:0.8rem; color:var(--text-light); font-size:0.76rem; }
+    .event-round-card .event-round-head .event-field { flex:1 1 220px; }
+    .event-round-card .event-round-head .event-field:last-child { max-width:320px; }
     .event-score-box { display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-top:0.55rem; }
     .event-score-box .form-input { width:86px; height:36px; }
     .recent-groups { margin-top:1.8rem; }
@@ -2173,19 +2180,20 @@ function renderEventBuilder(){
     <div class="hub-panel wide">
       <div class="hub-panel-title">Event</div>
       <div class="event-config-grid">
-        <input id="event-name" class="form-input" value="${escHtml(EVENT.name || groupName())}" placeholder="Event name">
-        <input id="event-round-count" class="form-input" type="number" min="1" max="12" value="${cfg.rounds.length}" onchange="setEventRoundCount(this.value)">
-        <input id="event-win-points" class="form-input" type="number" min="0" step="0.5" value="${cfg.winPoints}" placeholder="Win points">
+        ${eventInputField('Event name', `<input id="event-name" class="form-input" value="${escHtml(EVENT.name || groupName())}" placeholder="Cushman Cup">`)}
+        ${eventInputField('Number of rounds', `<input id="event-round-count" class="form-input" type="number" min="1" max="12" value="${cfg.rounds.length}" onchange="setEventRoundCount(this.value)">`)}
+        ${eventInputField('Points to win', `<input id="event-win-points" class="form-input" type="number" min="0" step="0.5" value="${cfg.winPoints}" placeholder="9.5">`, 'Leave as 9.5 for an 18-point event.')}
       </div>
       <div class="event-config-grid">
-        <input id="event-team1-name" class="form-input" value="${escHtml(cfg.teamNames.team1)}" placeholder="Team A name">
-        <input id="event-team2-name" class="form-input" value="${escHtml(cfg.teamNames.team2)}" placeholder="Team B name">
-        <input id="event-tiebreaker" class="form-input" value="${escHtml(cfg.tiebreaker || '')}" placeholder="Tiebreaker note">
+        ${eventInputField('Team 1 name', `<input id="event-team1-name" class="form-input" value="${escHtml(cfg.teamNames.team1)}" placeholder="Seattleites" oninput="setEventTeamName('team1',this.value)">`)}
+        ${eventInputField('Team 2 name', `<input id="event-team2-name" class="form-input" value="${escHtml(cfg.teamNames.team2)}" placeholder="Californians" oninput="setEventTeamName('team2',this.value)">`)}
+        ${eventInputField('Tiebreaker', `<input id="event-tiebreaker" class="form-input" value="${escHtml(cfg.tiebreaker || '')}" placeholder="Optional tiebreaker note">`)}
       </div>
     </div>
     <div class="hub-panel wide">
       <div class="hub-panel-title">Teams</div>
-      ${players.map(p=>`<div class="roster-row"><strong>${escHtml(p)}</strong><select class="form-input" style="max-width:180px" onchange="setEventPlayerTeam('${escJs(p)}',this.value)"><option value="team1" ${cfg.team1.includes(p)?'selected':''}>${escHtml(cfg.teamNames.team1)}</option><option value="team2" ${cfg.team2.includes(p)?'selected':''}>${escHtml(cfg.teamNames.team2)}</option></select></div>`).join('') || '<div class="empty-state">Add players to the group before configuring an event.</div>'}
+      <div class="event-section-note">Assign every player to one of the two event teams.</div>
+      ${players.map(p=>`<div class="roster-row"><strong>${escHtml(p)}</strong><select class="form-input" style="max-width:220px" onchange="setEventPlayerTeam('${escJs(p)}',this.value)"><option value="team1" data-event-team-option="team1" ${cfg.team1.includes(p)?'selected':''}>${escHtml(cfg.teamNames.team1)}</option><option value="team2" data-event-team-option="team2" ${cfg.team2.includes(p)?'selected':''}>${escHtml(cfg.teamNames.team2)}</option></select></div>`).join('') || '<div class="empty-state">Add players to the group before configuring an event.</div>'}
     </div>
     <div class="hub-panel wide">
       <div class="hub-panel-title">Rounds</div>
@@ -2194,31 +2202,44 @@ function renderEventBuilder(){
     <div id="event-builder-status" class="group-status-msg"></div>
     <div class="setup-step-nav sticky-mobile"><button class="group-btn" onclick="renderHub()">Cancel</button><button class="group-btn primary" onclick="saveEventBuilder()">Save Event</button></div>`;
 }
+function eventInputField(label,control,help=''){
+  return `<div class="event-field"><label class="event-field-label">${escHtml(label)}</label>${control}${help?`<div class="event-field-help">${escHtml(help)}</div>`:''}</div>`;
+}
 function renderEventRoundConfig(r,i,cfg){
   const formatOpts=['bestBallNassau','scramble2v2Nassau','fourManScramble','custom'].map(v=>`<option value="${v}" ${r.format===v?'selected':''}>${escHtml(eventFormatLabel(v))}</option>`).join('');
   const pairUi=r.format==='fourManScramble'?'':`<div style="margin-top:0.65rem">${(r.pairMatches||[]).map((m,mi)=>`<div class="pair-match-row"><div class="pair-match-side">${eventPairSelect(i,mi,'a',0,m.a?.[0]||'',cfg.team1,cfg.teamNames.team1)}${eventPairSelect(i,mi,'a',1,m.a?.[1]||'',cfg.team1,cfg.teamNames.team1)}</div><div class="pair-match-vs">vs</div><div class="pair-match-side">${eventPairSelect(i,mi,'b',0,m.b?.[0]||'',cfg.team2,cfg.teamNames.team2)}${eventPairSelect(i,mi,'b',1,m.b?.[1]||'',cfg.team2,cfg.teamNames.team2)}</div></div>`).join('')}<button class="group-btn sm" onclick="addEventPairMatch(${i})">Add Match</button></div>`;
-  return `<div class="event-round-card"><div class="event-round-head"><div><input id="event-r${i}-name" class="form-input" value="${escHtml(r.name)}" placeholder="Round name"></div><select id="event-r${i}-format" class="form-input" onchange="setEventRoundFormat(${i},this.value)">${formatOpts}</select></div>
+  return `<div class="event-round-card"><div class="event-round-head">${eventInputField('Round name', `<input id="event-r${i}-name" class="form-input" value="${escHtml(r.name)}" placeholder="Round ${i+1}">`)}${eventInputField('Round format', `<select id="event-r${i}-format" class="form-input" onchange="setEventRoundFormat(${i},this.value)">${formatOpts}</select>`)}</div>
     <div class="event-config-grid">
-      <input id="event-r${i}-front" class="form-input" type="number" min="0" step="0.5" value="${r.points.front}" placeholder="Front pts">
-      <input id="event-r${i}-back" class="form-input" type="number" min="0" step="0.5" value="${r.points.back}" placeholder="Back pts">
-      <input id="event-r${i}-total" class="form-input" type="number" min="0" step="0.5" value="${r.points.total}" placeholder="Overall pts">
+      ${eventInputField('Front 9 points', `<input id="event-r${i}-front" class="form-input" type="number" min="0" step="0.5" value="${r.points.front}" placeholder="1">`)}
+      ${eventInputField('Back 9 points', `<input id="event-r${i}-back" class="form-input" type="number" min="0" step="0.5" value="${r.points.back}" placeholder="1">`)}
+      ${eventInputField('Overall points', `<input id="event-r${i}-total" class="form-input" type="number" min="0" step="0.5" value="${r.points.total}" placeholder="1">`)}
     </div>
     <div class="event-config-grid">
-      <label class="game-toggle" style="justify-content:flex-start"><input type="checkbox" id="event-r${i}-skins-enabled" ${r.skins.enabled?'checked':''}> Skins</label>
-      <input id="event-r${i}-skins-pot" class="form-input" type="number" min="0" value="${r.skins.pot||''}" placeholder="Skins $/player">
-      <select id="event-r${i}-skins-type" class="form-input"><option value="net" ${r.skins.type!=='gross'?'selected':''}>Net skins</option><option value="gross" ${r.skins.type==='gross'?'selected':''}>Gross skins</option></select>
+      ${eventInputField('Skins', `<label class="game-toggle" style="justify-content:flex-start"><input type="checkbox" id="event-r${i}-skins-enabled" ${r.skins.enabled?'checked':''}> Enabled</label>`)}
+      ${eventInputField('Skins buy-in', `<input id="event-r${i}-skins-pot" class="form-input" type="number" min="0" value="${r.skins.pot||''}" placeholder="$ per player">`)}
+      ${eventInputField('Skins scoring', `<select id="event-r${i}-skins-type" class="form-input"><option value="net" ${r.skins.type!=='gross'?'selected':''}>Net skins</option><option value="gross" ${r.skins.type==='gross'?'selected':''}>Gross skins</option></select>`)}
     </div>
     <div class="event-config-grid">
-      <label class="game-toggle" style="justify-content:flex-start"><input type="checkbox" id="event-r${i}-pp-enabled" ${r.puttPoker.enabled?'checked':''}> Putt Poker</label>
-      <input id="event-r${i}-pp-pot" class="form-input" type="number" min="0" value="${r.puttPoker.pot||''}" placeholder="Putt poker $/person">
-      <div class="muted">Putt poker displays by team today; by-foursome scope is stored for the event.</div>
+      ${eventInputField('Putt poker', `<label class="game-toggle" style="justify-content:flex-start"><input type="checkbox" id="event-r${i}-pp-enabled" ${r.puttPoker.enabled?'checked':''}> Enabled</label>`)}
+      ${eventInputField('Putt poker buy-in', `<input id="event-r${i}-pp-pot" class="form-input" type="number" min="0" value="${r.puttPoker.pot||''}" placeholder="$ per player">`)}
+      <div class="event-field"><div class="event-field-label">Putt poker scope</div><div class="event-field-help">Displays by playing group when the round is started.</div></div>
     </div>
-    <div class="event-score-box"><span class="muted">Event points entered:</span><input id="event-r${i}-team1-points" class="form-input" type="number" min="0" step="0.5" value="${r.pointsResult.team1??''}" placeholder="${escHtml(cfg.teamNames.team1)}"><input id="event-r${i}-team2-points" class="form-input" type="number" min="0" step="0.5" value="${r.pointsResult.team2??''}" placeholder="${escHtml(cfg.teamNames.team2)}">${r.roundId?`<button class="group-btn sm" onclick="launchEventRound(${i})">Open Round</button>`:''}</div>
+    <div class="event-score-box"><span class="muted">Manual event points:</span><input id="event-r${i}-team1-points" class="form-input" type="number" min="0" step="0.5" value="${r.pointsResult.team1??''}" placeholder="${escHtml(cfg.teamNames.team1)}" data-event-team-placeholder="team1"><input id="event-r${i}-team2-points" class="form-input" type="number" min="0" step="0.5" value="${r.pointsResult.team2??''}" placeholder="${escHtml(cfg.teamNames.team2)}" data-event-team-placeholder="team2">${r.roundId?`<button class="group-btn sm" onclick="launchEventRound(${i})">Open Round</button>`:''}</div>
     ${pairUi}</div>`;
 }
-function eventPairSelect(roundIdx,matchIdx,side,slot,value,players,label){ return `<div class="game-field"><label class="game-field-label">${escHtml(label)} ${slot+1}</label><select class="form-input" onchange="setEventPairPlayer(${roundIdx},${matchIdx},'${side}',${slot},this.value)">${[''].concat(players).map(p=>`<option value="${escHtml(p)}" ${p===value?'selected':''}>${p?escHtml(p):'Open'}</option>`).join('')}</select></div>`; }
+function eventPairSelect(roundIdx,matchIdx,side,slot,value,players,label){ const key=side==='a'?'team1':'team2'; return `<div class="game-field"><label class="game-field-label"><span data-event-team-label="${key}">${escHtml(label)}</span> ${slot+1}</label><select class="form-input" onchange="setEventPairPlayer(${roundIdx},${matchIdx},'${side}',${slot},this.value)">${[''].concat(players).map(p=>`<option value="${escHtml(p)}" ${p===value?'selected':''}>${p?escHtml(p):'Open'}</option>`).join('')}</select></div>`; }
 function setEventBuilderStatus(msg,isErr){ const el=document.getElementById('event-builder-status'); if(el){ el.textContent=msg||''; el.style.color=isErr?'#c0392b':'var(--text-light)'; } }
 function readNullableNumber(id){ const raw=document.getElementById(id)?.value; if(raw===''||raw==null)return null; const v=parseFloat(raw); return Number.isNaN(v)?null:v; }
+function setEventTeamName(key,value){
+  if(!EVENT) return;
+  EVENT.config=EVENT.config || defaultEventConfig();
+  EVENT.config.teamNames=EVENT.config.teamNames || {team1:'Team A',team2:'Team B'};
+  const clean=(value||'').trim() || (key==='team2'?'Team B':'Team A');
+  EVENT.config.teamNames[key]=clean;
+  document.querySelectorAll(`[data-event-team-option="${key}"]`).forEach(el=>{ el.textContent=clean; });
+  document.querySelectorAll(`[data-event-team-placeholder="${key}"]`).forEach(el=>{ el.placeholder=clean; });
+  document.querySelectorAll(`[data-event-team-label="${key}"]`).forEach(el=>{ el.textContent=clean; });
+}
 function setEventRoundCount(raw){ readEventBuilder(false); const n=Math.max(1,Math.min(12,parseInt(raw||'1',10)||1)); while(EVENT.config.rounds.length<n) EVENT.config.rounds.push(eventDefaultRound(EVENT.config.rounds.length,EVENT.config.team1,EVENT.config.team2)); EVENT.config.rounds=EVENT.config.rounds.slice(0,n); renderEventBuilder(); }
 function setEventPlayerTeam(player,team){ readEventBuilder(false); EVENT.config.team1=EVENT.config.team1.filter(p=>p!==player); EVENT.config.team2=EVENT.config.team2.filter(p=>p!==player); EVENT.config[team==='team2'?'team2':'team1'].push(player); EVENT.config=normalizeEventConfig(EVENT.config); renderEventBuilder(); }
 function setEventRoundFormat(i,format){ readEventBuilder(false); if(EVENT.config.rounds[i]) EVENT.config.rounds[i].format=format; renderEventBuilder(); }
