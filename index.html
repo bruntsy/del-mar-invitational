@@ -2328,7 +2328,9 @@ function hydrateSetupStateFromRound(){
   setupState.pool=setupState.players.filter(p=>!setupState.team1.includes(p)&&!setupState.team2.includes(p));
   setupState.matchupOrder=(ROUND?.matchups || []).map(m=>m.t2).filter(Boolean);
   if(setupState.matchupOrder.length!==setupState.team2.length) setupState.matchupOrder=[...setupState.team2];
-  setupState.playingGroups=normalizePlayingGroups(ROUND?.playingGroups, [...setupState.team1, ...setupState.team2]);
+  setupState.playingGroups=(ROUND?.event && ROUND?.pairMatches?.length)
+    ? autoPlayingGroupsFromPairMatches(ROUND.pairMatches, [...setupState.team1,...setupState.team2], setupState.team1, setupState.team2)
+    : normalizePlayingGroups(ROUND?.playingGroups, [...setupState.team1,...setupState.team2]);
 }
 function resumeRound(){
   if(!ROUND) return;
@@ -2350,7 +2352,7 @@ async function launchEventRound(roundIdx){
   const cfg=EVENT.config, r=cfg.rounds[roundIdx];
   if(r.roundId){
     const { data, error } = await _db.from('rounds').select('id,group_id,state,completed,created_at').eq('id', r.roundId).maybeSingle();
-    if(!error && data){ ROUND=normalizeRound(data); saveState(); resumeRound(); return; }
+    if(!error && data){ ROUND=normalizeRound(data); ROUND.playingGroups=autoPlayingGroupsFromPairMatches(r.pairMatches||[], [...cfg.team1,...cfg.team2], cfg.team1, cfg.team2); saveState(); scheduleSync(); resumeRound(); return; }
   }
   ROUND={
     id:null, groupId:GROUP.id, event:{id:EVENT.id, roundIndex:roundIdx, name:EVENT.name || groupName()}, course:null,
@@ -2589,10 +2591,53 @@ function renderMatchupRows(){ const el=document.getElementById('matchup-rows'); 
 function swapMatchup(i,dir){ const j=i+dir; if(j<0||j>=setupState.matchupOrder.length) return; [setupState.matchupOrder[i],setupState.matchupOrder[j]]=[setupState.matchupOrder[j],setupState.matchupOrder[i]]; renderMatchupRows(); }
 function setupAssignedPlayers(){ return [...setupState.team1, ...setupState.team2]; }
 function ensureSetupPlayingGroups(){ setupState.playingGroups=normalizePlayingGroups(setupState.playingGroups, setupAssignedPlayers()); }
-function renderPlayingGroups(){ const section=document.getElementById('playing-groups-section'), rows=document.getElementById('playing-group-rows'); if(!section||!rows)return; if(!teamsAreReady(setupState.team1,setupState.team2)||setupState.pool.length>0){ section.style.display='none'; return; } section.style.display=''; ensureSetupPlayingGroups(); rows.innerHTML=setupAssignedPlayers().map(p=>{ const idx=Math.max(0, setupState.playingGroups.findIndex(g=>g.players.includes(p))); const teamLabel=setupState.team1.includes(p)?teamName('team1'):setupState.team2.includes(p)?teamName('team2'):''; return `<div class="roster-row"><span><strong>${escHtml(p)}</strong>${teamLabel?` <span class="muted" style="font-size:0.75rem">${escHtml(teamLabel)}</span>`:''}</span><select class="form-input" style="width:auto" onchange="setPlayingGroup('${escJs(p)}',this.value)">${setupState.playingGroups.map((g,i)=>`<option value="${i}" ${i===idx?'selected':''}>${escHtml(g.name || `Group ${i+1}`)}</option>`).join('')}</select></div>`; }).join(''); }
+function renderPlayingGroups(){
+  const section=document.getElementById('playing-groups-section'), rows=document.getElementById('playing-group-rows');
+  if(!section||!rows)return;
+  if(!teamsAreReady(setupState.team1,setupState.team2)||setupState.pool.length>0){ section.style.display='none'; return; }
+  section.style.display='';
+  ensureSetupPlayingGroups();
+  const pairs=ROUND?.event?(ROUND.pairMatches||[]):[];
+  const allPlayers=[...setupState.team1,...setupState.team2];
+  const groupOpts=(sel)=>setupState.playingGroups.map((g,i)=>`<option value="${i}" ${i===sel?'selected':''}>${escHtml(g.name||`Group ${i+1}`)}</option>`).join('');
+  if(pairs.length){
+    rows.innerHTML=pairs.map((m,mi)=>{
+      const aP=(m.a||[]).filter(p=>allPlayers.includes(p)), bP=(m.b||[]).filter(p=>allPlayers.includes(p));
+      if(!aP.length&&!bP.length)return'';
+      const aIdx=aP[0]!=null?Math.max(0,setupState.playingGroups.findIndex(g=>g.players.includes(aP[0]))):0;
+      const bIdx=bP[0]!=null?Math.max(0,setupState.playingGroups.findIndex(g=>g.players.includes(bP[0]))):0;
+      const aRow=aP.length?`<div class="roster-row"><span><strong>${aP.map(escHtml).join(' &amp; ')}</strong> <span class="muted" style="font-size:0.75rem">${escHtml(teamName('team1'))}</span></span><select class="form-input" style="width:auto" onchange="setPairSetupGroup(${mi},'a',this.value)">${groupOpts(aIdx)}</select></div>`:'';
+      const bRow=bP.length?`<div class="roster-row"><span><strong>${bP.map(escHtml).join(' &amp; ')}</strong> <span class="muted" style="font-size:0.75rem">${escHtml(teamName('team2'))}</span></span><select class="form-input" style="width:auto" onchange="setPairSetupGroup(${mi},'b',this.value)">${groupOpts(bIdx)}</select></div>`:'';
+      return `<div style="margin-bottom:0.5rem">${aRow}${bRow}</div>`;
+    }).join('');
+  } else {
+    rows.innerHTML=setupAssignedPlayers().map(p=>{
+      const idx=Math.max(0,setupState.playingGroups.findIndex(g=>g.players.includes(p)));
+      const tl=setupState.team1.includes(p)?teamName('team1'):setupState.team2.includes(p)?teamName('team2'):'';
+      return `<div class="roster-row"><span><strong>${escHtml(p)}</strong>${tl?` <span class="muted" style="font-size:0.75rem">${escHtml(tl)}</span>`:''}</span><select class="form-input" style="width:auto" onchange="setPlayingGroup('${escJs(p)}',this.value)">${setupState.playingGroups.map((g,i)=>`<option value="${i}" ${i===idx?'selected':''}>${escHtml(g.name||`Group ${i+1}`)}</option>`).join('')}</select></div>`;
+    }).join('');
+  }
+}
 function setPlayingGroup(player,groupIdx){ const idx=parseInt(groupIdx,10); if(Number.isNaN(idx)||!setupState.playingGroups[idx])return; setupState.playingGroups.forEach(g=>g.players=g.players.filter(p=>p!==player)); setupState.playingGroups[idx].players.push(player); renderPlayingGroups(); }
 function addPlayingGroup(){ ensureSetupPlayingGroups(); setupState.playingGroups.push({name:`Group ${setupState.playingGroups.length+1}`,players:[]}); renderPlayingGroups(); }
-function autoBuildPlayingGroups(){ setupState.playingGroups=autoPlayingGroupsForTeams(setupState.team1, setupState.team2); renderPlayingGroups(); }
+function autoBuildPlayingGroups(){
+  if(ROUND?.event && ROUND?.pairMatches?.length)
+    setupState.playingGroups=autoPlayingGroupsFromPairMatches(ROUND.pairMatches,[...setupState.team1,...setupState.team2],setupState.team1,setupState.team2);
+  else
+    setupState.playingGroups=autoPlayingGroupsForTeams(setupState.team1,setupState.team2);
+  renderPlayingGroups();
+}
+function setPairSetupGroup(matchIdx, side, groupIdx){
+  const idx=parseInt(groupIdx,10);
+  if(Number.isNaN(idx)||!setupState.playingGroups[idx]) return;
+  const m=ROUND?.pairMatches?.[matchIdx];
+  if(!m) return;
+  const allPlayers=[...setupState.team1,...setupState.team2];
+  const players=(m[side]||[]).filter(p=>allPlayers.includes(p));
+  setupState.playingGroups.forEach(g=>{ g.players=g.players.filter(p=>!players.includes(p)); });
+  setupState.playingGroups[idx].players.push(...players);
+  renderPlayingGroups();
+}
 function finishSetupTeams(){ applySetupTeamsToRound(); _setupTeamsConfirmed=true; showSetupGames(); }
 
 function showSetupGames(){ applySetupTeamsToRound(); ROUND.games=normalizeGames(ROUND.games); ensurePairMatches(); initScores(); initPutts(); renderSetupGames(); showScreen('setup-games'); }
