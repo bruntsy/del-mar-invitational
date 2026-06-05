@@ -2345,7 +2345,7 @@ function renderSetupCourse(){
   const wrap=document.getElementById('setup-course-content');
   const eventRound=!!ROUND?.event;
   const backAction=eventRound?'showHub()':'showHub()';
-  const nextAction=eventRound?'showSetupGames()':'showSetupPlayers()';
+  const nextAction=eventRound?'continueFromEventCourse()':'showSetupPlayers()';
   wrap.innerHTML=`
     <div class="setup-step-top"><div class="setup-step-title">Course Search</div><button class="group-btn sm" onclick="${backAction}">Back</button></div>
     <input id="course-search-input" class="form-input course-search-input" type="search" placeholder="Search by course name" oninput="onCourseSearchInput(this.value)">
@@ -2355,6 +2355,12 @@ function renderSetupCourse(){
     <div id="hcp-preview"></div>
     <div class="setup-step-nav"><button class="group-btn" onclick="${backAction}">Back</button><button id="course-next-btn" class="group-btn primary" onclick="${nextAction}" ${ROUND?.course?'':'disabled'}>Next &rarr;</button></div>`;
   if(ROUND?.course){ renderSelectedCourse(); renderHandicapPreview(); }
+}
+function continueFromEventCourse(){
+  if(!ROUND?.event || !ROUND.course) return;
+  ROUND.games=normalizeGames(ROUND.games);
+  _setupTeamsConfirmed=true;
+  startRound(false);
 }
 function onCourseSearchInput(q){ clearTimeout(_courseSearchTimer); const status=document.getElementById('course-search-status'); if((q||'').trim().length<3){ status.textContent='Enter at least 3 characters.'; document.getElementById('course-results').innerHTML=''; return; } status.textContent='Searching...'; _courseSearchTimer=setTimeout(()=>courseSearch(q),500); }
 async function courseSearch(query){
@@ -2539,8 +2545,8 @@ function readEnabled(key){ return !!document.getElementById(`game-${key}`)?.chec
 function readType(key){ return document.getElementById(`type-${key}`)?.value || 'net'; }
 function saveGames(){ ROUND.games=normalizeGames({ skins:{enabled:readEnabled('skins'),pot:readMoney('bet-skins'),type:readType('skins'),carry:false}, bestBall:{enabled:readEnabled('bestBall'),front:readMoney('bet-bb-front'),back:readMoney('bet-bb-back'),total:readMoney('bet-bb-total'),balls:1,type:readType('bestBall')}, pairMatch:{enabled:readEnabled('pairMatch'),pointsPerHole:readMoney('pts-pair-match')||1,type:readType('pairMatch')}, scramble4:{enabled:readEnabled('scramble4'),front:readMoney('bet-scramble4-front'),back:readMoney('bet-scramble4-back'),total:readMoney('bet-scramble4-total'),type:'gross'}, twoBall:{enabled:readEnabled('twoBall'),front:readMoney('bet-tb-front'),back:readMoney('bet-tb-back'),total:readMoney('bet-tb-total'),type:readType('twoBall')}, aggy:{enabled:readEnabled('aggy'),front:readMoney('bet-aggy-front'),back:readMoney('bet-aggy-back'),total:readMoney('bet-aggy-total'),type:readType('aggy')}, h2h:{enabled:readEnabled('h2h'),perMatchup:readMoney('bet-h2h'),type:readType('h2h')}, stableford:{enabled:readEnabled('stableford'),buyIn:readMoney('bet-stableford'),type:readType('stableford'),points:DEFAULT_GAMES.stableford.points}, threeManNassau:{enabled:readEnabled('threeManNassau'),amount:readMoney('bet-3man'),type:readType('threeManNassau')}, wolf:{enabled:readEnabled('wolf'),amount:readMoney('bet-wolf'),type:readType('wolf'),nassau:!!document.getElementById('wolf-nassau')?.checked}, puttPoker:{enabled:readEnabled('puttPoker'),pot:readMoney('bet-pp')} }); updateGameSummary(); saveState(); scheduleSync(); }
 function toggleGameConfig(){ saveGames(); renderSetupGames(); }
-function continueFromGamesSetup(){ saveGames(); applySetupTeamsToRound(); if(gamesNeedTeams(ROUND.games)&&(!_setupTeamsConfirmed||!roundTeamsReady())){ showSetupTeams('showSetupGames()'); return; } startRound(); }
-async function startRound(){ saveGames(); ROUND.groupId=GROUP.id; ROUND.completed=false; initScores(); initPutts(); const eventMeta=ROUND.event||null, payload=roundForDb(); const { data,error }=await _db.from('rounds').insert({ group_id:GROUP.id, code:groupCode(), state:payload, completed:false }).select('id,group_id,state,completed').single(); if(error){ alert('Error starting round: '+error.message); return; } ROUND=normalizeRound(data); if(eventMeta&&EVENT?.config?.rounds?.[eventMeta.roundIndex]){ EVENT.config.rounds[eventMeta.roundIndex].roundId=ROUND.id; EVENT.config.rounds[eventMeta.roundIndex].format=EVENT.config.rounds[eventMeta.roundIndex].format||'custom'; await saveEvent(); } mobileHole=0; localStorage.setItem(mobileHoleStorageKey(), '0'); saveState(); subscribeToGroup(); renderScorecard(); showScreen('scorecard'); }
+function continueFromGamesSetup(){ saveGames(); applySetupTeamsToRound(); if(gamesNeedTeams(ROUND.games)&&(!_setupTeamsConfirmed||!roundTeamsReady())){ showSetupTeams('showSetupGames()'); return; } startRound(false); }
+async function startRound(readGamesForm=true){ if(readGamesForm) saveGames(); else ROUND.games=normalizeGames(ROUND.games); ROUND.groupId=GROUP.id; ROUND.completed=false; initScores(); initPutts(); const eventMeta=ROUND.event||null, payload=roundForDb(); const { data,error }=await _db.from('rounds').insert({ group_id:GROUP.id, code:groupCode(), state:payload, completed:false }).select('id,group_id,state,completed').single(); if(error){ alert('Error starting round: '+error.message); return; } ROUND=normalizeRound(data); if(eventMeta&&EVENT?.config?.rounds?.[eventMeta.roundIndex]){ EVENT.config.rounds[eventMeta.roundIndex].roundId=ROUND.id; EVENT.config.rounds[eventMeta.roundIndex].format=EVENT.config.rounds[eventMeta.roundIndex].format||'custom'; await saveEvent(); } mobileHole=0; localStorage.setItem(mobileHoleStorageKey(), '0'); saveState(); subscribeToGroup(); renderScorecard(); showScreen('scorecard'); }
 function returnFromGamesConfig(){ if(_gamesReturnScreen==='results'){ renderResults(); showScreen('results'); return; } renderScorecard(); showScreen('scorecard'); }
 async function saveRoundGamesConfig(){ if(!ROUND?.id)return; saveGames(); initScores(); initPutts(); await pushToSupabase(); returnFromGamesConfig(); }
 function roundShareUrl(){
