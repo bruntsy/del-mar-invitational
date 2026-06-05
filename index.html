@@ -1700,6 +1700,7 @@
     </div>
     <div style="text-align:right">
       <div class="sc-topbar-btns">
+        <button class="btn-ghost" onclick="showHub()">&#8592; Group</button>
         <button class="btn-ghost" onclick="showRoundSetupConfig()">Setup</button>
         <button class="btn-ghost" onclick="showRoundGamesConfig()">Games</button>
         <button class="btn-ghost" onclick="shareRound()">Share</button>
@@ -2611,7 +2612,7 @@ function saveGames(){ ROUND.games=normalizeGames({ skins:{enabled:readEnabled('s
 function toggleGameConfig(){ saveGames(); renderSetupGames(); }
 function continueFromGamesSetup(){ saveGames(); applySetupTeamsToRound(); if(gamesNeedTeams(ROUND.games)&&(!_setupTeamsConfirmed||!roundTeamsReady())){ showSetupTeams('showSetupGames()'); return; } startRound(false); }
 async function startRound(readGamesForm=true){ if(readGamesForm) saveGames(); else ROUND.games=normalizeGames(ROUND.games); ROUND.groupId=GROUP.id; ROUND.completed=false; initScores(); initPutts(); const eventMeta=ROUND.event||null, payload=roundForDb(); const { data,error }=await _db.from('rounds').insert({ group_id:GROUP.id, code:groupCode(), state:payload, completed:false }).select('id,group_id,state,completed').single(); if(error){ alert('Error starting round: '+error.message); return; } ROUND=normalizeRound(data); if(eventMeta&&EVENT?.config?.rounds?.[eventMeta.roundIndex]){ EVENT.config.rounds[eventMeta.roundIndex].roundId=ROUND.id; EVENT.config.rounds[eventMeta.roundIndex].format=EVENT.config.rounds[eventMeta.roundIndex].format||'custom'; await saveEvent(); } mobileHole=0; localStorage.setItem(mobileHoleStorageKey(), '0'); saveState(); subscribeToGroup(); renderScorecard(); showScreen('scorecard'); }
-function returnFromGamesConfig(){ if(_gamesReturnScreen==='results'){ renderResults(); showScreen('results'); return; } renderScorecard(); showScreen('scorecard'); }
+function returnFromGamesConfig(){ if(_gamesReturnScreen==='results'){ renderResults(); showScreen('results'); return; } if(ROUND?.event){ showHub(); return; } renderScorecard(); showScreen('scorecard'); }
 async function saveRoundGamesConfig(){ if(!ROUND?.id)return; saveGames(); initScores(); initPutts(); await pushToSupabase(); returnFromGamesConfig(); }
 function roundShareUrl(){
   const url=new URL(window.location.href);
