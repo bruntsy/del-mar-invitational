@@ -1304,6 +1304,8 @@
     .code-input { width: 92px; text-transform: uppercase; text-align: center; letter-spacing: 0.22em; font-weight: 700; }
     .hub-top { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap; margin-bottom:1.5rem; }
     .hub-name { font-family:'Playfair Display',serif; font-size:1.7rem; font-weight:700; color:var(--text-dark); }
+    .hub-name-edit { display:flex; gap:0.45rem; align-items:center; flex-wrap:wrap; margin-top:0.55rem; max-width:420px; }
+    .hub-name-edit .form-input { height:36px; flex:1; min-width:190px; }
     .group-code-badge { display:inline-flex; align-items:center; gap:0.45rem; margin-top:0.35rem; color:var(--gold-dark); font-weight:700; letter-spacing:0.18em; text-transform:uppercase; }
     .hub-grid { display:grid; grid-template-columns:1.1fr 0.9fr; gap:1rem; }
     .hub-panel { background:var(--panel-white); border:1.5px solid var(--panel-border); border-radius:3px; padding:1rem 1.1rem; }
@@ -1330,7 +1332,7 @@
     .pair-match-vs { color:var(--text-faint); font-family:'Playfair Display',serif; font-style:italic; padding-bottom:0.65rem; }
     .selected-course-box { background:#fff7ea; border:1.5px solid var(--gold); border-radius:3px; padding:0.9rem 1rem; margin:0.8rem 0; }
     .empty-state { color:var(--text-light); font-style:italic; font-size:0.82rem; padding:0.8rem 0; }
-    @media (max-width: 760px) { .hub-grid { grid-template-columns:1fr; } .form-row { align-items:stretch; } .form-input.grow, .group-btn { width:100%; } .code-input { width:100%; } .recent-group-row { align-items:stretch; flex-direction:column; } .recent-group-actions { width:100%; } .recent-group-actions .group-btn { width:auto; flex:1; } .team-name-row { grid-template-columns:1fr; } .pair-match-row { grid-template-columns:1fr; } .pair-match-side { grid-template-columns:1fr; } .pair-match-vs { padding:0; text-align:center; } .mobile-hole-entry { display:block; background:var(--panel); border-bottom:2px solid var(--gold); padding:0.8rem; } .mobile-hole-head { display:flex; justify-content:space-between; align-items:center; gap:0.6rem; margin-bottom:0.7rem; } .mobile-hole-title { font-family:'Playfair Display',serif; font-size:1rem; font-weight:700; color:var(--text-dark); } .mobile-hole-grid { display:grid; gap:0.55rem; } .mobile-hole-row { display:grid; grid-template-columns:minmax(0,1fr) 74px 74px; align-items:center; gap:0.55rem; background:var(--panel-white); border:1px solid var(--panel-border); border-radius:4px; padding:0.55rem 0.65rem; } .mobile-hole-player { font-weight:700; color:var(--text-dark); } .mobile-hole-meta { color:var(--text-light); font-size:0.68rem; margin-top:0.1rem; } .mobile-hole-field { display:flex; flex-direction:column; gap:0.18rem; } .mobile-hole-label { font-size:0.56rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-faint); text-align:center; } .mobile-score-input { width:74px; height:42px; border:1.5px solid var(--panel-border); border-radius:3px; text-align:center; font-size:1rem; font-weight:700; background:var(--panel); color:var(--text-dark); } .mobile-hole-actions { display:flex; gap:0.5rem; margin-top:0.75rem; } .mobile-hole-actions .group-btn { width:auto; flex:1; } }
+    @media (max-width: 760px) { .hub-grid { grid-template-columns:1fr; } .hub-name-edit { max-width:none; } .hub-name-edit .form-input, .hub-name-edit .group-btn { width:auto; flex:1; } .form-row { align-items:stretch; } .form-input.grow, .group-btn { width:100%; } .code-input { width:100%; } .recent-group-row { align-items:stretch; flex-direction:column; } .recent-group-actions { width:100%; } .recent-group-actions .group-btn { width:auto; flex:1; } .team-name-row { grid-template-columns:1fr; } .pair-match-row { grid-template-columns:1fr; } .pair-match-side { grid-template-columns:1fr; } .pair-match-vs { padding:0; text-align:center; } .mobile-hole-entry { display:block; background:var(--panel); border-bottom:2px solid var(--gold); padding:0.8rem; } .mobile-hole-head { display:flex; justify-content:space-between; align-items:center; gap:0.6rem; margin-bottom:0.7rem; } .mobile-hole-title { font-family:'Playfair Display',serif; font-size:1rem; font-weight:700; color:var(--text-dark); } .mobile-hole-grid { display:grid; gap:0.55rem; } .mobile-hole-row { display:grid; grid-template-columns:minmax(0,1fr) 74px 74px; align-items:center; gap:0.55rem; background:var(--panel-white); border:1px solid var(--panel-border); border-radius:4px; padding:0.55rem 0.65rem; } .mobile-hole-player { font-weight:700; color:var(--text-dark); } .mobile-hole-meta { color:var(--text-light); font-size:0.68rem; margin-top:0.1rem; } .mobile-hole-field { display:flex; flex-direction:column; gap:0.18rem; } .mobile-hole-label { font-size:0.56rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-faint); text-align:center; } .mobile-score-input { width:74px; height:42px; border:1.5px solid var(--panel-border); border-radius:3px; text-align:center; font-size:1rem; font-weight:700; background:var(--panel); color:var(--text-dark); } .mobile-hole-actions { display:flex; gap:0.5rem; margin-top:0.75rem; } .mobile-hole-actions .group-btn { width:auto; flex:1; } }
     @media (max-width: 760px) {
       .pair-live-panel { padding: 0.75rem 0.8rem; }
       .pair-live-title { flex-direction: column; gap: 0.25rem; }
@@ -1997,7 +1999,15 @@ function renderHub(){
   const roundAction=active ? 'Resume Round' : 'Continue Setup';
   wrap.innerHTML=`
     <div class="hub-top">
-      <div><div class="hub-name">${escHtml(groupName())}</div><div class="group-code-badge">Group ${escHtml(groupCode())}</div></div>
+      <div>
+        <div class="hub-name">${escHtml(groupName())}</div>
+        <div class="hub-name-edit">
+          <input id="hub-group-name-input" class="form-input" type="text" value="${escHtml(groupName())}" maxlength="80" aria-label="Group name" onkeydown="if(event.key==='Enter')updateGroupName()">
+          <button class="group-btn sm" onclick="updateGroupName()">Save Name</button>
+        </div>
+        <div id="hub-group-name-status" class="group-status-msg"></div>
+        <div class="group-code-badge">Group ${escHtml(groupCode())}</div>
+      </div>
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap"><button class="group-btn" onclick="showHistory()">Past Rounds</button><button class="group-btn" onclick="showStats()">All-Time Stats</button><button class="group-btn" onclick="leaveGroup()">Leave Group</button></div>
     </div>
     <div class="hub-grid">
@@ -2019,6 +2029,27 @@ function renderHub(){
     </div>`;
 }
 function leaveGroup(){ stopGroupSubscription(); GROUP=null; ROUND=null; saveState(); showScreen('home'); }
+function setGroupNameStatus(msg,isErr){ const el=document.getElementById('hub-group-name-status'); if(el){ el.textContent=msg||''; el.style.color=isErr?'#c0392b':'var(--text-light)'; } }
+async function updateGroupName(){
+  if(!GROUP?.id) return;
+  const input=document.getElementById('hub-group-name-input');
+  const name=(input?.value || '').trim();
+  if(!name){ setGroupNameStatus('Enter a group name.', true); return; }
+  if(name===groupName()){ setGroupNameStatus(''); return; }
+  setGroupNameStatus('Saving...');
+  const previous=GROUP.name;
+  GROUP.name=name;
+  const { error } = await _db.from('groups').update({ name, players:GROUP.players || {} }).eq('id', GROUP.id);
+  if(error){
+    GROUP.name=previous;
+    if(input) input.value=groupName();
+    setGroupNameStatus('Error: '+error.message, true);
+    return;
+  }
+  saveState();
+  rememberGroup();
+  renderHub();
+}
 function setHubRosterStatus(msg,isErr){ const el=document.getElementById('hub-roster-status'); if(el){ el.textContent=msg||''; el.style.color=isErr?'#c0392b':'var(--text-light)'; } }
 async function addHubPlayer(){
   const name=(document.getElementById('hub-player-name')?.value||'').trim();
