@@ -1325,6 +1325,8 @@
     .event-round-card .event-round-head .event-field:last-child { max-width:320px; }
     .event-score-box { display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-top:0.55rem; }
     .event-score-box .form-input { width:86px; height:36px; }
+    .event-result-box { border-top:1px solid var(--panel-border); margin-top:0.85rem; padding-top:0.75rem; }
+    .event-result-grid { display:grid; grid-template-columns:repeat(2,minmax(0,180px)); gap:0.75rem; margin-top:0.5rem; }
     .recent-groups { margin-top:1.8rem; }
     .recent-group-row { display:flex; align-items:center; justify-content:space-between; gap:0.75rem; border:1px solid var(--panel-border); border-radius:3px; background:var(--panel-white); padding:0.75rem 0.85rem; margin-bottom:0.6rem; }
     .recent-group-name { font-family:'Playfair Display',serif; font-size:0.95rem; font-weight:700; color:var(--text-dark); }
@@ -2224,8 +2226,19 @@ function renderEventRoundConfig(r,i,cfg){
       ${eventInputField('Putt poker buy-in', `<input id="event-r${i}-pp-pot" class="form-input" type="number" min="0" value="${r.puttPoker.pot||''}" placeholder="$ per player">`)}
       <div class="event-field"><div class="event-field-label">Putt poker scope</div><div class="event-field-help">Displays by playing group when the round is started.</div></div>
     </div>
-    <div class="event-score-box"><span class="muted">Manual event points:</span><input id="event-r${i}-team1-points" class="form-input" type="number" min="0" step="0.5" value="${r.pointsResult.team1??''}" placeholder="${escHtml(cfg.teamNames.team1)}" data-event-team-placeholder="team1"><input id="event-r${i}-team2-points" class="form-input" type="number" min="0" step="0.5" value="${r.pointsResult.team2??''}" placeholder="${escHtml(cfg.teamNames.team2)}" data-event-team-placeholder="team2">${r.roundId?`<button class="group-btn sm" onclick="launchEventRound(${i})">Open Round</button>`:''}</div>
+    <div class="event-result-box">
+      <div class="event-field-label">Round result points</div>
+      <div class="event-field-help">Optional after play. Enter the team points won in this round to update the event scoreboard.</div>
+      <div class="event-result-grid">
+        ${eventTeamPointField('team1',cfg.teamNames.team1,`event-r${i}-team1-points`,r.pointsResult.team1)}
+        ${eventTeamPointField('team2',cfg.teamNames.team2,`event-r${i}-team2-points`,r.pointsResult.team2)}
+      </div>
+      ${r.roundId?`<div style="margin-top:0.65rem"><button class="group-btn sm" onclick="launchEventRound(${i})">Open Round</button></div>`:''}
+    </div>
     ${pairUi}</div>`;
+}
+function eventTeamPointField(key,label,id,value){
+  return `<div class="event-field"><label class="event-field-label"><span data-event-team-label="${key}">${escHtml(label)}</span> points</label><input id="${id}" class="form-input" type="number" min="0" step="0.5" value="${value??''}" placeholder="0"></div>`;
 }
 function eventPairSelect(roundIdx,matchIdx,side,slot,value,players,label){ const key=side==='a'?'team1':'team2'; return `<div class="game-field"><label class="game-field-label"><span data-event-team-label="${key}">${escHtml(label)}</span> ${slot+1}</label><select class="form-input" onchange="setEventPairPlayer(${roundIdx},${matchIdx},'${side}',${slot},this.value)">${[''].concat(players).map(p=>`<option value="${escHtml(p)}" ${p===value?'selected':''}>${p?escHtml(p):'Open'}</option>`).join('')}</select></div>`; }
 function setEventBuilderStatus(msg,isErr){ const el=document.getElementById('event-builder-status'); if(el){ el.textContent=msg||''; el.style.color=isErr?'#c0392b':'var(--text-light)'; } }
