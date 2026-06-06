@@ -1796,6 +1796,9 @@ const RECENT_GROUPS_KEY = 'dmi_recent_groups';
 let GROUP = null;
 let ROUND = null;
 let EVENT = null;
+let EVENT_ROUND_ROWS = [];
+let EVENT_ROUND_CACHE_KEY = '';
+let EVENT_ROUND_CACHE_LOADING = false;
 let GROUP_CHANNEL = null;
 let _syncTimer = null;
 let _pollTimer = null;
@@ -2161,6 +2164,34 @@ function showHub(){
   loadActiveEvent().then(()=>{ if(document.getElementById('hub-content') && !_eventBuilderOpen) renderHub(); });
   showScreen('hub');
 }
+function eventRoundCacheKey(cfg=EVENT?.config){ const ids=(cfg?.rounds||[]).map(r=>r.roundId).filter(Boolean); return `${EVENT?.id||'draft'}:${ids.join(',')}`; }
+async function refreshEventRoundCache(rerender=false){
+  if(!GROUP?.id || !EVENT?.config || EVENT_ROUND_CACHE_LOADING) return;
+  const cfg=normalizeEventConfig(EVENT.config||{}), ids=cfg.rounds.map(r=>r.roundId).filter(Boolean), key=eventRoundCacheKey(cfg);
+  if(!ids.length){ EVENT_ROUND_ROWS=[]; EVENT_ROUND_CACHE_KEY=key; return; }
+  if(EVENT_ROUND_CACHE_KEY===key && EVENT_ROUND_ROWS.length===ids.length) return;
+  EVENT_ROUND_CACHE_LOADING=true;
+  const {data,error}=await _db.from('rounds').select('id,state,completed,completed_at,created_at').in('id',ids);
+  EVENT_ROUND_CACHE_LOADING=false;
+  if(error){ console.warn('Event rounds load failed', error); return; }
+  if(key!==eventRoundCacheKey(normalizeEventConfig(EVENT?.config||{}))) return;
+  EVENT_ROUND_ROWS=data||[];
+  EVENT_ROUND_CACHE_KEY=key;
+  if(rerender && document.getElementById('hub-screen')?.style.display!=='none' && !_eventBuilderOpen) renderHub();
+}
+function eventComputedStandings(cfg, rows=[]){
+  const byId={}; (rows||[]).forEach(r=>byId[r.id]=r);
+  if(ROUND?.id && (cfg.rounds||[]).some(r=>r.roundId===ROUND.id)) byId[ROUND.id]={id:ROUND.id,state:ROUND,completed:ROUND.completed};
+  const totals={team1:0,team2:0,available:0}, roundScores=[];
+  cfg.rounds.forEach((r,i)=>{
+    totals.available+=sum(Object.values(r.points||{}).map(Number))*Math.max(1,r.pairMatches?.length||1);
+    const row=byId[r.roundId], st=row? (typeof row.state==='string'?JSON.parse(row.state):row.state) : null, res=st?eventRoundResultFromState(st,row,cfg,i):null;
+    const team1=res?res.team1:Number(r.pointsResult?.team1||0), team2=res?res.team2:Number(r.pointsResult?.team2||0);
+    totals.team1+=team1; totals.team2+=team2;
+    roundScores.push({team1,team2,live:!!res, row});
+  });
+  return {totals,roundScores};
+}
 function renderHub(){
   _eventBuilderOpen=false;
   const wrap=document.getElementById('hub-content');
@@ -2200,11 +2231,12 @@ function renderHub(){
       </div>
       ${renderEventHubPanel()}
     </div>`;
+  refreshEventRoundCache(true);
 }
 function renderEventHubPanel(){
   if(!EVENT) return `<div class="hub-panel wide"><div class="hub-panel-title">Team Event</div><div class="empty-state">No active event configured.</div><div style="margin-top:0.8rem"><button class="group-btn primary" onclick="createTeamEvent()">Create Event</button></div></div>`;
-  const cfg=normalizeEventConfig(EVENT.config||{}), totals=eventStandings(cfg);
-  return `<div class="hub-panel wide"><div class="hub-panel-title">Team Event</div><div class="event-round-head"><div><div class="active-round-name">${escHtml(EVENT.name || groupName())}</div><div class="muted">${cfg.rounds.length} round${cfg.rounds.length===1?'':'s'} / ${escHtml(cfg.teamNames.team1)} ${totals.team1} - ${totals.team2} ${escHtml(cfg.teamNames.team2)} / Win at ${cfg.winPoints}</div></div><div style="display:flex;gap:0.5rem;flex-wrap:wrap"><button class="group-btn primary" onclick="showEventLeaderboard()">Leaderboard</button><button class="group-btn" onclick="renderEventBuilder()">Configure Event</button></div></div>${cfg.rounds.map((r,i)=>`<div class="event-round-card"><div class="event-round-head"><div><div class="event-round-title">${escHtml(r.name || `Round ${i+1}`)}</div><div class="muted">${escHtml(eventFormatLabel(r.format))} / ${Number(r.pointsResult?.team1||0)} - ${Number(r.pointsResult?.team2||0)}</div></div><button class="group-btn sm primary" onclick="launchEventRound(${i})">${r.roundId?'Open Round':'Start Round'}</button></div></div>`).join('')}</div>`;
+  const cfg=normalizeEventConfig(EVENT.config||{}), live=eventComputedStandings(cfg, EVENT_ROUND_CACHE_KEY===eventRoundCacheKey(cfg)?EVENT_ROUND_ROWS:[]);
+  return `<div class="hub-panel wide"><div class="hub-panel-title">Team Event</div><div class="event-round-head"><div><div class="active-round-name">${escHtml(EVENT.name || groupName())}</div><div class="muted">${cfg.rounds.length} round${cfg.rounds.length===1?'':'s'} / ${escHtml(cfg.teamNames.team1)} ${live.totals.team1} - ${live.totals.team2} ${escHtml(cfg.teamNames.team2)} / Win at ${cfg.winPoints}</div></div><div style="display:flex;gap:0.5rem;flex-wrap:wrap"><button class="group-btn primary" onclick="showEventLeaderboard()">Leaderboard</button><button class="group-btn" onclick="renderEventBuilder()">Configure Event</button></div></div>${cfg.rounds.map((r,i)=>`<div class="event-round-card"><div class="event-round-head"><div><div class="event-round-title">${escHtml(r.name || `Round ${i+1}`)}</div><div class="muted">${escHtml(eventFormatLabel(r.format))} / ${live.roundScores[i]?.team1||0} - ${live.roundScores[i]?.team2||0}${live.roundScores[i]?.live?' live':''}</div></div><button class="group-btn sm primary" onclick="launchEventRound(${i})">${r.roundId?'Open Round':'Start Round'}</button></div></div>`).join('')}</div>`;
 }
 function leaveGroup(){ stopGroupSubscription(); GROUP=null; ROUND=null; saveState(); showScreen('home'); }
 function setGroupNameStatus(msg,isErr){ const el=document.getElementById('hub-group-name-status'); if(el){ el.textContent=msg||''; el.style.color=isErr?'#c0392b':'var(--text-light)'; } }
@@ -2281,23 +2313,11 @@ function renderEventRoundConfig(r,i,cfg){
       ${eventInputField('Putt poker buy-in', `<input id="event-r${i}-pp-pot" class="form-input" type="number" min="0" value="${r.puttPoker.pot||''}" placeholder="$ per player">`)}
       <div class="event-field"><div class="event-field-label">Putt poker scope</div><div class="event-field-help">Displays by playing group when the round is started.</div></div>
     </div>
-    <div class="event-result-box">
-      <div class="event-field-label">Round result points</div>
-      <div class="event-field-help">Optional after play. Enter the team points won in this round to update the event scoreboard.</div>
-      <div class="event-result-grid">
-        ${eventTeamPointField('team1',cfg.teamNames.team1,`event-r${i}-team1-points`,r.pointsResult.team1)}
-        ${eventTeamPointField('team2',cfg.teamNames.team2,`event-r${i}-team2-points`,r.pointsResult.team2)}
-      </div>
-      ${r.roundId?`<div style="margin-top:0.65rem"><button class="group-btn sm" onclick="launchEventRound(${i})">Open Round</button></div>`:''}
-    </div>
+    ${r.roundId?`<div style="margin-top:0.65rem"><button class="group-btn sm" onclick="launchEventRound(${i})">Open Round</button></div>`:''}
     ${pairUi}</div>`;
-}
-function eventTeamPointField(key,label,id,value){
-  return `<div class="event-field"><label class="event-field-label"><span data-event-team-label="${key}">${escHtml(label)}</span> points</label><input id="${id}" class="form-input" type="number" min="0" step="0.5" value="${value??''}" placeholder="0"></div>`;
 }
 function eventPairSelect(roundIdx,matchIdx,side,slot,value,players,label){ const key=side==='a'?'team1':'team2'; return `<div class="game-field"><label class="game-field-label"><span data-event-team-label="${key}">${escHtml(label)}</span> ${slot+1}</label><select class="form-input" onchange="setEventPairPlayer(${roundIdx},${matchIdx},'${side}',${slot},this.value)">${[''].concat(players).map(p=>`<option value="${escHtml(p)}" ${p===value?'selected':''}>${p?escHtml(p):'Open'}</option>`).join('')}</select></div>`; }
 function setEventBuilderStatus(msg,isErr){ const el=document.getElementById('event-builder-status'); if(el){ el.textContent=msg||''; el.style.color=isErr?'#c0392b':'var(--text-light)'; } }
-function readNullableNumber(id){ const raw=document.getElementById(id)?.value; if(raw===''||raw==null)return null; const v=parseFloat(raw); return Number.isNaN(v)?null:v; }
 function setEventTeamName(key,value){
   if(!EVENT) return;
   EVENT.config=EVENT.config || defaultEventConfig();
@@ -2327,7 +2347,7 @@ function readEventBuilder(normalize=true){
     r.points={front:parseFloat(document.getElementById(`event-r${i}-front`)?.value||0)||0,back:parseFloat(document.getElementById(`event-r${i}-back`)?.value||0)||0,total:parseFloat(document.getElementById(`event-r${i}-total`)?.value||0)||0};
     r.skins={enabled:!!document.getElementById(`event-r${i}-skins-enabled`)?.checked,pot:parseInt(document.getElementById(`event-r${i}-skins-pot`)?.value||'0',10)||0,type:document.getElementById(`event-r${i}-skins-type`)?.value||'net'};
     r.puttPoker={enabled:!!document.getElementById(`event-r${i}-pp-enabled`)?.checked,pot:parseInt(document.getElementById(`event-r${i}-pp-pot`)?.value||'0',10)||0,scope:'playingGroup'};
-    r.pointsResult={team1:readNullableNumber(`event-r${i}-team1-points`),team2:readNullableNumber(`event-r${i}-team2-points`)};
+    r.pointsResult=r.pointsResult||{team1:null,team2:null};
   });
   EVENT.config=normalize?normalizeEventConfig(cfg):cfg;
 }
@@ -3212,7 +3232,7 @@ async function pushToSupabase(){
   _lastPushed=payload;
   await _db.from('rounds').update({ state, completed:ROUND.completed||false }).eq('id',ROUND.id);
 }
-function subscribeToGroup(){ if(!GROUP?.id)return; stopGroupSubscription(); GROUP_CHANNEL=_db.channel('group-'+GROUP.id).on('postgres_changes',{event:'*',schema:'public',table:'rounds',filter:`group_id=eq.${GROUP.id}`},payload=>{ const row=payload.new; if(!row?.state)return; const incoming=typeof row.state==='string'?row.state:JSON.stringify(row.state); if(incoming===_lastPushed)return; const next=normalizeRound(row); if(payload.eventType==='INSERT' && !next.completed){ ROUND=next; saveState(); if(!_eventBuilderOpen) renderHub(); return; } if(ROUND?.id && row.id===ROUND.id) applyRemoteRound(next); }).subscribe(); startPolling(); }
+function subscribeToGroup(){ if(!GROUP?.id)return; stopGroupSubscription(); GROUP_CHANNEL=_db.channel('group-'+GROUP.id).on('postgres_changes',{event:'*',schema:'public',table:'rounds',filter:`group_id=eq.${GROUP.id}`},payload=>{ EVENT_ROUND_CACHE_KEY=''; const row=payload.new; if(!row?.state)return; const incoming=typeof row.state==='string'?row.state:JSON.stringify(row.state); if(incoming===_lastPushed)return; const next=normalizeRound(row); if(payload.eventType==='INSERT' && !next.completed){ ROUND=next; saveState(); if(!_eventBuilderOpen) renderHub(); return; } if(ROUND?.id && row.id===ROUND.id) applyRemoteRound(next); }).subscribe(); startPolling(); }
 function stopGroupSubscription(){ if(GROUP_CHANNEL){ _db.removeChannel(GROUP_CHANNEL); GROUP_CHANNEL=null; } if(_pollTimer){ clearInterval(_pollTimer); _pollTimer=null; } }
 function applyRemoteRound(remote){
   const before=JSON.stringify({scores:ROUND?.scores||{}, putts:ROUND?.putts||{}});
@@ -3246,6 +3266,8 @@ async function showEventLeaderboard(){
     if(error){ wrap.innerHTML+=`<div style="color:#c0392b">${escHtml(error.message)}</div>`; return; }
     rows=data||[];
   }
+  EVENT_ROUND_ROWS=rows;
+  EVENT_ROUND_CACHE_KEY=eventRoundCacheKey(cfg);
   renderEventLeaderboard(cfg, rows);
 }
 function eventRoundResultFromState(st,row,cfg,idx){
