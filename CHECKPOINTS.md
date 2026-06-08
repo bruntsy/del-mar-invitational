@@ -990,24 +990,74 @@ Next recommended steps:
 3. Add Wolf live/results UX once pair-match parity is in better shape.
 4. Keep README and checkpoints current before each push.
 
-## Current Handoff: Setup, Scorecard, Results, and Scramble Flow Live
+## Checkpoint 21: Derived Team Format Rows
 
 Date: 2026-06-08
 
 Branch:
 
 - `rewrite`
-- Scramble team-row commit will be the latest after this checkpoint is pushed.
-- Worktree status at handoff: clean after pushing Checkpoint 20.
+- Previous pushed commit: `5e1beea Add scramble team scoring rows`
+
+Files changed since Checkpoint 20:
+
+- Updated `src/stores/round.ts`.
+- Updated `src/components/screens/ScorecardScreen.vue`.
+- Updated `tests/stores/round.test.ts`.
+- Updated `tests/screens/scorecard.test.ts`.
+- Updated `README.md`.
+- Updated this checkpoint file.
+
+Implementation notes:
+
+- Added `store.scorecardTeamRowsFor(teamKey)` to expose scorecard-ready derived
+  team rows while keeping scoring logic out of the component.
+- The store now returns Best Ball and 2-Ball row values from
+  `computeTeamHoleStats()` / `computeTeamTotals()` with the active game score
+  type.
+- Scorecard renders those rows under each team when Best Ball or 2-Ball are
+  enabled.
+- Rows are read-only, matching the legacy behavior: player score edits drive
+  the derived team row values.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 21 files, 145 tests.
+- `npm run build`: passed.
+- Browser QA at `http://127.0.0.1:5173/`:
+  - Demo scorecard rendered Best Ball rows.
+  - Entering player scores updated the derived row values.
+  - No page-level horizontal overflow was detected.
+
+Next recommended steps:
+
+1. Add pair-match setup configuration.
+2. Add pair-match live and results panels.
+3. Add Wolf live/results UX.
+4. Then move toward group/Supabase course search, membership, history, and
+   realtime sync.
+
+## Current Handoff: Setup, Scorecard, Results, and Team Rows Live
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Derived team-row commit will be the latest after this checkpoint is pushed.
+- Worktree status at handoff: clean after pushing Checkpoint 21.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
   branch should create deployments.
 
 Most recent verification:
 
 - `node scripts/event-format-tests.js`: passed.
-- `npm run test:run`: passed, 21 files, 143 tests.
+- `npm run test:run`: passed, 21 files, 145 tests.
 - `npm run build`: passed.
-- Browser QA: setup -> scramble-enabled scorecard path passed.
+- Browser QA:
+  - setup -> scramble-enabled scorecard path passed.
+  - demo Best Ball row updates from player scores.
 
 Current implementation state:
 
@@ -1018,22 +1068,22 @@ Current implementation state:
   entry, net/skins columns, putt rows, the putt poker panel, and settlement.
   `/results` shows team scores, leaderboard, team-game breakdowns, skins, and
   settlement. 4-man scramble can be enabled from setup, scored through team rows
-  on the scorecard, and displayed/settled through results. All scoring is read
-  from store getters.
+  on the scorecard, and displayed/settled through results. Best Ball and 2-Ball
+  render read-only derived team rows driven by player scores. All scoring is
+  read from store getters/actions.
 - `HomeScreen.vue` links to New round (`/setup`), Start demo round, the
   scorecard, and results. Routing: `/`, `/setup`, `/scorecard`, `/results`.
 - Still demo/local only: no group membership, no Supabase course search, no
-  realtime sync, and the scorecard still lacks best-ball/two-ball derived team
-  rows plus pair-match/wolf live panels. Results lacks the legacy per-game
-  detail panels for pair match, Wolf, Stableford, three-man Nassau, and putt
-  poker.
+  realtime sync, and the scorecard still lacks pair-match/wolf live panels.
+  Results lacks the legacy per-game detail panels for pair match, Wolf,
+  Stableford, three-man Nassau, and putt poker.
 - The old monolith remains available as the parity oracle at
   `legacy/index.html`.
 
 The next task should begin (pick one):
 
-- Extend the scorecard with best-ball / two-ball derived team rows and add the
-  pair-match and wolf live panels; OR
+- Add pair-match setup configuration plus pair-match live/results panels; OR
+- Add Wolf live/results UX; OR
 - Add the missing per-game detail panels to the results screen.
 - Start the group/Supabase layer for course search, group membership, history,
   and realtime sync.

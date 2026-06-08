@@ -13,7 +13,7 @@ import {
   type SettlementTransfer,
 } from '@/scoring/settlement';
 import { computePuttPoker, type PuttPokerResult } from '@/scoring/puttPoker';
-import { computeTeamTotals, type TeamTotals } from '@/scoring/teamGames';
+import { computeTeamHoleStats, computeTeamTotals, type TeamTotals } from '@/scoring/teamGames';
 import type { WolfHoleConfig } from '@/scoring/wolf';
 import type { PlayerMap, RoundState, ScoreMatrix, ScoreType } from '@/types';
 
@@ -55,6 +55,16 @@ export interface TeamGameResult {
   type: ScoreType;
   team1: TeamRangeScores;
   team2: TeamRangeScores;
+}
+
+export interface ScorecardTeamFormatRow {
+  key: 'bestBall' | 'twoBall';
+  label: string;
+  sublabel: string;
+  holes: Array<number | null>;
+  out: number | null;
+  in: number | null;
+  total: number | null;
 }
 
 function sum(values: number[]): number {
@@ -432,6 +442,47 @@ export const useRoundStore = defineStore('round', {
     readTeamScore(teamKey: string, hole: number): number | null {
       if (!this.round) return null;
       return scoreAt(this.round.teamScores || {}, teamKey, hole);
+    },
+
+    scorecardTeamRowsFor(teamKey: 'team1' | 'team2'): ScorecardTeamFormatRow[] {
+      const context = this.scoreContext;
+      const round = this.round;
+      if (!context || !round) return [];
+      const teamPlayers = round[teamKey] || [];
+      const rows: ScorecardTeamFormatRow[] = [];
+      const games = this.games;
+
+      if (games.bestBall.enabled) {
+        const totals = computeTeamTotals(context, teamPlayers, games.bestBall.type);
+        rows.push({
+          key: 'bestBall',
+          label: 'Best Ball',
+          sublabel: `low ${games.bestBall.type} per hole`,
+          holes: Array.from({ length: 18 }, (_, hole) =>
+            computeTeamHoleStats(context, teamPlayers, hole, games.bestBall.type).bestBall,
+          ),
+          out: totals.bbOut,
+          in: totals.bbIn,
+          total: totals.bbTotal,
+        });
+      }
+
+      if (games.twoBall.enabled) {
+        const totals = computeTeamTotals(context, teamPlayers, games.twoBall.type);
+        rows.push({
+          key: 'twoBall',
+          label: '2-Ball',
+          sublabel: `sum of 2 low ${games.twoBall.type}`,
+          holes: Array.from({ length: 18 }, (_, hole) =>
+            computeTeamHoleStats(context, teamPlayers, hole, games.twoBall.type).twoBall,
+          ),
+          out: totals.tbOut,
+          in: totals.tbIn,
+          total: totals.tbTotal,
+        });
+      }
+
+      return rows;
     },
   },
 });

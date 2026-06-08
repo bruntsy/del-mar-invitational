@@ -515,6 +515,8 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   a live settlement panel.
 - When 4-man scramble is enabled, it renders one gross team-score row per side
   and writes those scores to `round.teamScores`.
+- When Best Ball or 2-Ball are enabled, it renders read-only derived team rows
+  from the player score matrix.
 - All scoring is read from the round store getters; the component does no
   scoring math of its own beyond display formatting.
 - `src/fixtures/demoRound.ts` seeds a ready-to-score sample round so the screen
@@ -523,9 +525,8 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   neutral for 2, red for 3+), and a putt poker panel renders per playing group
   with coin holder, card counts, penalty notes, and the running pot — all read
   from `store.puttPokerFor`.
-- Not yet ported from the legacy scorecard: best-ball/two-ball team rows, the
-  pair-match and wolf live panels, playing-group filtering, and the mobile
-  hole-by-hole entry mode.
+- Not yet ported from the legacy scorecard: the pair-match and wolf live panels,
+  playing-group filtering, and the mobile hole-by-hole entry mode.
 
 ### Setup Screen (rewrite)
 

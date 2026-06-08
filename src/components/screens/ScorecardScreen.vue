@@ -352,6 +352,23 @@ function goResults() {
                 <td class="sum-cell"></td>
               </tr>
               </template>
+              <tr v-for="format in store.scorecardTeamRowsFor(team.key)" :key="`${team.key}-${format.key}`" class="row-format">
+                <td class="name-cell">
+                  <div class="fmt-row-label">{{ format.label }}</div>
+                  <div class="fmt-row-sub">{{ format.sublabel }}</div>
+                </td>
+                <td v-for="h in FRONT" :key="`${team.key}-${format.key}-fh-${h}`" class="fmt-cell">
+                  {{ dash(format.holes[h]) }}
+                </td>
+                <td class="sum-cell out-col">{{ dash(format.out) }}</td>
+                <td v-for="h in BACK" :key="`${team.key}-${format.key}-bh-${h}`" class="fmt-cell">
+                  {{ dash(format.holes[h]) }}
+                </td>
+                <td class="sum-cell in-col">{{ dash(format.in) }}</td>
+                <td class="sum-cell total-col">{{ dash(format.total) }}</td>
+                <td class="sum-cell net-col">—</td>
+                <td class="sum-cell skins-col">—</td>
+              </tr>
             </template>
           </tbody>
         </table>
@@ -506,6 +523,11 @@ function goResults() {
 
 .row-format td {
   background: #fbf7ed;
+}
+
+.fmt-cell {
+  color: #2f5d43;
+  font-weight: 700;
 }
 
 .name-cell {

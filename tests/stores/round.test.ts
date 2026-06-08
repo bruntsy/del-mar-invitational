@@ -208,6 +208,27 @@ describe('round store', () => {
     expect(results[0].team2).toEqual({ front: 36, back: 36, total: 72 });
   });
 
+  it('builds scorecard team format rows for best ball and 2-ball', () => {
+    const store = useRoundStore();
+    store.setRound(roundWithRoster(), players);
+    store.setGames({
+      ...store.games,
+      bestBall: { ...store.games.bestBall, enabled: true, type: 'gross' },
+      twoBall: { ...store.games.twoBall, enabled: true, type: 'gross' },
+    });
+    for (let hole = 0; hole < 18; hole += 1) {
+      store.setScore('A', hole, 4);
+      store.setScore('B', hole, 5);
+      store.setScore('C', hole, 6);
+      store.setScore('D', hole, 7);
+    }
+
+    const rows = store.scorecardTeamRowsFor('team1');
+    expect(rows.map((row) => row.key)).toEqual(['bestBall', 'twoBall']);
+    expect(rows[0]).toMatchObject({ label: 'Best Ball', holes: Array(18).fill(4), out: 36, in: 36, total: 72 });
+    expect(rows[1]).toMatchObject({ label: '2-Ball', holes: Array(18).fill(9), out: 81, in: 81, total: 162 });
+  });
+
   it('marks a round complete and reopens it', () => {
     const store = useRoundStore();
     store.setRound(roundWithRoster(), players);

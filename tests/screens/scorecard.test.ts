@@ -42,6 +42,7 @@ describe('ScorecardScreen', () => {
     expect(wrapper.text()).toContain('Hill Dogs');
     expect(wrapper.text()).toContain('Wes');
     expect(wrapper.text()).toContain('Q');
+    expect(wrapper.text()).toContain('Best Ball');
     // one score input per player per hole = 4 players * 18 holes
     expect(wrapper.findAll('.score-cell input')).toHaveLength(72);
   });
@@ -68,6 +69,25 @@ describe('ScorecardScreen', () => {
     expect(store.playerTotals.Wes.net).toBeLessThan(72);
   });
 
+  it('renders derived best-ball rows from player scores', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    store.setRound(round, players);
+
+    const wrapper = mountScorecard();
+    expect(wrapper.findAll('.row-format')).toHaveLength(2);
+
+    for (let hole = 0; hole < 18; hole += 1) {
+      store.setScore('Wes', hole, 4);
+      store.setScore('Aaron', hole, 5);
+    }
+    await nextTick();
+
+    const bayRows = wrapper.findAll('.row-format').filter((row) => row.text().includes('Best Ball'));
+    expect(bayRows).toHaveLength(2);
+    expect(bayRows[0].find('.total-col').text()).not.toBe('—');
+  });
+
   it('renders scramble team rows and writes team scores', async () => {
     const store = useRoundStore();
     const { round, players } = demoRound();
@@ -75,11 +95,12 @@ describe('ScorecardScreen', () => {
     store.setRound(round, players);
 
     const wrapper = mountScorecard();
-    expect(wrapper.findAll('.row-format')).toHaveLength(2);
+    expect(wrapper.findAll('.row-format')).toHaveLength(4);
     expect(wrapper.text()).toContain('4-man scramble');
 
-    const firstTeamRow = wrapper.find('.row-format');
-    const firstTeamInput = firstTeamRow.find('.score-cell input');
+    const firstTeamRow = wrapper.findAll('.row-format').find((row) => row.text().includes('4-man scramble'));
+    expect(firstTeamRow).toBeDefined();
+    const firstTeamInput = firstTeamRow!.find('.score-cell input');
     await firstTeamInput.setValue('4');
 
     expect(store.readTeamScore('team1', 0)).toBe(4);
@@ -87,7 +108,7 @@ describe('ScorecardScreen', () => {
     for (let hole = 1; hole < 18; hole += 1) store.setTeamScore('team1', hole, 4);
     await nextTick();
 
-    expect(firstTeamRow.find('.total-col').text()).toBe('72');
+    expect(firstTeamRow!.find('.total-col').text()).toBe('72');
   });
 
   it('shows the settlement section once bets exist', () => {
