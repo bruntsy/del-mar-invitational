@@ -216,6 +216,13 @@ function goHome() {
         </div>
 
         <div class="game-row">
+          <label class="game-toggle"><input v-model="form.games.scramble4.enabled" type="checkbox" /> 4-Man Scramble</label>
+          <input v-model.number="form.games.scramble4.front" class="form-input sm" type="number" min="0" placeholder="Front $" />
+          <input v-model.number="form.games.scramble4.back" class="form-input sm" type="number" min="0" placeholder="Back $" />
+          <input v-model.number="form.games.scramble4.total" class="form-input sm" type="number" min="0" placeholder="Total $" />
+        </div>
+
+        <div class="game-row">
           <label class="game-toggle"><input v-model="form.games.twoBall.enabled" type="checkbox" /> 2-Ball</label>
           <input v-model.number="form.games.twoBall.front" class="form-input sm" type="number" min="0" placeholder="Front $" />
           <input v-model.number="form.games.twoBall.back" class="form-input sm" type="number" min="0" placeholder="Back $" />

@@ -428,5 +428,10 @@ export const useRoundStore = defineStore('round', {
       if (!this.round) return null;
       return scoreAt(this.round.putts || {}, player, hole);
     },
+
+    readTeamScore(teamKey: string, hole: number): number | null {
+      if (!this.round) return null;
+      return scoreAt(this.round.teamScores || {}, teamKey, hole);
+    },
   },
 });

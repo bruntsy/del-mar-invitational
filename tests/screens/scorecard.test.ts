@@ -68,6 +68,28 @@ describe('ScorecardScreen', () => {
     expect(store.playerTotals.Wes.net).toBeLessThan(72);
   });
 
+  it('renders scramble team rows and writes team scores', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.games.scramble4.enabled = true;
+    store.setRound(round, players);
+
+    const wrapper = mountScorecard();
+    expect(wrapper.findAll('.row-format')).toHaveLength(2);
+    expect(wrapper.text()).toContain('4-man scramble');
+
+    const firstTeamRow = wrapper.find('.row-format');
+    const firstTeamInput = firstTeamRow.find('.score-cell input');
+    await firstTeamInput.setValue('4');
+
+    expect(store.readTeamScore('team1', 0)).toBe(4);
+
+    for (let hole = 1; hole < 18; hole += 1) store.setTeamScore('team1', hole, 4);
+    await nextTick();
+
+    expect(firstTeamRow.find('.total-col').text()).toBe('72');
+  });
+
   it('shows the settlement section once bets exist', () => {
     const store = useRoundStore();
     const { round, players } = demoRound();

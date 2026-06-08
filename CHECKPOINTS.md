@@ -938,23 +938,76 @@ Next recommended steps:
    realtime sync becomes the next priority.
 3. Keep README and this checkpoint file current before every push.
 
-## Current Handoff: Setup, Scorecard, and Results Flow Live
+## Checkpoint 20: Scramble Setup and Team Score Rows
 
 Date: 2026-06-08
 
 Branch:
 
 - `rewrite`
-- Results screen commit will be the latest after this checkpoint is pushed.
-- Worktree status at handoff: clean after pushing Checkpoint 19.
+- Previous pushed commit: `88ced8b Add results screen`
+
+Files changed since Checkpoint 19:
+
+- Updated `src/components/screens/SetupScreen.vue`.
+- Updated `src/components/screens/ScorecardScreen.vue`.
+- Updated `src/stores/round.ts`.
+- Updated `tests/screens/setup.test.ts`.
+- Updated `tests/screens/scorecard.test.ts`.
+- Updated `README.md`.
+- Updated this checkpoint file.
+
+Implementation notes:
+
+- Added 4-man scramble to the setup screen games list with front/back/total
+  money fields. The rewrite preserves the legacy gross-only scramble model.
+- Added `store.readTeamScore(teamKey, hole)` to mirror `readScore()` and
+  `readPutt()` for `round.teamScores`.
+- Scorecard now renders one 4-man scramble gross team-score row per side when
+  `games.scramble4.enabled` is true.
+- Scramble team rows write through `store.setTeamScore()`, use timestamped
+  cells, apply the existing gross score color classes, and show OUT/IN/TOT
+  summaries.
+- Results already consumed `teamScores`, so scramble results and settlement are
+  now reachable from normal setup + scorecard entry.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 21 files, 143 tests.
+- `npm run build`: passed.
+- Browser QA at `http://127.0.0.1:5173/`:
+  - `/setup` rendered the 4-Man Scramble row.
+  - Created a four-player round with scramble enabled.
+  - `/scorecard` rendered two scramble rows.
+  - Entering a Team 1 hole score persisted in the row.
+  - No page-level horizontal overflow was detected.
+
+Next recommended steps:
+
+1. Add best-ball and two-ball derived team rows to the scorecard.
+2. Add pair-match setup configuration and the pair-match live/results panels.
+3. Add Wolf live/results UX once pair-match parity is in better shape.
+4. Keep README and checkpoints current before each push.
+
+## Current Handoff: Setup, Scorecard, Results, and Scramble Flow Live
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Scramble team-row commit will be the latest after this checkpoint is pushed.
+- Worktree status at handoff: clean after pushing Checkpoint 20.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
   branch should create deployments.
 
 Most recent verification:
 
 - `node scripts/event-format-tests.js`: passed.
-- `npm run test:run`: passed, 21 files, 141 tests.
+- `npm run test:run`: passed, 21 files, 143 tests.
 - `npm run build`: passed.
+- Browser QA: setup -> scramble-enabled scorecard path passed.
 
 Current implementation state:
 
@@ -964,20 +1017,23 @@ Current implementation state:
   (course, teams, players, games) and `/scorecard` scores it live with score
   entry, net/skins columns, putt rows, the putt poker panel, and settlement.
   `/results` shows team scores, leaderboard, team-game breakdowns, skins, and
-  settlement. All scoring is read from store getters.
+  settlement. 4-man scramble can be enabled from setup, scored through team rows
+  on the scorecard, and displayed/settled through results. All scoring is read
+  from store getters.
 - `HomeScreen.vue` links to New round (`/setup`), Start demo round, the
   scorecard, and results. Routing: `/`, `/setup`, `/scorecard`, `/results`.
 - Still demo/local only: no group membership, no Supabase course search, no
-  realtime sync, and the scorecard lacks scramble/team-game rows and the
-  pair-match/wolf live panels. Results lacks the legacy per-game detail panels
-  for pair match, Wolf, Stableford, three-man Nassau, and putt poker.
+  realtime sync, and the scorecard still lacks best-ball/two-ball derived team
+  rows plus pair-match/wolf live panels. Results lacks the legacy per-game
+  detail panels for pair match, Wolf, Stableford, three-man Nassau, and putt
+  poker.
 - The old monolith remains available as the parity oracle at
   `legacy/index.html`.
 
 The next task should begin (pick one):
 
-- Extend the scorecard + setup with scramble / best-ball / two-ball team rows
-  and the pair-match and wolf live panels; OR
+- Extend the scorecard with best-ball / two-ball derived team rows and add the
+  pair-match and wolf live panels; OR
 - Add the missing per-game detail panels to the results screen.
 - Start the group/Supabase layer for course search, group membership, history,
   and realtime sync.

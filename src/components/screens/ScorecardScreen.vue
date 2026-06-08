@@ -89,6 +89,29 @@ function onPuttInput(player: string, hole: number, raw: string) {
   store.setPutt(player, hole, value);
 }
 
+function onTeamScoreInput(teamKey: 'team1' | 'team2', hole: number, raw: string) {
+  if (raw === '') {
+    store.setTeamScore(teamKey, hole, null);
+    return;
+  }
+  const value = Number.parseInt(raw, 10);
+  if (Number.isNaN(value) || value < 1) return;
+  store.setTeamScore(teamKey, hole, value);
+}
+
+function teamScoreSum(teamKey: 'team1' | 'team2', start: number, end: number): number | null {
+  let total = 0;
+  let any = false;
+  for (let hole = start; hole < end; hole += 1) {
+    const value = store.readTeamScore(teamKey, hole);
+    if (value != null) {
+      total += value;
+      any = true;
+    }
+  }
+  return any ? total : null;
+}
+
 // 0-1 putts read as green, 2 neutral, 3+ red, matching the legacy putt cells.
 function puttColorClass(putts: number | null): string {
   if (putts == null) return '';
@@ -111,6 +134,7 @@ function puttSum(player: string, start: number, end: number): number | null {
 }
 
 const puttPokerEnabled = computed(() => store.games.puttPoker.enabled);
+const scrambleEnabled = computed(() => store.games.scramble4.enabled);
 interface PuttGroup {
   name: string;
   players: string[];
@@ -194,6 +218,47 @@ function goResults() {
             <template v-for="team in teamRows" :key="team.key">
               <tr class="row-team-divider">
                 <td :colspan="24">{{ team.label }} — {{ team.players.join(' · ') }}</td>
+              </tr>
+              <tr v-if="scrambleEnabled" class="row-format">
+                <td class="name-cell">
+                  <div class="fmt-row-label">{{ team.label }}</div>
+                  <div class="fmt-row-sub">4-man scramble</div>
+                </td>
+                <template v-for="h in FRONT" :key="`scrf-${team.key}-${h}`">
+                  <td class="score-cell" :class="scoreColorClass(store.readTeamScore(team.key, h), par[h])">
+                    <div class="sc-cell-inner">
+                      <input
+                        type="number"
+                        inputmode="numeric"
+                        min="1"
+                        max="20"
+                        :value="store.readTeamScore(team.key, h) ?? ''"
+                        @input="onTeamScoreInput(team.key, h, ($event.target as HTMLInputElement).value)"
+                        @focus="($event.target as HTMLInputElement).select()"
+                      />
+                    </div>
+                  </td>
+                </template>
+                <td class="sum-cell out-col">{{ dash(teamScoreSum(team.key, 0, 9)) }}</td>
+                <template v-for="h in BACK" :key="`scrb-${team.key}-${h}`">
+                  <td class="score-cell" :class="scoreColorClass(store.readTeamScore(team.key, h), par[h])">
+                    <div class="sc-cell-inner">
+                      <input
+                        type="number"
+                        inputmode="numeric"
+                        min="1"
+                        max="20"
+                        :value="store.readTeamScore(team.key, h) ?? ''"
+                        @input="onTeamScoreInput(team.key, h, ($event.target as HTMLInputElement).value)"
+                        @focus="($event.target as HTMLInputElement).select()"
+                      />
+                    </div>
+                  </td>
+                </template>
+                <td class="sum-cell in-col">{{ dash(teamScoreSum(team.key, 9, 18)) }}</td>
+                <td class="sum-cell total-col">{{ dash(teamScoreSum(team.key, 0, 18)) }}</td>
+                <td class="sum-cell net-col">—</td>
+                <td class="sum-cell skins-col">—</td>
               </tr>
               <template v-for="player in team.players" :key="player">
               <tr class="row-player">
@@ -439,9 +504,25 @@ function goResults() {
   font-size: 0.78rem;
 }
 
+.row-format td {
+  background: #fbf7ed;
+}
+
 .name-cell {
   text-align: left;
   min-width: 120px;
+}
+
+.fmt-row-label {
+  font-weight: 800;
+  color: #283b30;
+}
+
+.fmt-row-sub {
+  color: #8a9489;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .name-head {

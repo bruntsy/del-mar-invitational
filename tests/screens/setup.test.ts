@@ -73,6 +73,40 @@ describe('SetupScreen', () => {
     expect(push).toHaveBeenCalledWith('/scorecard');
   });
 
+  it('includes 4-man scramble config in the created round', async () => {
+    const store = useRoundStore();
+    const wrapper = mountSetup();
+
+    const rows = wrapper.findAll('.player-row');
+    const setRow = async (row: ReturnType<typeof wrapper.findAll>[number], name: string, idx: string) => {
+      const inputs = row.findAll('input');
+      await inputs[0].setValue(name);
+      await inputs[1].setValue(idx);
+    };
+    await setRow(rows[0], 'Ann', '10');
+    await setRow(rows[1], 'Bea', '12');
+    await setRow(rows[2], 'Cal', '6');
+    await setRow(rows[3], 'Dan', '20');
+
+    const scrambleRow = wrapper.findAll('.game-row').find((row) => row.text().includes('4-Man Scramble'));
+    expect(scrambleRow).toBeDefined();
+    await scrambleRow!.find('input[type="checkbox"]').setValue(true);
+    const money = scrambleRow!.findAll('input[type="number"]');
+    await money[0].setValue('5');
+    await money[1].setValue('5');
+    await money[2].setValue('10');
+
+    await wrapper.find('.btn-primary').trigger('click');
+
+    expect(store.round?.games.scramble4).toMatchObject({
+      enabled: true,
+      front: 5,
+      back: 5,
+      total: 10,
+      type: 'gross',
+    });
+  });
+
   it('adds and removes player rows', async () => {
     const wrapper = mountSetup();
     expect(wrapper.findAll('.player-row')).toHaveLength(4);

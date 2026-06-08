@@ -513,6 +513,8 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 - It renders the player rows, par/stroke-index rows, per-hole score inputs with
   birdie/bogey color coding and net-stroke dots, OUT/IN/TOT/NET/SKN columns, and
   a live settlement panel.
+- When 4-man scramble is enabled, it renders one gross team-score row per side
+  and writes those scores to `round.teamScores`.
 - All scoring is read from the round store getters; the component does no
   scoring math of its own beyond display formatting.
 - `src/fixtures/demoRound.ts` seeds a ready-to-score sample round so the screen
@@ -521,9 +523,9 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   neutral for 2, red for 3+), and a putt poker panel renders per playing group
   with coin holder, card counts, penalty notes, and the running pot — all read
   from `store.puttPokerFor`.
-- Not yet ported from the legacy scorecard: scramble/best-ball/two-ball team
-  rows, the pair-match and wolf live panels, playing-group filtering, and the
-  mobile hole-by-hole entry mode.
+- Not yet ported from the legacy scorecard: best-ball/two-ball team rows, the
+  pair-match and wolf live panels, playing-group filtering, and the mobile
+  hole-by-hole entry mode.
 
 ### Setup Screen (rewrite)
 
@@ -531,14 +533,15 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   without the demo fixture.
 - Sections: course (club/course/location, tee rating/slope, editable par + SI
   grid prefilled to a par-72 layout), teams and players (name + handicap index +
-  team per row), and a games config covering skins, best ball, two-ball, aggy,
-  head-to-head, Stableford, three-man Nassau, Wolf, and putt poker.
+  team per row), and a games config covering skins, best ball, 4-man scramble,
+  two-ball, aggy, head-to-head, Stableford, three-man Nassau, Wolf, and putt
+  poker.
 - "Start round" validates (par present, both teams populated, unique names),
   builds the `RoundState` + player handicap map, generates head-to-head matchups
   by zipping `team1[i]` vs `team2[i]` (as legacy did), writes through
   `store.setRound`, and routes to the scorecard.
-- Not yet included: scramble/pair-match config, Supabase course search, and
-  group membership; course par/SI are entered manually.
+- Not yet included: pair-match config, Supabase course search, and group
+  membership; course par/SI are entered manually.
 
 ### Results Screen (rewrite)
 
