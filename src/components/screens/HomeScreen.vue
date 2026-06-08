@@ -13,6 +13,10 @@ function startDemo() {
   void router.push('/scorecard');
 }
 
+function openGroups() {
+  void router.push('/group');
+}
+
 function newRound() {
   void router.push('/setup');
 }
@@ -39,7 +43,8 @@ function openResults() {
         Live scorecard wired to the new engine.
       </div>
       <div class="home-actions">
-        <button class="btn-primary" type="button" @click="newRound">New round</button>
+        <button class="btn-primary" type="button" @click="openGroups">Groups</button>
+        <button class="btn-ghost" type="button" @click="newRound">New round</button>
         <button class="btn-ghost" type="button" @click="startDemo">Start demo round</button>
         <button class="btn-ghost" type="button" @click="openScorecard">Open scorecard</button>
         <button class="btn-ghost" type="button" @click="openResults">View results</button>

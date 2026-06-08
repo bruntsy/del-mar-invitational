@@ -1364,29 +1364,88 @@ store plus a screen, local-first with a graceful no-credentials fallback via
 `hasSupabase()`. Reference legacy `createGroup`/`joinGroup`/`normalizeGroup`
 (`legacy/index.html` ~2052, ~2160-2182).
 
-## Current Handoff: Supabase Foundation Complete
+## Checkpoint 28: Group Membership
+
+Date: 2026-06-08
+
+Branch: `rewrite`
+
+Goal: port the legacy group create/join/leave/rename flow into the rewrite as a
+Pinia store plus a screen, local-first with a graceful no-credentials fallback.
+Second of four steps (27 foundation → 28 group membership → 29 round history →
+30 realtime sync). Consumes the Checkpoint 27 client/types.
+
+What changed:
+
+- `src/domain/group.ts`: pure helpers `normalizeGroup` (GroupRow → camelCase
+  `Group`), `groupForDb` (`Group` → DB columns), `generateCode()` (4-char code),
+  and the `DEFAULT_GROUP_NAME` / `GROUP_COLUMNS` constants. Ports legacy
+  `normalizeGroup`/`groupForDb`/`generateCode`.
+- `src/stores/group.ts`: Pinia `group` store. State = active `Group`, recent
+  groups, status/statusError/busy. Persists to `localStorage`
+  (`dmi_group`, `dmi_recent_groups`). Actions: `load`, `persist`, `createGroup`,
+  `joinGroup`, `switchToRecentGroup`, `leaveGroup`, `renameGroup`,
+  `rememberGroup`, `forgetRecentGroup`. Getters: `groupCode`, `groupName`,
+  `hasGroup`.
+- Local-first fallback via `hasSupabase()`: offline, `createGroup` makes a group
+  with a null DB id and `joinGroup` reports remote join is unavailable instead
+  of throwing. Online, create inserts a `groups` row (retrying on the
+  `room_code` collision, as legacy did), join selects by `room_code`, rename
+  updates the name when the group has a DB id.
+- `src/components/screens/GroupScreen.vue` routed at `/group` (`src/router`),
+  linked from `HomeScreen.vue` via a new "Groups" button. Shows create /
+  join-by-code / recent groups with no active group; group code + editable name
+  + Leave with one.
+- `tests/stores/group.test.ts`: 9 tests covering offline create/join, online
+  create/join/not-found (mocked Supabase), recents, and persistence round-trip.
+
+Deliberately out of scope (later checkpoints): loading a group's active round on
+join, round history list/load (29), and `scheduleSync`/`pushToSupabase`/
+`subscribeToGroup` realtime (30). The group `players` map is carried but no
+roster-editing UI ships yet.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 23 files, 170 tests (+9 in group store).
+- `npm run build`: passed (`vue-tsc` clean). The `/group` route is a lazy chunk
+  that pulls in `@supabase/supabase-js`, so it only loads when visited.
+- Browser QA: dev server preview confirmed Home → "Groups" navigates to
+  `/group`, the create/join/recent UI renders on-theme, join field enabled
+  (Supabase configured), no console errors. Did not click Create/Join to avoid
+  writing to / reading the live production DB; those paths are covered by the
+  mocked store tests.
+
+Next: Checkpoint 29 — round history. Load a group's active + completed rounds
+(legacy `loadActiveRound`/round-history queries, `normalizeRound`), wiring the
+group store to the round store. Then 30 realtime sync.
+
+## Current Handoff: Group Membership Complete
 
 Date: 2026-06-08
 
 Branch:
 
 - `rewrite`
-- The Supabase foundation commit will be the latest after this checkpoint is
+- The group-membership commit will be the latest after this checkpoint is
   pushed.
-- Worktree status at handoff: clean after pushing Checkpoint 27.
+- Worktree status at handoff: clean after pushing Checkpoint 28.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
   branch should create deployments.
 
 Most recent verification:
 
 - `node scripts/event-format-tests.js`: passed.
-- `npm run test:run`: passed, 22 files, 161 tests.
+- `npm run test:run`: passed, 23 files, 170 tests.
 - `npm run build`: passed.
 - Browser QA:
   - Checkpoint 22 pair-match browser QA passed.
   - Checkpoints 23–26 browser QA blocked by browser-tool sandbox; no broad
     macOS access requested.
   - Checkpoint 27 needs no browser QA (no UI/network); covered by a unit test.
+  - Checkpoint 28 group screen verified via dev-server preview (Home → Groups
+    nav, create/join/recent UI renders, no console errors); Create/Join not
+    exercised against the live DB, covered by mocked store tests instead.
   - All panels are covered by focused store and screen tests.
 
 Current implementation state:
@@ -1406,23 +1465,26 @@ Current implementation state:
   scorecard plus results panels. Wolf can be configured from setup, adjusted per
   hole on the scorecard, and shown in results. All scoring is read from store
   getters/actions.
-- `HomeScreen.vue` links to New round (`/setup`), Start demo round, the
-  scorecard, and results. Routing: `/`, `/setup`, `/scorecard`, `/results`.
-- Supabase foundation is now wired (Checkpoint 27): `src/services/supabase.ts`
+- `HomeScreen.vue` links to Groups (`/group`), New round (`/setup`), Start demo
+  round, the scorecard, and results. Routing: `/`, `/group`, `/setup`,
+  `/scorecard`, `/results`.
+- Supabase foundation is wired (Checkpoint 27): `src/services/supabase.ts`
   client + `hasSupabase()` guard, env config (`.env` / `.env.example`,
-  `VITE_SUPABASE_*`), and `src/types/db.ts` row types. Nothing consumes the
-  client yet — still no group membership, no Supabase course search, and no
-  realtime sync.
+  `VITE_SUPABASE_*`), and `src/types/db.ts` row types.
+- Group membership is wired (Checkpoint 28): `src/stores/group.ts` Pinia store +
+  `src/domain/group.ts` mappers (`normalizeGroup`/`groupForDb`/`generateCode`) +
+  `GroupScreen.vue` at `/group`. Create/join/leave/rename + recent groups work,
+  local-first with a `hasSupabase()` fallback. Still missing: loading a group's
+  active round + history on join, Supabase course search, and realtime sync.
 - The old monolith remains available as the parity oracle at
   `legacy/index.html`.
 
 The next task should begin (pick one):
 
-- Checkpoint 28 — group membership: port `groupCode()` / create / join into a
-  Pinia group store plus a screen, local-first with a `hasSupabase()` fallback.
-  Reference legacy `createGroup`/`joinGroup`/`normalizeGroup`/`groupForDb`
-  (`legacy/index.html` ~2052-2053, ~2160-2182). Then 29 round history, 30
-  realtime sync.
+- Checkpoint 29 — round history: load a group's active + completed rounds and
+  wire the group store to the round store. Reference legacy `loadActiveRound`
+  and the round-history queries (`legacy/index.html` ~2098, ~2200, ~2248) plus
+  `normalizeRound` (~2054). Then 30 realtime sync.
 - UX polish: playing-group filtering on the scorecard, mobile hole-by-hole
   entry mode.
 - Keep reusing store getters; do not recompute scoring in components. Validate

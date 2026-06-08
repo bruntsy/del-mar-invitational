@@ -608,6 +608,26 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 - All legacy per-game detail panels have now been ported; next gap is
   completed-round history persistence (group/Supabase wiring).
 
+### Group Membership (rewrite)
+
+- `src/stores/group.ts` is the Pinia group store, porting the legacy
+  create/join/leave/rename and recent-group helpers. It holds the active
+  `Group`, the per-browser recent-groups list, and a status/busy state, and
+  persists to `localStorage` under `dmi_group` / `dmi_recent_groups`.
+- `src/domain/group.ts` holds the pure mappers `normalizeGroup` (DB row →
+  camelCase `Group`), `groupForDb` (`Group` → DB columns), and `generateCode()`
+  (4-char room code).
+- The store is local-first with a graceful no-credentials fallback via
+  `hasSupabase()`: when Supabase is unconfigured, `createGroup` makes an offline
+  group (null DB id) and `joinGroup` reports that remote join is unavailable
+  instead of throwing. With credentials, create inserts a `groups` row (retrying
+  on code collision), join selects by `room_code`, and rename syncs the name.
+- `src/components/screens/GroupScreen.vue`, routed at `/group` and linked from
+  the home screen, renders create / join-by-code / recent-groups when there is
+  no active group, and the group code, an editable name, and Leave when there
+  is. Loading a group's active round and history is deferred to the next
+  checkpoint.
+
 ## Realtime Sync
 
 Sync target:
