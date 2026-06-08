@@ -514,30 +514,70 @@ Next recommended steps:
 3. Begin wiring pure modules into Pinia stores/UI once remaining scoring
    helpers are protected.
 
-## Current Handoff: Ready for Wolf Scoring
+## Checkpoint 12: Wolf Scoring
 
 Date: 2026-06-08
 
 Branch:
 
 - `rewrite`
-- Current pushed commit: `d5974d2 Add three-man Nassau scoring`
-- Worktree status at handoff: clean after pushing Checkpoint 11.
+- Current pushed commit: `c66d9f4 Update three-man Nassau handoff`
+
+Files changed since Checkpoint 11:
+
+- Added `src/scoring/wolf.ts`.
+- Added `tests/scoring/wolf.test.ts`.
+- Updated `README.md`.
+
+Implementation notes:
+
+- Ported Wolf scoring from the legacy monolith as pure helpers.
+- Added default per-hole Wolf config generation, preserving the rotating wolf
+  and first available partner behavior.
+- Added per-hole result scoring for partner and solo modes.
+- Added overall-only and Nassau front/back/overall segment helpers.
+- Added segment winner detection and pure settlement for the winner-take-pot
+  behavior, split on ties.
+- Preserved legacy behavior where pushes do not carry and incomplete holes
+  award no points.
+- Supports gross and net scoring by reusing the shared player-hole score helper.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 15 files, 91 tests.
+- `npm run build`: passed.
+
+Next recommended steps:
+
+1. Port putt poker.
+2. Begin wiring pure modules into Pinia stores/UI once putt poker is covered.
+3. Keep README and CHECKPOINTS current before handing off.
+
+## Current Handoff: Ready for Putt Poker
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Current pushed commit: pending Checkpoint 12 commit.
+- Worktree status at handoff: pending Checkpoint 12 commit.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
   branch should create deployments.
 
 Most recent verification:
 
 - `node scripts/event-format-tests.js`: passed.
-- `npm run test:run`: passed, 14 files, 81 tests.
+- `npm run test:run`: passed, 15 files, 91 tests.
 - `npm run build`: passed.
 
 Current implementation state:
 
 - The rewrite foundation, typed domain helpers, event config normalization,
   score-cell compatibility, handicap helpers, event round scoring, skins, team
-  games, pair match, head-to-head, Stableford, and three-man Nassau have all
-  been ported as pure modules with focused Vitest coverage.
+  games, pair match, head-to-head, Stableford, three-man Nassau, and Wolf have
+  all been ported as pure modules with focused Vitest coverage.
 - No Pinia stores or production UI screens have been wired to these scoring
   modules yet.
 - The old monolith remains available as the parity oracle at
@@ -545,24 +585,19 @@ Current implementation state:
 
 The next task should begin:
 
-- Port Wolf scoring as a pure scoring module.
-- Relevant legacy functions are in `legacy/index.html` around `wolfPoints()`,
-  `wolfSegmentWinners()`, and `renderWolfResults(strokes)`.
-- Legacy settlement behavior begins in `renderSettlementSection()` near the
-  `if(g.wolf.enabled&&g.wolf.amount)` branch.
-- Legacy behavior to preserve:
-  - Wolf is always scored as 2 v 1.
-  - The configured type controls gross/net scoring.
-  - `g.wolf.nassau` switches from a single overall segment to front/back/overall
-    segments.
-  - Pushes do not carry.
+- Port putt poker as a pure module.
+- Relevant legacy functions are in `legacy/index.html` around putt poker
+  helpers such as `puttPokerCards()`, `puttPokerPlayerCards()`,
+  `bestPokerHand()`, and `renderPuttPokerPanel()`.
+- Settlement behavior is part of the current settlement/results flow and should
+  be validated against the legacy monolith before porting.
 
 Suggested next files:
 
-- Add `src/scoring/wolf.ts`.
-- Add `tests/scoring/wolf.test.ts`.
+- Add `src/scoring/puttPoker.ts`.
+- Add `tests/scoring/puttPoker.test.ts`.
 - After implementation, run:
   - `node scripts/event-format-tests.js`
   - `npm run test:run`
   - `npm run build`
-- Add Checkpoint 12, then commit and push to `origin/rewrite`.
+- Add Checkpoint 13, then commit and push to `origin/rewrite`.

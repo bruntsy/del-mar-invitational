@@ -294,7 +294,7 @@ ROUND = {
     aggy: { enabled, front, back, total, type },
     h2h: { enabled, perMatchup, type },
     stableford: { enabled, buyIn, type, points },
-    wolf: { enabled, amount, type },
+    wolf: { enabled, amount, type, nassau },
     puttPoker: { enabled, pot }
   },
   scores: {
@@ -457,7 +457,13 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 
 ### Wolf
 
-Wolf scoring support exists in state/results and can be enabled, with per-hole choices on scorecard. Larger Wolf UX improvements are intentionally deferred.
+- Per-hole wolf, partner/solo choice, and partner state are persisted under `round.wolf.holes`.
+- Pure scoring helpers compute hole results, segment points, segment winners, and settlement.
+- Winning solo players receive 2 points; winning two-player sides receive 1 point per player.
+- Pushes award no points and do not carry.
+- Settlement is winner-take-pot by segment, split on ties.
+- `nassau` switches settlement/results from overall only to front/back/overall.
+- Larger Wolf UX improvements are intentionally deferred.
 
 ### Putt Poker
 
