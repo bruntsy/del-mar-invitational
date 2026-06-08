@@ -490,6 +490,19 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   monolith. `gamesHaveBets()` still counts putt poker when deciding whether to
   show the settlement section.
 
+### Round Store (rewrite)
+
+- `src/stores/round.ts` is the Pinia store that the rewrite UI builds on.
+- It holds the active `RoundState` plus the player handicap-index map and
+  persists both to `localStorage` under `dmi_round`.
+- Derived getters mirror the legacy globals: `playerNames` (team1 then team2),
+  `courseHandicaps` (`computeWHSCourseHcp`), `strokes` (`allocateNetStrokes`),
+  and a `scoreContext` consumed by every pure scoring module.
+- Scoring getters (`skins`, `settlement`, `puttPokerFor`, `hasBets`) wire the
+  pure modules to the live round.
+- Score, putt, and team-score mutations write timestamped cells via
+  `writeCell()` so concurrent edits stay sync-friendly.
+
 ## Realtime Sync
 
 Sync target:

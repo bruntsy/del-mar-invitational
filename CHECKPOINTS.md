@@ -650,50 +650,103 @@ Next recommended steps:
 2. Expose the pure scoring modules (including settlement) as store getters.
 3. Then wire screens one at a time against `legacy/index.html`.
 
-## Current Handoff: Scoring Layer Complete, Ready for Stores
+## Checkpoint 15: Pinia Round Store
 
 Date: 2026-06-08
 
 Branch:
 
 - `rewrite`
-- Settlement commit will be the latest after this checkpoint is pushed.
-- Worktree status at handoff: clean after pushing Checkpoint 14.
+- Previous pushed commit: `b4c2a88 Add settlement aggregation`
+
+Files changed since Checkpoint 14:
+
+- Added `src/stores/round.ts`.
+- Added `tests/stores/round.test.ts`.
+- Added `tests/setup.ts` (localStorage polyfill for jsdom).
+- Updated `vite.config.ts` to register the test setup file.
+- Updated `README.md`.
+
+Implementation notes:
+
+- Added the first Pinia store, `useRoundStore`, as the UI foundation. It holds
+  the active `RoundState` plus the player handicap-index `PlayerMap`.
+- `emptyRound()` reproduces the legacy default round shape; `normalizeRoundState()`
+  reproduces legacy `loadState()`/`normalizeRound()` repair (normalize games,
+  backfill wolf/teamNames/pairMatches, re-derive playing groups from the roster).
+- Derived getters mirror the legacy globals: `playerNames` (team1 then team2),
+  `courseHandicaps` (`computeWHSCourseHcp` with `parTotal || sum(par)` fallback),
+  `strokes` (`allocateNetStrokes`), and `scoreContext` for the pure modules.
+- Scoring getters wire the pure modules to the live round: `skins`, `settlement`
+  (P&L + transfers), `hasBets`, and the `puttPokerFor(groupPlayers)` action.
+- `setScore`/`setPutt`/`setTeamScore` write timestamped cells via `writeCell()`
+  and grow rows to 18 holes; out-of-range holes are ignored.
+- Persistence: the round and player map are serialized together under
+  `localStorage` key `dmi_round`. This is the store's own persistence; it is not
+  yet byte-compatible with the legacy `dmi_round`/`dmi_group` split or the DB
+  `rounds.state` sync shape. That reconciliation is deferred to the sync-wiring
+  step. `roundForDb()` in legacy embeds `players` into state, which this store
+  mirrors in spirit.
+- Test infra: jsdom under Vitest does not expose a working `Storage`, so
+  `tests/setup.ts` installs a minimal in-memory `localStorage` polyfill,
+  registered via `test.setupFiles`.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 18 files, 122 tests.
+- `npm run build`: passed.
+
+Next recommended steps:
+
+1. Wire the first real screen against the store (round setup or the scorecard),
+   validating layout/behavior against `legacy/index.html`.
+2. Add a group/event store if the chosen screen needs group membership or event
+   config beyond the round itself.
+3. Reconcile the store's localStorage/DB persistence shape when realtime sync is
+   wired.
+
+## Current Handoff: Round Store Landed, Ready for Screens
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Round store commit will be the latest after this checkpoint is pushed.
+- Worktree status at handoff: clean after pushing Checkpoint 15.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
   branch should create deployments.
 
 Most recent verification:
 
 - `node scripts/event-format-tests.js`: passed.
-- `npm run test:run`: passed, 17 files, 112 tests.
+- `npm run test:run`: passed, 18 files, 122 tests.
 - `npm run build`: passed.
 
 Current implementation state:
 
-- The rewrite foundation, typed domain helpers, event config normalization,
-  score-cell compatibility, handicap helpers, event round scoring, skins, team
-  games, pair match, head-to-head, Stableford, three-man Nassau, Wolf, putt
-  poker, and the settlement aggregation/transfer layer have all been ported as
-  pure modules with focused Vitest coverage.
-- The scoring layer is now complete end to end: individual games plus the final
-  settlement P&L and who-pays-who transfers.
-- No Pinia stores or production UI screens have been wired to these modules yet.
-  `src/main.ts` already installs Pinia, but `src/stores/` does not exist.
+- The full pure scoring layer (individual games + settlement aggregation/
+  transfers) is ported and covered.
+- The first Pinia store (`src/stores/round.ts`) is live: it holds `RoundState`
+  plus the player handicap map, persists to `localStorage` under `dmi_round`,
+  exposes `playerNames`/`courseHandicaps`/`strokes`/`scoreContext`, and wires the
+  scoring modules through `skins`/`settlement`/`puttPokerFor`/`hasBets`.
+- `tests/setup.ts` provides a jsdom `localStorage` polyfill, registered in
+  `vite.config.ts`.
+- Production UI screens are still placeholders. `src/components/screens/`
+  contains only `HomeScreen.vue`, and the router has a single `/` route.
 - The old monolith remains available as the parity oracle at
   `legacy/index.html`.
 
 The next task should begin:
 
-- Build the Pinia round store (`src/stores/round.ts`) as the UI foundation:
-  hold `RoundState` plus the player handicap-index map, persist to localStorage
-  under `dmi_round`, and expose derived `players` (team1+team2),
-  `courseHandicaps` (`computeWHSCourseHcp`), `strokes` (`allocateNetStrokes`),
-  and a `scoreContext` for the pure modules.
-- Add score/putt mutation actions that write timestamped cells via
-  `writeCell()` for sync compatibility.
-- Expose the scoring modules (skins, settlement, etc.) as store getters.
-- Then wire screens one at a time against `legacy/index.html`, keeping scoring
-  parity and RLS verification as hard gates before UI cutover.
+- Wire the first real screen (recommended: round setup or the scorecard) to the
+  round store, validating layout and behavior against `legacy/index.html`.
+- Add a router route and screen component, and read/write the round through the
+  store rather than introducing new global state.
+- Keep scoring parity as a hard gate; reuse the store getters instead of
+  recomputing scoring in components.
 - After each step, run:
   - `node scripts/event-format-tests.js`
   - `npm run test:run`
