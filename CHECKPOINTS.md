@@ -1038,26 +1038,96 @@ Next recommended steps:
 4. Then move toward group/Supabase course search, membership, history, and
    realtime sync.
 
-## Current Handoff: Setup, Scorecard, Results, and Team Rows Live
+## Checkpoint 22: Pair Match Setup, Live Panel, and Results
 
 Date: 2026-06-08
 
 Branch:
 
 - `rewrite`
-- Derived team-row commit will be the latest after this checkpoint is pushed.
-- Worktree status at handoff: clean after pushing Checkpoint 21.
+- Previous pushed commit: `e9ab93b Add derived team scorecard rows`
+
+Files changed since Checkpoint 21:
+
+- Updated `src/stores/round.ts`.
+- Updated `src/components/screens/SetupScreen.vue`.
+- Updated `src/components/screens/ScorecardScreen.vue`.
+- Updated `src/components/screens/ResultsScreen.vue`.
+- Updated tests:
+  - `tests/stores/round.test.ts`
+  - `tests/screens/setup.test.ts`
+  - `tests/screens/scorecard.test.ts`
+  - `tests/screens/results.test.ts`
+- Updated `README.md`.
+- Updated this checkpoint file.
+
+Implementation notes:
+
+- Added `store.pairMatchResult`, a store-derived display result that wraps the
+  pure `computePairMatchPlay()` scorer and includes front/back/overall segment
+  labels for each match.
+- Added pair-match setup controls:
+  - enable/disable Pair Match Play
+  - points per hole
+  - net/gross score type
+  - explicit two-player-per-side match pairing builder
+- New rounds persist repaired/default pair matches from setup.
+- Scorecard renders a live Pair Match Play panel with total points/holes, match
+  cards, per-hole winner chips, and front/back/total status.
+- Results renders a Pair Match Play section with team totals and per-match
+  front/back/overall breakdowns.
+- Narrow viewport handling keeps the pair-match hole grid and result tables
+  scrollable inside their panels instead of widening the page.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 21 files, 149 tests.
+- `npm run build`: passed.
+- Browser QA at `http://localhost:5173/`:
+  - Created a four-player round through `/setup`.
+  - Enabled Pair Match Play and confirmed the setup pairing builder appeared.
+  - Started the round and confirmed `/scorecard` rendered the live pair-match
+    panel.
+  - Entered first-hole scores and confirmed the live panel showed Team 1 up
+    1-0.
+  - Opened `/results` and confirmed the Pair Match Play section showed the
+    matching front/overall result.
+  - Mobile viewport `390x844`: no page-level horizontal overflow; scorecard
+    pair-hole chips scroll inside the card; results pair table stays contained.
+  - Browser console errors: none.
+
+Next recommended steps:
+
+1. Add Wolf live/results UX.
+2. Add the remaining per-game results panels for Stableford, three-man Nassau,
+   putt poker detail, and other legacy detail sections.
+3. Start the group/Supabase course search, membership, history, and realtime
+   sync layer.
+4. Keep reusing store getters/actions; do not recompute scoring in components.
+
+## Current Handoff: Pair Match Panels Live
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Pair-match commit will be the latest after this checkpoint is pushed.
+- Worktree status at handoff: clean after pushing Checkpoint 22.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
   branch should create deployments.
 
 Most recent verification:
 
 - `node scripts/event-format-tests.js`: passed.
-- `npm run test:run`: passed, 21 files, 145 tests.
+- `npm run test:run`: passed, 21 files, 149 tests.
 - `npm run build`: passed.
 - Browser QA:
-  - setup -> scramble-enabled scorecard path passed.
-  - demo Best Ball row updates from player scores.
+  - setup -> pair-match-enabled scorecard path passed.
+  - first scored hole updated the live pair-match panel.
+  - results showed matching Pair Match Play breakdown.
+  - mobile overflow check passed at `390x844`.
 
 Current implementation state:
 
@@ -1066,23 +1136,23 @@ Current implementation state:
 - A real local create-score-results flow works end to end: `/setup` builds a round
   (course, teams, players, games) and `/scorecard` scores it live with score
   entry, net/skins columns, putt rows, the putt poker panel, and settlement.
-  `/results` shows team scores, leaderboard, team-game breakdowns, skins, and
-  settlement. 4-man scramble can be enabled from setup, scored through team rows
-  on the scorecard, and displayed/settled through results. Best Ball and 2-Ball
-  render read-only derived team rows driven by player scores. All scoring is
-  read from store getters/actions.
+  `/results` shows team scores, leaderboard, team-game breakdowns, pair-match
+  breakdowns, skins, and settlement. 4-man scramble can be enabled from setup,
+  scored through team rows on the scorecard, and displayed/settled through
+  results. Best Ball and 2-Ball render read-only derived team rows driven by
+  player scores. Pair Match Play can be configured from setup and renders live
+  scorecard plus results panels. All scoring is read from store getters/actions.
 - `HomeScreen.vue` links to New round (`/setup`), Start demo round, the
   scorecard, and results. Routing: `/`, `/setup`, `/scorecard`, `/results`.
 - Still demo/local only: no group membership, no Supabase course search, no
-  realtime sync, and the scorecard still lacks pair-match/wolf live panels.
-  Results lacks the legacy per-game detail panels for pair match, Wolf,
-  Stableford, three-man Nassau, and putt poker.
+  realtime sync, and the scorecard still lacks the Wolf live panel. Results
+  lacks the legacy per-game detail panels for Wolf, Stableford, three-man
+  Nassau, and putt poker detail.
 - The old monolith remains available as the parity oracle at
   `legacy/index.html`.
 
 The next task should begin (pick one):
 
-- Add pair-match setup configuration plus pair-match live/results panels; OR
 - Add Wolf live/results UX; OR
 - Add the missing per-game detail panels to the results screen.
 - Start the group/Supabase layer for course search, group membership, history,

@@ -107,6 +107,34 @@ describe('SetupScreen', () => {
     });
   });
 
+  it('configures pair match play and default pairings', async () => {
+    const store = useRoundStore();
+    const wrapper = mountSetup();
+
+    const rows = wrapper.findAll('.player-row');
+    const setRow = async (row: ReturnType<typeof wrapper.findAll>[number], name: string, idx: string) => {
+      const inputs = row.findAll('input');
+      await inputs[0].setValue(name);
+      await inputs[1].setValue(idx);
+    };
+    await setRow(rows[0], 'Ann', '10');
+    await setRow(rows[1], 'Bea', '12');
+    await setRow(rows[2], 'Cal', '6');
+    await setRow(rows[3], 'Dan', '20');
+
+    const pairRow = wrapper.findAll('.game-row').find((row) => row.text().includes('Pair Match Play'));
+    expect(pairRow).toBeDefined();
+    await pairRow!.find('input[type="checkbox"]').setValue(true);
+    await pairRow!.find('input[type="number"]').setValue('2');
+    await pairRow!.find('select').setValue('gross');
+
+    expect(wrapper.find('.pair-match-builder').exists()).toBe(true);
+    await wrapper.find('.btn-primary').trigger('click');
+
+    expect(store.round?.games.pairMatch).toMatchObject({ enabled: true, pointsPerHole: 2, type: 'gross' });
+    expect(store.round?.pairMatches).toEqual([{ a: ['Ann', 'Bea'], b: ['Cal', 'Dan'] }]);
+  });
+
   it('adds and removes player rows', async () => {
     const wrapper = mountSetup();
     expect(wrapper.findAll('.player-row')).toHaveLength(4);

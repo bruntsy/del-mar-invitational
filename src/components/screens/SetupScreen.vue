@@ -2,8 +2,9 @@
 import { computed, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import { cloneDefaultGames, normalizeGames } from '@/domain/games';
+import { ensurePairMatches } from '@/scoring/pairMatch';
 import { emptyRound, useRoundStore } from '@/stores/round';
-import type { Course, GameConfig, PlayerMap, RoundState } from '@/types';
+import type { Course, GameConfig, PairMatch, PlayerMap, RoundState } from '@/types';
 
 const store = useRoundStore();
 const router = useRouter();
@@ -35,6 +36,7 @@ const form = reactive({
     { name: '', handicapIndex: '', team: 'team2' },
   ] as PlayerRow[],
   games: cloneDefaultGames() as GameConfig,
+  pairMatches: [] as PairMatch[],
 });
 
 function addPlayer() {
@@ -67,6 +69,29 @@ const errors = computed(() => {
 });
 
 const canStart = computed(() => errors.value.length === 0);
+
+const pairMatches = computed(() => ensurePairMatches(form.pairMatches, team1.value, team2.value));
+
+function syncPairMatches() {
+  form.pairMatches = ensurePairMatches(form.pairMatches, team1.value, team2.value);
+}
+
+function addPairMatch() {
+  syncPairMatches();
+  form.pairMatches.push({ a: [], b: [] });
+}
+
+function setPairMatchPlayer(matchIndex: number, side: 'a' | 'b', slot: number, player: string) {
+  syncPairMatches();
+  const match = form.pairMatches[matchIndex] ?? { a: [], b: [] };
+  const roster = side === 'a' ? team1.value : team2.value;
+  const values = [...(match[side] || [])];
+  values[slot] = roster.includes(player) ? player : '';
+  form.pairMatches[matchIndex] = {
+    ...match,
+    [side]: values.filter(Boolean).slice(0, 2),
+  };
+}
 
 function buildRound(): { round: RoundState; players: PlayerMap } {
   const course: Course = {
@@ -101,6 +126,7 @@ function buildRound(): { round: RoundState; players: PlayerMap } {
     team2: team2.value,
     teamNames: { team1: form.teamNames.team1, team2: form.teamNames.team2 },
     matchups,
+    pairMatches: ensurePairMatches(form.pairMatches, team1.value, team2.value),
     games: normalizeGames(form.games),
   };
 
@@ -236,6 +262,55 @@ function goHome() {
           <input v-model.number="form.games.aggy.back" class="form-input sm" type="number" min="0" placeholder="Back $" />
           <input v-model.number="form.games.aggy.total" class="form-input sm" type="number" min="0" placeholder="Total $" />
           <select v-model="form.games.aggy.type" class="form-input sm"><option>net</option><option>gross</option></select>
+        </div>
+
+        <div class="game-row">
+          <label class="game-toggle"><input v-model="form.games.pairMatch.enabled" type="checkbox" @change="syncPairMatches" /> Pair Match Play</label>
+          <input v-model.number="form.games.pairMatch.pointsPerHole" class="form-input sm" type="number" min="1" placeholder="Pts/hole" />
+          <select v-model="form.games.pairMatch.type" class="form-input sm"><option>net</option><option>gross</option></select>
+        </div>
+
+        <div v-if="form.games.pairMatch.enabled" class="pair-match-builder">
+          <div v-for="(match, matchIndex) in pairMatches" :key="matchIndex" class="pair-match-row">
+            <div class="pair-match-side">
+              <select
+                class="form-input pair-select"
+                :value="match.a[0] || ''"
+                @change="setPairMatchPlayer(matchIndex, 'a', 0, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="">Open</option>
+                <option v-for="player in team1" :key="`a0-${matchIndex}-${player}`" :value="player">{{ player }}</option>
+              </select>
+              <select
+                class="form-input pair-select"
+                :value="match.a[1] || ''"
+                @change="setPairMatchPlayer(matchIndex, 'a', 1, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="">Open</option>
+                <option v-for="player in team1" :key="`a1-${matchIndex}-${player}`" :value="player">{{ player }}</option>
+              </select>
+            </div>
+            <div class="pair-match-vs">vs</div>
+            <div class="pair-match-side">
+              <select
+                class="form-input pair-select"
+                :value="match.b[0] || ''"
+                @change="setPairMatchPlayer(matchIndex, 'b', 0, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="">Open</option>
+                <option v-for="player in team2" :key="`b0-${matchIndex}-${player}`" :value="player">{{ player }}</option>
+              </select>
+              <select
+                class="form-input pair-select"
+                :value="match.b[1] || ''"
+                @change="setPairMatchPlayer(matchIndex, 'b', 1, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="">Open</option>
+                <option v-for="player in team2" :key="`b1-${matchIndex}-${player}`" :value="player">{{ player }}</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn-ghost pair-add" type="button" @click="addPairMatch">+ Add match</button>
         </div>
 
         <div class="game-row">
@@ -452,6 +527,39 @@ label {
   max-width: 100px;
   padding: 5px 8px;
   font-size: 0.82rem;
+}
+
+.pair-match-builder {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 10px;
+}
+
+.pair-match-row,
+.pair-match-side {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.pair-match-vs {
+  color: #8a9489;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.pair-select {
+  width: 138px;
+}
+
+.pair-add {
+  justify-self: start;
+  padding: 7px 12px;
 }
 
 .setup-errors {

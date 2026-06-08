@@ -111,6 +111,29 @@ describe('ScorecardScreen', () => {
     expect(firstTeamRow!.find('.total-col').text()).toBe('72');
   });
 
+  it('renders the pair match live panel from stored pairings', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.games.pairMatch.enabled = true;
+    round.games.pairMatch.type = 'gross';
+    round.pairMatches = [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }];
+    store.setRound(round, players);
+
+    const wrapper = mountScorecard();
+    expect(wrapper.find('.pair-live').exists()).toBe(true);
+    expect(wrapper.text()).toContain('Pair Match Play');
+    expect(wrapper.text()).toContain('Wes / Aaron');
+
+    store.setScore('Wes', 0, 4);
+    store.setScore('Aaron', 0, 5);
+    store.setScore('Tito', 0, 6);
+    store.setScore('Q', 0, 6);
+    await nextTick();
+
+    expect(wrapper.find('.pair-live-total').text()).toContain('Bay Cats 1 - 0 Hill Dogs');
+    expect(wrapper.find('.pair-live-hole.side-a').exists()).toBe(true);
+  });
+
   it('shows the settlement section once bets exist', () => {
     const store = useRoundStore();
     const { round, players } = demoRound();

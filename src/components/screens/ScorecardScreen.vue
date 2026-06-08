@@ -135,6 +135,8 @@ function puttSum(player: string, start: number, end: number): number | null {
 
 const puttPokerEnabled = computed(() => store.games.puttPoker.enabled);
 const scrambleEnabled = computed(() => store.games.scramble4.enabled);
+const pairMatch = computed(() => store.pairMatchResult);
+const pairMatchVisible = computed(() => pairMatch.value.enabled && pairMatch.value.matches.length > 0);
 interface PuttGroup {
   name: string;
   players: string[];
@@ -166,6 +168,21 @@ function goHome() {
 
 function goResults() {
   void router.push('/results');
+}
+
+function shortTeamLabel(name: string, fallback: string): string {
+  const clean = name.replace(/[^a-z0-9 ]/gi, ' ').trim();
+  if (!clean) return fallback;
+  if (/^team\s*1$/i.test(clean)) return 'T1';
+  if (/^team\s*2$/i.test(clean)) return 'T2';
+  return clean.split(/\s+/)[0].slice(0, 3).toUpperCase();
+}
+
+function holeClass(winner: 'a' | 'b' | 'tie' | null): string {
+  if (winner === 'a') return 'side-a';
+  if (winner === 'b') return 'side-b';
+  if (winner === 'tie') return 'tie';
+  return 'pending';
 }
 </script>
 
@@ -373,6 +390,59 @@ function goResults() {
           </tbody>
         </table>
       </div>
+
+      <section v-if="pairMatchVisible" class="pair-live">
+        <div class="pair-live-title">
+          <span>Pair Match Play</span>
+          <span class="pair-live-total">
+            {{ store.round.teamNames.team1 }} {{ pairMatch.team1Points }} - {{ pairMatch.team2Points }}
+            {{ store.round.teamNames.team2 }}
+            {{ pairMatch.pointsPerHole === 1 ? 'holes' : 'pts' }}
+          </span>
+        </div>
+        <div class="pair-live-grid">
+          <div v-for="match in pairMatch.matches" :key="match.idx" class="pair-live-card">
+            <div class="pair-live-head">
+              <div class="pair-live-side" :class="{ win: match.aPts > match.bPts }">
+                <div class="pair-live-name">{{ match.a.join(' / ') }}</div>
+                <div class="pair-live-meta">{{ store.round.teamNames.team1 }}</div>
+              </div>
+              <div class="pair-live-score">{{ match.aPts }} - {{ match.bPts }}</div>
+              <div class="pair-live-side" :class="{ win: match.bPts > match.aPts }">
+                <div class="pair-live-name">{{ match.b.join(' / ') }}</div>
+                <div class="pair-live-meta">{{ store.round.teamNames.team2 }}</div>
+              </div>
+            </div>
+            <div class="pair-live-holes">
+              <div
+                v-for="hole in match.holes"
+                :key="hole.hole"
+                class="pair-live-hole"
+                :class="holeClass(hole.winner)"
+                :title="`Hole ${hole.hole}: ${hole.a ?? '—'} - ${hole.b ?? '—'}`"
+              >
+                <span class="pair-live-hole-num">{{ hole.hole }}</span>
+                <span class="pair-live-hole-result">
+                  {{
+                    hole.winner === 'a'
+                      ? shortTeamLabel(store.round.teamNames.team1, 'T1')
+                      : hole.winner === 'b'
+                        ? shortTeamLabel(store.round.teamNames.team2, 'T2')
+                        : hole.winner === 'tie'
+                          ? '='
+                          : '-'
+                  }}
+                </span>
+              </div>
+            </div>
+            <div class="pair-live-splits">
+              <span>F: {{ match.front.label }}</span>
+              <span>B: {{ match.back.label }}</span>
+              <span>T: {{ match.overall.label }}</span>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section v-if="puttPokerEnabled" class="sc-puttpoker">
         <h2 class="sc-section-hdr">Putt Poker</h2>
@@ -669,12 +739,128 @@ function goResults() {
 .skins-col { color: #8a672f; }
 
 .sc-puttpoker,
-.sc-settlement {
+.sc-settlement,
+.pair-live {
   margin-top: 24px;
   border: 1px solid #d7cebd;
   border-radius: 8px;
   background: #f8f4ea;
   padding: 16px 20px;
+}
+
+.pair-live-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-weight: 800;
+  color: #24362c;
+  margin-bottom: 12px;
+}
+
+.pair-live-total {
+  color: #8a672f;
+}
+
+.pair-live-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.pair-live-card {
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  overflow: hidden;
+}
+
+.pair-live-head {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.pair-live-side {
+  text-align: center;
+}
+
+.pair-live-side.win .pair-live-name {
+  color: #b08416;
+}
+
+.pair-live-name {
+  color: #283b30;
+  font-weight: 800;
+}
+
+.pair-live-meta {
+  color: #8a9489;
+  font-size: 0.7rem;
+}
+
+.pair-live-score {
+  color: #24362c;
+  font-weight: 900;
+}
+
+.pair-live-holes {
+  display: grid;
+  grid-template-columns: repeat(18, minmax(28px, 1fr));
+  border-top: 1px solid #e4ddcd;
+  overflow-x: auto;
+}
+
+.pair-live-hole {
+  display: grid;
+  gap: 1px;
+  justify-items: center;
+  border-right: 1px solid #e4ddcd;
+  padding: 4px 1px;
+  font-weight: 800;
+}
+
+.pair-live-hole:last-child {
+  border-right: none;
+}
+
+.pair-live-hole-num {
+  color: #8a9489;
+  font-size: 0.58rem;
+}
+
+.pair-live-hole-result {
+  color: #4a5a4f;
+  font-size: 0.66rem;
+}
+
+.pair-live-hole.side-a {
+  background: #e7f2e8;
+}
+
+.pair-live-hole.side-b {
+  background: #f1e3d6;
+}
+
+.pair-live-hole.tie {
+  background: #efe9da;
+}
+
+.pair-live-hole.pending {
+  background: #fbf7ed;
+}
+
+.pair-live-splits {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  border-top: 1px solid #e4ddcd;
+  padding: 8px 12px;
+  color: #6a7a6f;
+  font-size: 0.76rem;
+  font-weight: 700;
 }
 
 .pp-groups {

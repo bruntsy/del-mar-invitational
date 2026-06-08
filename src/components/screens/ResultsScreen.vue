@@ -26,6 +26,8 @@ const teamMembers = computed(() => ({
 const leaderboard = computed(() => store.leaderboard);
 const teamNet = computed(() => store.teamNetTotals);
 const teamGameResults = computed(() => store.teamGameResults);
+const pairMatch = computed(() => store.pairMatchResult);
+const pairMatchVisible = computed(() => pairMatch.value.enabled && pairMatch.value.matches.length > 0);
 const settlement = computed(() => store.settlement);
 const settlementRows = computed(() =>
   store.playerNames.map((player) => ({ player, pnl: Math.round(settlement.value.pnl[player] || 0) })),
@@ -185,6 +187,70 @@ function goHome() {
             </div>
           </div>
         </div>
+      </section>
+
+      <section v-if="pairMatchVisible" class="rs-section">
+        <h2 class="rs-section-hdr">Pair Match Play</h2>
+        <div class="team-grid">
+          <div class="team-box" :class="{ winner: pairMatch.team1Points > pairMatch.team2Points }">
+            <div class="tb-label">{{ teamNames.team1 }}</div>
+            <div class="tb-score">{{ pairMatch.team1Holes }}</div>
+            <div class="tb-tag">{{ pairMatch.team1Points > pairMatch.team2Points ? 'Wins' : 'holes won' }}</div>
+          </div>
+          <div class="team-vs">vs</div>
+          <div class="team-box" :class="{ winner: pairMatch.team2Points > pairMatch.team1Points }">
+            <div class="tb-label">{{ teamNames.team2 }}</div>
+            <div class="tb-score">{{ pairMatch.team2Holes }}</div>
+            <div class="tb-tag">{{ pairMatch.team2Points > pairMatch.team1Points ? 'Wins' : 'holes won' }}</div>
+          </div>
+        </div>
+
+        <div v-for="match in pairMatch.matches" :key="match.idx" class="pm-result">
+          <div class="pm-title">
+            Match {{ match.idx }}:
+            {{ match.a.join(' & ') }}
+            vs
+            {{ match.b.join(' & ') }}
+          </div>
+          <table class="rs-table pm-table">
+            <thead>
+              <tr>
+                <th class="col-left">Component</th>
+                <th>{{ teamNames.team1 }}</th>
+                <th>{{ teamNames.team2 }}</th>
+                <th>Tied</th>
+                <th class="col-left">Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="col-left">Front 9</td>
+                <td>{{ match.front.team1 }}</td>
+                <td>{{ match.front.team2 }}</td>
+                <td>{{ match.front.tied }}</td>
+                <td class="col-left">{{ match.front.label }}</td>
+              </tr>
+              <tr>
+                <td class="col-left">Back 9</td>
+                <td>{{ match.back.team1 }}</td>
+                <td>{{ match.back.team2 }}</td>
+                <td>{{ match.back.tied }}</td>
+                <td class="col-left">{{ match.back.label }}</td>
+              </tr>
+              <tr>
+                <td class="col-left">Overall</td>
+                <td>{{ match.overall.team1 }}</td>
+                <td>{{ match.overall.team2 }}</td>
+                <td>{{ match.overall.tied }}</td>
+                <td class="col-left">{{ match.overall.label }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="pm-total">
+          Total holes — {{ teamNames.team1 }} {{ pairMatch.team1Holes }} · {{ teamNames.team2 }} {{ pairMatch.team2Holes }}
+          <template v-if="pairMatch.tiedHoles"> · {{ pairMatch.tiedHoles }} halved</template>
+        </p>
       </section>
 
       <section v-if="skinsEnabled" class="rs-section">
@@ -470,6 +536,33 @@ function goHome() {
 }
 
 .fc-vs { color: #9aa49a; font-weight: 700; font-size: 0.8rem; }
+
+.pm-result {
+  margin-top: 14px;
+  border-top: 1px solid #e4ddcd;
+  padding-top: 12px;
+  overflow-x: auto;
+}
+
+.pm-title {
+  margin-bottom: 8px;
+  color: #8a672f;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pm-table {
+  width: 100%;
+  min-width: 520px;
+}
+
+.pm-total {
+  margin: 12px 0 0;
+  color: #4a5a4f;
+  font-weight: 700;
+}
 
 .skins-grid {
   display: flex;

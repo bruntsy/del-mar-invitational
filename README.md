@@ -17,21 +17,37 @@ The current product model is:
 
 ## Stack
 
-- `index.html`: all frontend HTML, CSS, and JavaScript.
+- Vue 3, TypeScript, Pinia, Vue Router, and Vite for the rewrite UI.
+- `src/scoring`: pure scoring modules ported from the legacy app.
+- `src/stores/round.ts`: local round state, derived scoring getters, and
+  persistence.
+- `legacy/index.html`: preserved monolith used as the parity oracle during the
+  migration.
 - Supabase Postgres: `groups`, `events`, `rounds`, and `courses_cache`.
 - Supabase Realtime: live sync for active rounds.
 - Supabase Edge Functions: course search proxy/cache.
 - GolfCourseAPI: course/tee data source.
 - GitHub Pages: static production hosting from `main`.
 
-There is no frontend build step and no runtime package install required for the static app.
+The `rewrite` branch is now a Vite app. The old static app remains in
+`legacy/index.html` until rewrite parity is complete.
 
 ## Repository Layout
 
 ```text
 .
-├── index.html
+├── index.html              # Vite entry
+├── legacy/index.html       # old static app / parity oracle
+├── src
+│   ├── components/screens
+│   ├── domain
+│   ├── fixtures
+│   ├── scoring
+│   ├── stores
+│   └── types
+├── tests
 ├── README.md
+├── CHECKPOINTS.md
 └── supabase
     ├── config.toml
     └── functions
@@ -45,14 +61,21 @@ Notes:
 
 - `course-search` is the active Edge Function.
 - `ghin-lookup` is disabled for production. It returns HTTP 410 and makes no GHIN/API calls, so players are added manually.
-- `package-lock.json` is not required for the app.
+- `CHECKPOINTS.md` is the rewrite handoff trail and should be updated before
+  each pushed checkpoint.
 
 ## Local Development
 
-Run a local static server from the repo root:
+Install dependencies once:
 
 ```bash
-python3 -m http.server 5173
+npm install
+```
+
+Run the Vite dev server:
+
+```bash
+npm run dev
 ```
 
 Open:
@@ -61,21 +84,25 @@ Open:
 http://localhost:5173/
 ```
 
-You can also open `index.html` directly, but a local HTTP server is closer to production behavior.
-
-Run event format regression tests:
+Run regression and build checks:
 
 ```bash
 node scripts/event-format-tests.js
+npm run test:run
+npm run build
+```
+
+The legacy static app can still be served directly for parity checks:
+
+```bash
+python3 -m http.server 5174
 ```
 
 ## Dependencies
 
 ### Browser
 
-The app loads Supabase JS from CDN in `index.html`.
-
-No npm dependencies are required for the frontend.
+The rewrite frontend uses the packages listed in `package.json`.
 
 ### Supabase Edge Function
 

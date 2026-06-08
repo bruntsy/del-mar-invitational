@@ -75,6 +75,27 @@ describe('ResultsScreen', () => {
     expect(winner.text()).toContain('Winners');
   });
 
+  it('renders pair match play results from store-derived rows', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.games.pairMatch.enabled = true;
+    round.games.pairMatch.type = 'gross';
+    round.pairMatches = [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }];
+    store.setRound(round, players);
+    store.setScore('Wes', 0, 4);
+    store.setScore('Aaron', 0, 5);
+    store.setScore('Tito', 0, 6);
+    store.setScore('Q', 0, 6);
+
+    const wrapper = mountResults();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('Pair Match Play');
+    expect(wrapper.text()).toContain('Match 1: Wes & Aaron vs Tito & Q');
+    expect(wrapper.text()).toContain('Total holes');
+    expect(wrapper.find('.pm-table').exists()).toBe(true);
+  });
+
   it('toggles round completion through the store', async () => {
     const store = useRoundStore();
     const { round, players } = demoRound();

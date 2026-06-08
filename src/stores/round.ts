@@ -14,6 +14,12 @@ import {
 } from '@/scoring/settlement';
 import { computePuttPoker, type PuttPokerResult } from '@/scoring/puttPoker';
 import { computeTeamHoleStats, computeTeamTotals, type TeamTotals } from '@/scoring/teamGames';
+import {
+  computePairMatchPlay,
+  ensurePairMatches,
+  type PairMatchPlayResult,
+  type PairMatchResultRow,
+} from '@/scoring/pairMatch';
 import type { WolfHoleConfig } from '@/scoring/wolf';
 import type { PlayerMap, RoundState, ScoreMatrix, ScoreType } from '@/types';
 
@@ -67,8 +73,49 @@ export interface ScorecardTeamFormatRow {
   total: number | null;
 }
 
+export interface PairMatchSegment {
+  team1: number;
+  team2: number;
+  tied: number;
+  played: number;
+  label: string;
+}
+
+export interface PairMatchDisplayRow extends PairMatchResultRow {
+  front: PairMatchSegment;
+  back: PairMatchSegment;
+  overall: PairMatchSegment;
+}
+
+export interface PairMatchDisplayResult extends PairMatchPlayResult {
+  matches: PairMatchDisplayRow[];
+  enabled: boolean;
+  scoreType: ScoreType;
+  pointsPerHole: number;
+}
+
 function sum(values: number[]): number {
   return values.reduce((total, value) => total + value, 0);
+}
+
+function segmentFor(
+  match: PairMatchResultRow,
+  start: number,
+  end: number,
+  team1Name: string,
+  team2Name: string,
+): PairMatchSegment {
+  const holes = match.holes.slice(start, end);
+  const team1 = holes.filter((hole) => hole.winner === 'a').length;
+  const team2 = holes.filter((hole) => hole.winner === 'b').length;
+  const tied = holes.filter((hole) => hole.winner === 'tie').length;
+  const played = holes.filter((hole) => hole.winner != null).length;
+  let label = '—';
+  if (played > 0) {
+    if (team1 === team2) label = 'All Square';
+    else label = team1 > team2 ? `${team1Name} ${team1 - team2} UP` : `${team2Name} ${team2 - team1} UP`;
+  }
+  return { team1, team2, tied, played, label };
 }
 
 function hasLocalStorage(): boolean {
@@ -337,6 +384,41 @@ export const useRoundStore = defineStore('round', {
 
       return results;
     },
+
+    pairMatchResult(state): PairMatchDisplayResult {
+      const games = this.games;
+      const empty: PairMatchDisplayResult = {
+        enabled: games.pairMatch.enabled,
+        scoreType: games.pairMatch.type,
+        pointsPerHole: Number(games.pairMatch.pointsPerHole || 1),
+        matches: [],
+        team1Points: 0,
+        team2Points: 0,
+        team1Holes: 0,
+        team2Holes: 0,
+        tiedHoles: 0,
+      };
+      const context = this.scoreContext;
+      if (!context || !state.round || !games.pairMatch.enabled) return empty;
+      const team1 = state.round.team1 || [];
+      const team2 = state.round.team2 || [];
+      const result = computePairMatchPlay(context, state.round.pairMatches, team1, team2, {
+        pointsPerHole: games.pairMatch.pointsPerHole,
+        type: games.pairMatch.type,
+      });
+      const team1Name = state.round.teamNames.team1;
+      const team2Name = state.round.teamNames.team2;
+      return {
+        ...empty,
+        ...result,
+        matches: result.matches.map((match) => ({
+          ...match,
+          front: segmentFor(match, 0, 9, team1Name, team2Name),
+          back: segmentFor(match, 9, 18, team1Name, team2Name),
+          overall: segmentFor(match, 0, 18, team1Name, team2Name),
+        })),
+      };
+    },
   },
 
   actions: {
@@ -379,6 +461,33 @@ export const useRoundStore = defineStore('round', {
     setGames(games: RoundState['games']) {
       if (!this.round) return;
       this.round.games = normalizeGames(games);
+      this.persist();
+    },
+
+    ensurePairMatches() {
+      if (!this.round) return;
+      this.round.pairMatches = ensurePairMatches(this.round.pairMatches, this.round.team1 || [], this.round.team2 || []);
+      this.persist();
+    },
+
+    addPairMatch() {
+      if (!this.round) return;
+      this.round.pairMatches = [...(this.round.pairMatches || []), { a: [], b: [] }];
+      this.persist();
+    },
+
+    setPairMatchPlayer(matchIndex: number, side: 'a' | 'b', slot: number, player: string) {
+      if (!this.round || matchIndex < 0 || slot < 0 || slot > 1) return;
+      const matches = [...(this.round.pairMatches || [])];
+      const match = matches[matchIndex] ?? { a: [], b: [] };
+      const roster = side === 'a' ? this.round.team1 || [] : this.round.team2 || [];
+      const values = [...(match[side] || [])];
+      values[slot] = roster.includes(player) ? player : '';
+      matches[matchIndex] = {
+        ...match,
+        [side]: values.filter(Boolean).slice(0, 2),
+      };
+      this.round.pairMatches = matches;
       this.persist();
     },
 

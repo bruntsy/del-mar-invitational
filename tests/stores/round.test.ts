@@ -229,6 +229,30 @@ describe('round store', () => {
     expect(rows[1]).toMatchObject({ label: '2-Ball', holes: Array(18).fill(9), out: 81, in: 81, total: 162 });
   });
 
+  it('derives pair match play results from configured pairings', () => {
+    const store = useRoundStore();
+    const round = roundWithRoster();
+    round.pairMatches = [{ a: ['A', 'B'], b: ['C', 'D'] }];
+    store.setRound(round, players);
+    store.setGames({ ...store.games, pairMatch: { enabled: true, pointsPerHole: 1, type: 'gross' } });
+
+    store.setScore('A', 0, 4);
+    store.setScore('B', 0, 5);
+    store.setScore('C', 0, 6);
+    store.setScore('D', 0, 6);
+    store.setScore('A', 1, 6);
+    store.setScore('B', 1, 6);
+    store.setScore('C', 1, 4);
+    store.setScore('D', 1, 5);
+
+    const result = store.pairMatchResult;
+    expect(result.enabled).toBe(true);
+    expect(result.matches).toHaveLength(1);
+    expect(result.team1Holes).toBe(1);
+    expect(result.team2Holes).toBe(1);
+    expect(result.matches[0].front).toMatchObject({ team1: 1, team2: 1, played: 2, label: 'All Square' });
+  });
+
   it('marks a round complete and reopens it', () => {
     const store = useRoundStore();
     store.setRound(roundWithRoster(), players);
