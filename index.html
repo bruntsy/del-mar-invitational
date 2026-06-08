@@ -1930,9 +1930,16 @@ function groupName(){ return GROUP?.name || 'Cushman Cup'; }
 function teamName(key){ return ROUND?.teamNames?.[key] || (key==='team1'?'Team 1':'Team 2'); }
 function ensureTeamNames(){ if(!ROUND.teamNames) ROUND.teamNames={team1:'Team 1',team2:'Team 2'}; }
 function groupPlayersMap(){ return GROUP?.players || {}; }
-function groupPlayerNames(){ return Object.keys(groupPlayersMap()); }
-function groupPlayerList(){ return Object.values(groupPlayersMap()).sort((a,b)=>a.name.localeCompare(b.name)); }
-function eventFormatLabel(format){ return ({bestBallNassau:'2v2 Net Best Ball Nassau',scramble2v2Nassau:'2v2 Two-Man Scramble Nassau',fourManScramble:'4-Man Scramble',custom:'Custom Round'})[format] || 'Custom Round'; }
+function normalizedGroupPlayers(){
+  return Object.entries(groupPlayersMap()).map(([key,p])=>{
+    if(typeof p==='string') return {name:p,handicapIndex:0};
+    return {name:p?.name || key, handicapIndex:Number(p?.handicapIndex ?? p?.index ?? 0)};
+  }).filter(p=>p.name);
+}
+function groupPlayerNames(){ return normalizedGroupPlayers().map(p=>p.name); }
+function groupPlayerList(){ return normalizedGroupPlayers().sort((a,b)=>a.name.localeCompare(b.name)); }
+function groupPlayerByName(name){ return normalizedGroupPlayers().find(p=>p.name===name) || null; }
+function eventFormatLabel(format){ return ({bestBallNassau:'2v2 Net Best Ball Nassau',twoManBestBallAggy:'2v2 Best Ball + Aggy',scramble2v2Nassau:'2v2 Two-Man Scramble Nassau',fourManScramble:'4-Man Scramble',custom:'Custom Round'})[format] || 'Custom Round'; }
 function eventScoringModeLabel(mode){ return mode==='strokePlay'?'Stroke total':'Match play'; }
 function eventDefaultRound(i, team1=[], team2=[]){
   const defaultPairs=[
@@ -1990,7 +1997,7 @@ function normalizeEventConfig(config={}){
       pointsResult:{team1:src.pointsResult?.team1??null,team2:src.pointsResult?.team2??null}
     });
   }
-  return { teamNames, team1, team2, rounds, winPoints:config.winPoints || ((rounds.length*6/2)+0.5), tiebreaker:config.tiebreaker || '' };
+  return { teamNames, team1, team2, rounds, winPoints:config.winPoints || ((sum(rounds.map(eventRoundAvailablePoints))/2)+0.5), tiebreaker:config.tiebreaker || '' };
 }
 function eventRoundGames(round){
   const g=cloneDefaultGames();
@@ -2000,6 +2007,8 @@ function eventRoundGames(round){
     g.bestBall={enabled:true,front:Number(round.bestBallBet?.front||0),back:Number(round.bestBallBet?.back||0),total:Number(round.bestBallBet?.total||0),balls:1,type:round.bestBallBet?.type||'net'};
   } else if(round.format==='fourManScramble'){
     g.scramble4={enabled:true,front:Number(round.scrambleBet?.front||0),back:Number(round.scrambleBet?.back||0),total:Number(round.scrambleBet?.total||0),type:'gross'};
+  } else if(round.format==='twoManBestBallAggy'){
+    g.pairMatch={enabled:false,pointsPerHole:1,type:'net'};
   } else {
     g.pairMatch={enabled:true,pointsPerHole:1,type:'net'};
   }
@@ -2007,7 +2016,7 @@ function eventRoundGames(round){
 }
 function eventStandings(config=EVENT?.config){
   const cfg=normalizeEventConfig(config||{}), totals={team1:0,team2:0,available:0};
-  cfg.rounds.forEach(r=>{ totals.team1+=Number(r.pointsResult?.team1||0); totals.team2+=Number(r.pointsResult?.team2||0); totals.available+=sum(Object.values(r.points||{}).map(Number))*Math.max(1,r.pairMatches?.length||1); });
+  cfg.rounds.forEach(r=>{ totals.team1+=Number(r.pointsResult?.team1||0); totals.team2+=Number(r.pointsResult?.team2||0); totals.available+=eventRoundAvailablePoints(r); });
   return totals;
 }
 
@@ -2246,7 +2255,7 @@ function eventComputedStandings(cfg, rows=[]){
   if(ROUND?.id && (cfg.rounds||[]).some(r=>r.roundId===ROUND.id)) byId[ROUND.id]={id:ROUND.id,state:ROUND,completed:ROUND.completed};
   const totals={team1:0,team2:0,available:0}, roundScores=[];
   cfg.rounds.forEach((r,i)=>{
-    totals.available+=sum(Object.values(r.points||{}).map(Number))*Math.max(1,r.pairMatches?.length||1);
+    totals.available+=eventRoundAvailablePoints(r);
     const row=byId[r.roundId], st=row? (typeof row.state==='string'?JSON.parse(row.state):row.state) : null, res=st?eventRoundResultFromState(st,row,cfg,i):null;
     const team1=res?res.team1:Number(r.pointsResult?.team1||0), team2=res?res.team2:Number(r.pointsResult?.team2||0);
     totals.team1+=team1; totals.team2+=team2;
@@ -2366,7 +2375,7 @@ function eventInputField(label,control,help=''){
   return `<div class="event-field"><label class="event-field-label">${escHtml(label)}</label>${control}${help?`<div class="event-field-help">${escHtml(help)}</div>`:''}</div>`;
 }
 function renderEventRoundConfig(r,i,cfg){
-  const formatOpts=['bestBallNassau','scramble2v2Nassau','fourManScramble','custom'].map(v=>`<option value="${v}" ${r.format===v?'selected':''}>${escHtml(eventFormatLabel(v))}</option>`).join('');
+  const formatOpts=['bestBallNassau','twoManBestBallAggy','scramble2v2Nassau','fourManScramble','custom'].map(v=>`<option value="${v}" ${r.format===v?'selected':''}>${escHtml(eventFormatLabel(v))}</option>`).join('');
   const pairUi=r.format==='fourManScramble'?'':`<div style="margin-top:0.65rem">${(r.pairMatches||[]).map((m,mi)=>`<div class="pair-match-row"><div class="pair-match-side">${eventPairSelect(i,mi,'a',0,m.a?.[0]||'',cfg.team1,cfg.teamNames.team1)}${eventPairSelect(i,mi,'a',1,m.a?.[1]||'',cfg.team1,cfg.teamNames.team1)}</div><div class="pair-match-vs">vs</div><div class="pair-match-side">${eventPairSelect(i,mi,'b',0,m.b?.[0]||'',cfg.team2,cfg.teamNames.team2)}${eventPairSelect(i,mi,'b',1,m.b?.[1]||'',cfg.team2,cfg.teamNames.team2)}</div></div>`).join('')}<button class="group-btn sm" onclick="addEventPairMatch(${i})">Add Match</button></div>`;
   return `<div class="event-round-card"><div class="event-round-head">${eventInputField('Round name', `<input id="event-r${i}-name" class="form-input" value="${escHtml(r.name)}" placeholder="Round ${i+1}">`)}${eventInputField('Round format', `<select id="event-r${i}-format" class="form-input" onchange="setEventRoundFormat(${i},this.value)">${formatOpts}</select>`)}${eventInputField('Nassau scoring', `<select id="event-r${i}-scoring-mode" class="form-input"><option value="matchPlay" ${r.scoringMode!=='strokePlay'?'selected':''}>Match play</option><option value="strokePlay" ${r.scoringMode==='strokePlay'?'selected':''}>Stroke total</option></select>`)}</div>
     <div class="event-config-grid">
@@ -2539,7 +2548,8 @@ function renderSetupConfirm(){
     gameRows=[];
     const pts=evtRound.points||{};
     const formatLabel=eventFormatLabel(evtRound.format);
-    if(evtRound.format!=='fourManScramble') gameRows.push(`${formatLabel}: ${pts.front||1}pt front / ${pts.back||1}pt back / ${pts.total||1}pt overall — net`);
+    if(evtRound.format==='twoManBestBallAggy') gameRows.push(`${formatLabel}: 2 pts per hole — 1 best ball + 1 aggregate, net`);
+    else if(evtRound.format!=='fourManScramble') gameRows.push(`${formatLabel}: ${pts.front||1}pt front / ${pts.back||1}pt back / ${pts.total||1}pt overall — net`);
     else gameRows.push(`${formatLabel}`);
     if(evtRound.skins?.enabled) gameRows.push(`Skins: $${evtRound.skins.pot||0}/player ${evtRound.skins.type||'net'}`);
     if(evtRound.puttPoker?.enabled) gameRows.push(`Putt Poker: $${evtRound.puttPoker.pot||0}/person`);
@@ -2728,7 +2738,7 @@ function renderSetupTeams(){
 }
 function setTeamName(key,value){ ensureTeamNames(); ROUND.teamNames[key]=(value||'').trim() || (key==='team1'?'Team 1':'Team 2'); saveState(); const title=document.getElementById(`${key}-title`); if(title) title.textContent=teamName(key); }
 function renderSetup(){ renderPool(); renderTeam('team1'); renderTeam('team2'); renderMatchups(); renderPlayingGroups(); }
-function renderPool(){ const zone=document.getElementById('pool-zone'); if(!zone) return; zone.innerHTML=setupState.pool.length?setupState.pool.map(p=>`<div class="player-chip" onclick="clickAssign('${escJs(p)}')"><span>${escHtml(p)}</span><span class="player-chip-sub">Idx ${Number(GROUP.players[p]?.handicapIndex||0).toFixed(1).replace('.0','')}</span></div>`).join(''):'<div class="pool-empty">All players assigned</div>'; }
+function renderPool(){ const zone=document.getElementById('pool-zone'); if(!zone) return; zone.innerHTML=setupState.pool.length?setupState.pool.map(p=>`<div class="player-chip" onclick="clickAssign('${escJs(p)}')"><span>${escHtml(p)}</span><span class="player-chip-sub">Idx ${Number(groupPlayerByName(p)?.handicapIndex||0).toFixed(1).replace('.0','')}</span></div>`).join(''):'<div class="pool-empty">All players assigned</div>'; }
 function renderTeam(t){ const slots=document.getElementById(`${t}-slots`); const ct=document.getElementById(`${t}-ct`); if(!slots) return; const members=setupState[t]; const target=targetTeamSize(t); let html=''; for(let i=0;i<target;i++){ html+=members[i]?`<div class="slot slot-filled" onclick="returnToPool('${escJs(members[i])}','${t}')"><span class="slot-name">${escHtml(members[i])}</span><span class="slot-x">✕</span></div>`:'<div class="slot slot-empty">open</div>'; } slots.innerHTML=html; if(ct) ct.textContent=`${members.length} of ${target}`; }
 function clickAssign(player){ if(setupState.team1.length<targetTeamSize('team1')) moveToTeam(player,'team1'); else if(setupState.team2.length<targetTeamSize('team2')) moveToTeam(player,'team2'); }
 function moveToTeam(player,to){ if(setupState[to].length>=targetTeamSize(to)) return; setupState.pool=setupState.pool.filter(p=>p!==player); setupState[to].push(player); renderSetup(); updateTeamsNext(); }
@@ -2861,7 +2871,7 @@ async function shareRound(){
 
 function initScores(){ currentPlayers().forEach(p=>{ if(!ROUND.scores[p]||ROUND.scores[p].length!==18) ROUND.scores[p]=new Array(18).fill(null); }); if(!ROUND.teamScores)ROUND.teamScores={}; ['team1','team2'].forEach(t=>{ if(!ROUND.teamScores[t]||ROUND.teamScores[t].length!==18) ROUND.teamScores[t]=new Array(18).fill(null); }); }
 function initPutts(){ if(!ROUND.putts) ROUND.putts={}; currentPlayers().forEach(p=>{ if(!ROUND.putts[p]||ROUND.putts[p].length!==18) ROUND.putts[p]=new Array(18).fill(null); }); }
-function getPlayerIndex(player){ return Number(GROUP?.players?.[player]?.handicapIndex ?? 0); }
+function getPlayerIndex(player){ return Number(groupPlayerByName(player)?.handicapIndex ?? 0); }
 function getCourseHandicap(player){ const c=ROUND.course; return computeWHSCourseHcp(getPlayerIndex(player), c.tee?.slope, c.tee?.rating, c.tee?.parTotal || sum(c.par)); }
 function getPlayerStrokes(){ const players=currentPlayers(); const courseHcps=players.map(getCourseHandicap); const min=Math.min(...courseHcps); const out={}; players.forEach((p,i)=>out[p]=courseHcps[i]-min); return out; }
 function getsStroke(playerStrokes,si){ return Number(si)<=Number(playerStrokes||0); }
@@ -3190,13 +3200,23 @@ function eventRoundConfigForCurrent(){
 function scorePoint(a,b,pts,highWins=false){ if(a==null||b==null)return{team1:0,team2:0,winner:'open'}; if(a===b)return{team1:pts/2,team2:pts/2,winner:'tie'}; const t1Wins=highWins?a>b:a<b; return t1Wins?{team1:pts,team2:0,winner:'team1'}:{team1:0,team2:pts,winner:'team2'}; }
 function pairRangeScore(players,start,end,strokes,type='net'){ let total=0; for(let h=start;h<end;h++){ const v=pairBestBallScore(players,h,strokes,type); if(v==null)return null; total+=v; } return total; }
 function pairMatchRangeWins(aPlayers,bPlayers,start,end,strokes,type='net'){ let aWon=0,bWon=0,tied=0; for(let h=start;h<end;h++){ const a=pairBestBallScore(aPlayers,h,strokes,type), b=pairBestBallScore(bPlayers,h,strokes,type); if(a==null||b==null)return null; if(a<b)aWon++; else if(b<a)bWon++; else tied++; } return {a:aWon,b:bWon,tied,played:end-start}; }
+function pairAggyScore(pair,h,strokes,type='net'){ const vals=pair.map(p=>playerHoleScore(p,h,strokes,type)).filter(v=>v!=null); return pair.length>0&&vals.length===pair.length?sum(vals):null; }
+function pointResultText(winner,a,b){ if(winner==='open')return'Open'; if(winner==='tie')return`Tied ${a}-${b}`; return `${winner==='team1'?teamName('team1'):teamName('team2')} wins ${winner==='team1'?a:b}-${winner==='team1'?b:a}`; }
+function bestBallAggyHoleComponent(aPlayers,bPlayers,h,strokes,type='net'){
+  const bbA=pairBestBallScore(aPlayers,h,strokes,type), bbB=pairBestBallScore(bPlayers,h,strokes,type), agA=pairAggyScore(aPlayers,h,strokes,type), agB=pairAggyScore(bPlayers,h,strokes,type);
+  const bb=scorePoint(bbA,bbB,1), ag=scorePoint(agA,agB,1), t1=bb.team1+ag.team1, t2=bb.team2+ag.team2;
+  const winner=bb.winner==='open'||ag.winner==='open'?'open':t1===t2?'tie':t1>t2?'team1':'team2';
+  return {label:`Hole ${h+1}`,a:`BB ${bbA??'—'} / Aggy ${agA??'—'}`,b:`BB ${bbB??'—'} / Aggy ${agB??'—'}`,points:2,team1:t1,team2:t2,winner,unit:'hole pts',detail:{kind:'bestBallAggy',bb:{winner:bb.winner,a:bbA,b:bbB},aggy:{winner:ag.winner,a:agA,b:agB}}};
+}
 function teamMatchRangeWins(teamA,teamB,start,end){ let aWon=0,bWon=0,tied=0; for(let h=start;h<end;h++){ const a=ROUND.teamScores?.[teamA]?.[h]??null, b=ROUND.teamScores?.[teamB]?.[h]??null; if(a==null||b==null)return null; if(a<b)aWon++; else if(b<a)bWon++; else tied++; } return {a:aWon,b:bWon,tied,played:end-start}; }
 function eventComponent(label,a,b,pts,highWins=false,unit='strokes',detail=null){ const p=scorePoint(a,b,Number(pts||0),highWins); return {label,a,b,points:Number(pts||0),team1:p.team1,team2:p.team2,winner:p.winner,unit,detail}; }
 function eventComponentDetail(c,row){
+  if(c.detail?.kind==='bestBallAggy') return `Best ball: ${pointResultText(c.detail.bb.winner,c.detail.bb.a,c.detail.bb.b)} / Aggy: ${pointResultText(c.detail.aggy.winner,c.detail.aggy.a,c.detail.aggy.b)}`;
   if(!c.detail || c.unit!=='holes')return c.unit||'strokes';
   const aName=(row.aPlayers||[]).join(' & ') || teamName('team1'), bName=(row.bPlayers||[]).join(' & ') || teamName('team2'), tied=c.detail.tied||0, played=c.detail.played||0;
   return `${aName} won ${c.a}, ${bName} won ${c.b}${tied?`, ${tied} tied`:''} / ${played} holes`;
 }
+function eventRoundAvailablePoints(r){ return r?.format==='twoManBestBallAggy' ? 36*Math.max(1,r.pairMatches?.length||1) : sum(Object.values(r?.points||{}).map(Number))*Math.max(1,r?.pairMatches?.length||1); }
 function computeEventRoundResult(strokes=getPlayerStrokes()){
   const ctx=eventRoundConfigForCurrent(); if(!ctx)return null;
   const r=ctx.round, rows=[], matchPlay=r.scoringMode!=='strokePlay'; let team1=0, team2=0, complete=true;
@@ -3206,7 +3226,13 @@ function computeEventRoundResult(strokes=getPlayerStrokes()){
     comps.forEach(c=>{ team1+=c.team1; team2+=c.team2; if(c.winner==='open')complete=false; });
     rows.push({label,aPlayers,bPlayers,components:comps});
   }
-  if(r.format==='fourManScramble'){
+  if(r.format==='twoManBestBallAggy'){
+    (ROUND.pairMatches||[]).forEach((m,i)=>{
+      const comps=Array.from({length:18},(_,h)=>bestBallAggyHoleComponent(m.a||[],m.b||[],h,strokes,'net'));
+      comps.forEach(c=>{ team1+=c.team1; team2+=c.team2; if(c.winner==='open')complete=false; });
+      rows.push({label:`Match ${i+1}`,aPlayers:m.a||[],bPlayers:m.b||[],components:comps});
+    });
+  } else if(r.format==='fourManScramble'){
     const comp=(label,start,end,pts)=>{ if(matchPlay){ const w=teamMatchRangeWins('team1','team2',start,end); return eventComponent(label,w?.a??null,w?.b??null,pts,true,'holes',w); } return eventComponent(label,teamScoreRange('team1',start,end),teamScoreRange('team2',start,end),pts,false,'strokes'); };
     const comps=[comp('Front',0,9,r.points?.front),comp('Back',9,18,r.points?.back),comp('Overall',0,18,r.points?.total)];
     comps.forEach(c=>{ team1+=c.team1; team2+=c.team2; if(c.winner==='open')complete=false; });
@@ -3226,7 +3252,8 @@ function eventStandingsWithResult(result){
 function renderEventRoundResults(){
   const res=computeEventRoundResult(); if(!res)return'';
   const totals=eventStandingsWithResult(res), fmt=v=>v==null?'—':v, win=w=>w==='team1'?teamName('team1'):w==='team2'?teamName('team2'):w==='tie'?'Tie':'In progress';
-  let html=`<div class="results-section"><div class="results-section-hdr">Event Round Results</div><div class="event-points-grid"><div class="team-score-box ${res.team1>res.team2?'winner':''}"><div class="tsb-label">${escHtml(teamName('team1'))}</div><div class="tsb-score">${res.team1}</div><div class="tsb-tag">round points</div></div><div class="team-score-box ${res.team2>res.team1?'winner':''}"><div class="tsb-label">${escHtml(teamName('team2'))}</div><div class="tsb-score">${res.team2}</div><div class="tsb-tag">round points</div></div></div><div class="provisional-note">${res.round.scoringMode==='strokePlay'?'Stroke total Nassau':'Match play Nassau'} / Event standings: ${escHtml(teamName('team1'))} ${totals.team1} - ${totals.team2} ${escHtml(teamName('team2'))}${EVENT?.config?.winPoints?` / Win at ${EVENT.config.winPoints}`:''}</div>${res.note?`<div class="provisional-note" style="margin-top:0.35rem">${escHtml(res.note)}</div>`:''}`;
+  const modeLabel=res.round.format==='twoManBestBallAggy'?'Best ball + Aggy match play':(res.round.scoringMode==='strokePlay'?'Stroke total Nassau':'Match play Nassau');
+  let html=`<div class="results-section"><div class="results-section-hdr">Event Round Results</div><div class="event-points-grid"><div class="team-score-box ${res.team1>res.team2?'winner':''}"><div class="tsb-label">${escHtml(teamName('team1'))}</div><div class="tsb-score">${res.team1}</div><div class="tsb-tag">round points</div></div><div class="team-score-box ${res.team2>res.team1?'winner':''}"><div class="tsb-label">${escHtml(teamName('team2'))}</div><div class="tsb-score">${res.team2}</div><div class="tsb-tag">round points</div></div></div><div class="provisional-note">${modeLabel} / Event standings: ${escHtml(teamName('team1'))} ${totals.team1} - ${totals.team2} ${escHtml(teamName('team2'))}${EVENT?.config?.winPoints?` / Win at ${EVENT.config.winPoints}`:''}</div>${res.note?`<div class="provisional-note" style="margin-top:0.35rem">${escHtml(res.note)}</div>`:''}`;
   res.rows.forEach(row=>{ html+=`<div style="margin-top:0.8rem"><div class="event-round-title">${escHtml(row.label)} <span class="muted">${row.aPlayers.map(escHtml).join(' / ')} vs ${row.bPlayers.map(escHtml).join(' / ')}</span></div><table class="res-table"><thead><tr><th>Component</th><th>${escHtml(teamName('team1'))}</th><th>${escHtml(teamName('team2'))}</th><th>Points</th><th>Result</th><th>Details</th></tr></thead><tbody>${row.components.map(c=>`<tr><td>${escHtml(c.label)} <span class="muted">(${escHtml(c.unit)})</span></td><td>${fmt(c.a)}</td><td>${fmt(c.b)}</td><td>${c.team1} - ${c.team2}</td><td><strong>${escHtml(win(c.winner))}</strong></td><td>${escHtml(eventComponentDetail(c,row))}</td></tr>`).join('')}</tbody></table></div>`; });
   return html+'</div>';
 }
