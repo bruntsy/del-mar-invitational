@@ -561,7 +561,8 @@ Date: 2026-06-08
 Branch:
 
 - `rewrite`
-- Current pushed commit: `af5da47 Add Wolf scoring`
+- Wolf scoring commit: `af5da47 Add Wolf scoring`
+- Handoff/documentation updates were pushed after the scoring commit.
 - Worktree status at handoff: clean after pushing Checkpoint 12.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
   branch should create deployments.
