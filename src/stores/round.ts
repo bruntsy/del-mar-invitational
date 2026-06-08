@@ -156,6 +156,12 @@ export interface ThreeManNassauDisplayResult {
   rows: ThreeManNassauDisplayRow[];
 }
 
+export interface PuttPokerGroupResult {
+  name: string;
+  players: string[];
+  result: PuttPokerResult;
+}
+
 function sum(values: number[]): number {
   return values.reduce((total, value) => total + value, 0);
 }
@@ -598,6 +604,29 @@ export const useRoundStore = defineStore('round', {
                 : `${row.side.join(' / ')} wins`,
       }));
       return { ...empty, valid: result.valid, rows };
+    },
+
+    /**
+     * Per-playing-group putt poker results for the results screen, matching the
+     * per-group layout in the legacy scorecard panel. Falls back to team rows
+     * when no playing groups are defined, exactly as the scorecard does.
+     */
+    puttPokerGroups(state): PuttPokerGroupResult[] {
+      if (!state.round || !this.games.puttPoker.enabled) return [];
+      const putts = state.round.putts || {};
+      const pot = this.games.puttPoker.pot || 0;
+      const groups: Array<{ name: string; players: string[] }> = (() => {
+        const defined = (state.round.playingGroups || []).filter((group) => group.players.length > 0);
+        if (defined.length) return defined.map((group) => ({ name: group.name, players: group.players }));
+        return [
+          { name: state.round.teamNames.team1, players: state.round.team1 || [] },
+          { name: state.round.teamNames.team2, players: state.round.team2 || [] },
+        ];
+      })();
+      return groups.map((group) => ({
+        ...group,
+        result: computePuttPoker(putts, group.players, pot),
+      }));
     },
   },
 

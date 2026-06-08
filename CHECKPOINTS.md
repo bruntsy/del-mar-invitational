@@ -1268,60 +1268,110 @@ Next recommended steps:
    and realtime sync.
 3. Keep reusing store getters/actions; do not recompute scoring in components.
 
-## Current Handoff: 3-Man Nassau Results Panel Live
+## Checkpoint 26: Putt Poker Results Panel
 
 Date: 2026-06-08
 
 Branch:
 
 - `rewrite`
-- The 3-Man Nassau panel commit will be the latest after this checkpoint is
+- Previous pushed commit: `70690d7 Add 3-man Nassau results panel`
+
+Files changed since Checkpoint 25:
+
+- Updated `src/stores/round.ts`.
+- Updated `src/components/screens/ResultsScreen.vue`.
+- Updated tests:
+  - `tests/stores/round.test.ts`
+  - `tests/screens/results.test.ts`
+- Updated `README.md`.
+- Updated this checkpoint file.
+
+Implementation notes:
+
+- Added `store.puttPokerGroups` getter that bundles per-playing-group putt
+  poker results (name, players, and the `PuttPokerResult` from the existing
+  pure `computePuttPoker` helper). Falls back to team rows when no playing
+  groups are defined, matching the same fallback the scorecard already uses.
+- Added `puttPenaltyNote` import to `ResultsScreen.vue` (reusing the pure
+  helper already used in the scorecard).
+- Results renders a Putt Poker section (after Wolf, before Skins) showing per
+  group: coin holder, card counts × player, 3-putt/4-putt penalty notes, and
+  final pot. Identical display logic to the scorecard panel.
+- This is the last of the three legacy per-game detail panels (Stableford,
+  3-Man Nassau, Putt Poker) that were missing from `/results`.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 21 files, 159 tests.
+- `npm run build`: passed.
+- Browser QA: blocked by browser sandbox as in prior checkpoints; coverage is
+  from store getter tests and a screen test asserting coin holder and pot
+  display.
+
+Next recommended steps:
+
+1. Start the group/Supabase layer: course search, group membership, round
+   history, and realtime sync.
+2. Or continue UX polish: playing-group filtering on the scorecard, mobile
+   hole-by-hole entry mode.
+3. Keep reusing store getters; do not recompute scoring in components.
+
+## Current Handoff: All Per-Game Results Panels Complete
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- The Putt Poker panel commit will be the latest after this checkpoint is
   pushed.
-- Worktree status at handoff: clean after pushing Checkpoint 25.
+- Worktree status at handoff: clean after pushing Checkpoint 26.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
   branch should create deployments.
 
 Most recent verification:
 
 - `node scripts/event-format-tests.js`: passed.
-- `npm run test:run`: passed, 21 files, 157 tests.
+- `npm run test:run`: passed, 21 files, 159 tests.
 - `npm run build`: passed.
 - Browser QA:
   - Checkpoint 22 pair-match browser QA passed.
-  - Checkpoints 23–25 browser QA blocked by browser-tool sandbox; no broad
+  - Checkpoints 23–26 browser QA blocked by browser-tool sandbox; no broad
     macOS access requested.
-  - All three panels are covered by focused store and screen tests.
+  - All panels are covered by focused store and screen tests.
 
 Current implementation state:
 
 - The full pure scoring layer plus the Pinia round store are complete and
-  covered.
+  covered. All legacy per-game detail panels have been ported to `/results`.
 - A real local create-score-results flow works end to end: `/setup` builds a
   round (course, teams, players, games) and `/scorecard` scores it live with
   score entry, net/skins columns, putt rows, the putt poker panel, and
   settlement. `/results` shows team scores, leaderboard, team-game breakdowns,
   pair-match breakdowns, Wolf standings/detail tables, the Stableford points
-  table, the 3-Man Nassau segment table, skins, and settlement. 4-man scramble
-  can be enabled from setup, scored through team rows on the scorecard, and
-  displayed/settled through results. Best Ball and 2-Ball render read-only
-  derived team rows driven by player scores. Pair Match Play can be configured
-  from setup and renders live scorecard plus results panels. Wolf can be
-  configured from setup, adjusted per hole on the scorecard, and shown in
-  results. All scoring is read from store getters/actions.
+  table, the 3-Man Nassau segment table, the per-group Putt Poker summary,
+  skins, and settlement. 4-man scramble can be enabled from setup, scored
+  through team rows on the scorecard, and displayed/settled through results.
+  Best Ball and 2-Ball render read-only derived team rows driven by player
+  scores. Pair Match Play can be configured from setup and renders live
+  scorecard plus results panels. Wolf can be configured from setup, adjusted per
+  hole on the scorecard, and shown in results. All scoring is read from store
+  getters/actions.
 - `HomeScreen.vue` links to New round (`/setup`), Start demo round, the
   scorecard, and results. Routing: `/`, `/setup`, `/scorecard`, `/results`.
 - Still demo/local only: no group membership, no Supabase course search, and no
-  realtime sync. Results still lacks the legacy per-game detail panel for
-  putt poker.
+  realtime sync.
 - The old monolith remains available as the parity oracle at
   `legacy/index.html`.
 
 The next task should begin (pick one):
 
-- Add the putt poker detail panel to the results screen (the last remaining
-  per-game panel).
-- Start the group/Supabase layer for course search, group membership, history,
-  and realtime sync.
+- Start the group/Supabase layer for course search, group membership, round
+  history, and realtime sync.
+- UX polish: playing-group filtering on the scorecard, mobile hole-by-hole
+  entry mode.
 - Keep reusing store getters; do not recompute scoring in components. Validate
   against `legacy/index.html`.
 - After each step, run:

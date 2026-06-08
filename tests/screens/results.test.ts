@@ -155,6 +155,25 @@ describe('ResultsScreen', () => {
     expect(wrapper.text()).toContain('Requires exactly 3 players');
   });
 
+  it('renders the putt poker panel per group with coin holder and pot', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.games.puttPoker.enabled = true;
+    round.games.puttPoker.pot = 5;
+    store.setRound(round, players);
+    store.setPutt('Wes', 0, 3); // 3-putt → coin moves to Wes, pot +1
+
+    const wrapper = mountResults();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('Putt Poker');
+    expect(wrapper.find('.pp-groups').exists()).toBe(true);
+    // coin holder is shown
+    expect(wrapper.find('.pp-coin strong').text()).toBe('Wes');
+    // pot line is present
+    expect(wrapper.find('.pp-pot').text()).toContain('$');
+  });
+
   it('toggles round completion through the store', async () => {
     const store = useRoundStore();
     const { round, players } = demoRound();

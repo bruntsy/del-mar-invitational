@@ -335,6 +335,26 @@ describe('round store', () => {
     expect(bFront).toMatchObject({ winner: 'side', resultLabel: 'A / C wins' });
   });
 
+  it('derives putt poker groups using playing groups or team fallback', () => {
+    const store = useRoundStore();
+    store.setRound(roundWithRoster(), players);
+    store.setGames({ ...store.games, puttPoker: { enabled: true, pot: 5 } });
+
+    // 4-player roster → auto playing group of 4; 2 starting cards each
+    const groups = store.puttPokerGroups;
+    expect(groups).toHaveLength(1);
+    expect(groups[0].players).toEqual(['A', 'B', 'C', 'D']);
+    expect(groups[0].result.cards['A']).toBe(2);
+    expect(groups[0].result.pot).toBe(20); // 5/player × 4 players
+
+    // enter a 3-putt for A on hole 0 — coin moves, pot goes up $1
+    store.setPutt('A', 0, 3);
+    const updated = store.puttPokerGroups;
+    expect(updated[0].result.coinHolder).toBe('A');
+    expect(updated[0].result.pot).toBe(21);
+    expect(updated[0].result.threePuttCount['A']).toBe(1);
+  });
+
   it('marks a round complete and reopens it', () => {
     const store = useRoundStore();
     store.setRound(roundWithRoster(), players);

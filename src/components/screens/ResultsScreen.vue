@@ -2,6 +2,7 @@
 import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRoundStore } from '@/stores/round';
+import { puttPenaltyNote } from '@/scoring/puttPoker';
 
 const store = useRoundStore();
 const router = useRouter();
@@ -34,6 +35,8 @@ const stableford = computed(() => store.stablefordResult);
 const stablefordVisible = computed(() => stableford.value.enabled && stableford.value.rows.length > 0);
 const nassau = computed(() => store.threeManNassauResult);
 const nassauVisible = computed(() => nassau.value.enabled);
+const puttPokerEnabled = computed(() => store.games.puttPoker.enabled);
+const puttPokerGroups = computed(() => store.puttPokerGroups);
 const settlement = computed(() => store.settlement);
 const settlementRows = computed(() =>
   store.playerNames.map((player) => ({ player, pnl: Math.round(settlement.value.pnl[player] || 0) })),
@@ -363,6 +366,33 @@ function goHome() {
               </tr>
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section v-if="puttPokerEnabled" class="rs-section">
+        <h2 class="rs-section-hdr">Putt Poker</h2>
+        <div class="pp-groups">
+          <div v-for="group in puttPokerGroups" :key="group.name" class="pp-group">
+            <div class="pp-group-hdr">{{ group.name }}</div>
+            <div class="pp-coin">
+              Coin:
+              <strong v-if="group.result.coinHolder">{{ group.result.coinHolder }}</strong>
+              <em v-else class="pp-coin-none">no 3-putts yet</em>
+            </div>
+            <div class="pp-cards">
+              <div v-for="player in group.players" :key="player" class="pp-player">
+                <div class="pp-player-name">{{ player }}</div>
+                <div class="pp-card-count">🃏 × {{ group.result.cards[player] }}</div>
+                <div
+                  v-if="puttPenaltyNote(group.result.threePuttCount[player], group.result.fourPuttCount[player])"
+                  class="pp-note"
+                >
+                  {{ puttPenaltyNote(group.result.threePuttCount[player], group.result.fourPuttCount[player]) }}
+                </div>
+              </div>
+            </div>
+            <div class="pp-pot">Pot: <strong>${{ group.result.pot }}</strong></div>
+          </div>
         </div>
       </section>
 
@@ -762,6 +792,18 @@ function goHome() {
 .nassau-table { min-width: 500px; }
 .nassau-result { font-weight: 700; }
 .nassau-note { margin-top: 10px; font-size: 0.78rem; color: #6a7a6f; }
+
+.pp-groups { display: flex; flex-wrap: wrap; gap: 16px; }
+.pp-group { flex: 1; min-width: 180px; border: 1px solid #e4ddcd; border-radius: 8px; background: #fdfbf4; padding: 12px 14px; }
+.pp-group-hdr { font-weight: 800; color: #2f5d43; margin-bottom: 8px; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.pp-coin { font-size: 0.82rem; color: #4a5a4f; margin-bottom: 8px; }
+.pp-coin-none { color: #9aa49a; font-style: italic; }
+.pp-cards { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.pp-player { text-align: center; min-width: 54px; }
+.pp-player-name { font-size: 0.72rem; color: #6a7a6f; font-weight: 700; }
+.pp-card-count { font-size: 0.88rem; font-weight: 700; color: #2f5d43; }
+.pp-note { font-size: 0.68rem; color: #b1462f; }
+.pp-pot { font-size: 0.82rem; color: #24362c; border-top: 1px solid #e4ddcd; padding-top: 8px; }
 
 .rs-empty-note { color: #6a7a6f; }
 
