@@ -10,6 +10,11 @@ export const router = createRouter({
       component: HomeScreen,
     },
     {
+      path: '/setup',
+      name: 'setup',
+      component: () => import('@/components/screens/SetupScreen.vue'),
+    },
+    {
       path: '/scorecard',
       name: 'scorecard',
       component: () => import('@/components/screens/ScorecardScreen.vue'),

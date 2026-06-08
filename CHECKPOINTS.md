@@ -823,46 +823,103 @@ Next recommended steps:
 2. Then add scramble/best-ball/two-ball team rows and the pair-match/wolf live
    panels to the scorecard.
 
-## Current Handoff: Scorecard at Per-Player Parity
+## Checkpoint 18: Round Setup Screen
 
 Date: 2026-06-08
 
 Branch:
 
 - `rewrite`
-- Putt poker commit will be the latest after this checkpoint is pushed.
-- Worktree status at handoff: clean after pushing Checkpoint 17.
+- Previous pushed commit: `1d9fd32 Add putt entry rows and putt poker panel`
+
+Files changed since Checkpoint 17:
+
+- Added `src/components/screens/SetupScreen.vue`.
+- Added `tests/screens/setup.test.ts`.
+- Updated `src/router/index.ts` (added the `/setup` route).
+- Updated `src/components/screens/HomeScreen.vue` ("New round" button).
+- Updated `README.md`.
+
+Implementation notes:
+
+- The setup screen creates a round without the demo fixture. Sections: course
+  (club/course/location, tee rating/slope, an editable par + SI grid prefilled
+  to a par-72 layout), teams and players (name + handicap index + team per row,
+  add/remove), and a games config (skins, best ball, two-ball, aggy,
+  head-to-head, Stableford, three-man Nassau, Wolf, putt poker).
+- "Start round" validates (par present, both teams populated, unique names),
+  builds the `RoundState` and player handicap map, generates head-to-head
+  matchups by zipping `team1[i]` vs `team2[i]` (matching legacy setup), writes
+  through `store.setRound`, and routes to the scorecard.
+- The player handicap map is managed directly on the round store; no separate
+  group/players store was needed for round creation.
+
+Browser verification (preview tool):
+
+- Filled four players (Ann 10, Bea 12 on Team 1; Cal 6, Dan 20 on Team 2),
+  enabled skins ($5) and best ball (net 10/10/20), clicked Start round.
+- Landed on the scorecard with correct teams, course handicaps (Ann +4, Bea +6,
+  Cal +0, Dan +14 relative to scratch Cal), stroke-dot allocation, the zipped
+  matchups (Ann vs Cal, Bea vs Dan), and the settlement section enabled.
+- Note: the preview_click tool did not trigger the Vue submit handler on this
+  page (a direct DOM `.click()` did); this looks like a preview-harness quirk,
+  not an app bug. Component tests cover the submit path.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 20 files, 132 tests.
+- `npm run build`: passed (setup is a lazy-loaded route chunk).
+
+Next recommended steps:
+
+1. Add scramble / best-ball / two-ball team rows and the pair-match and wolf
+   live panels to the scorecard (and their setup config).
+2. Build a results screen (leaderboard, team scores, per-game breakdowns) on top
+   of the existing settlement/scoring getters.
+3. Consider a group/event store and Supabase wiring when membership, course
+   search, or realtime sync are needed.
+
+## Current Handoff: Setup and Scorecard Flow Live
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Setup screen commit will be the latest after this checkpoint is pushed.
+- Worktree status at handoff: clean after pushing Checkpoint 18.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
   branch should create deployments.
 
 Most recent verification:
 
 - `node scripts/event-format-tests.js`: passed.
-- `npm run test:run`: passed, 19 files, 128 tests.
+- `npm run test:run`: passed, 20 files, 132 tests.
 - `npm run build`: passed.
 
 Current implementation state:
 
 - The full pure scoring layer plus the Pinia round store are complete and
   covered.
-- `ScorecardScreen.vue` at `/scorecard` is wired entirely through the round
-  store and now has full per-player parity: score entry, net/skins columns,
-  collapsible putt rows, the putt poker panel, and the live settlement panel.
-- `HomeScreen.vue` seeds a demo round (`src/fixtures/demoRound.ts`) and links to
-  the scorecard. Routing: `/` (home) and `/scorecard`.
-- No group/event stores or setup flow yet; rounds only come from the demo
-  fixture.
+- A real create-and-score flow works end to end: `/setup` builds a round
+  (course, teams, players, games) and `/scorecard` scores it live with score
+  entry, net/skins columns, putt rows, the putt poker panel, and settlement.
+  All scoring is read from store getters.
+- `HomeScreen.vue` links to New round (`/setup`), Start demo round, and the
+  scorecard. Routing: `/`, `/setup`, `/scorecard`.
+- Still demo/local only: no group membership, no Supabase course search, no
+  realtime sync, and the scorecard lacks scramble/team-game rows and the
+  pair-match/wolf live panels. No results screen yet.
 - The old monolith remains available as the parity oracle at
   `legacy/index.html`.
 
-The next task should begin:
+The next task should begin (pick one):
 
-- Build the round setup screen (course, teams, players, games config) so real
-  rounds can be created and edited without the demo fixture. Route it (e.g.
-  `/setup`) and write the round through the store. A manual course/par entry is
-  fine first; Supabase course search can come later.
-- Decide whether a separate group/players store is needed, or whether setup can
-  manage the player handicap map directly on the round store.
+- Build a results screen (leaderboard, team scores, per-game breakdowns) using
+  the existing settlement and scoring getters; OR
+- Extend the scorecard + setup with scramble / best-ball / two-ball team rows
+  and the pair-match and wolf live panels.
 - Keep reusing store getters; do not recompute scoring in components. Validate
   against `legacy/index.html`.
 - After each step, run:
