@@ -602,43 +602,98 @@ Next recommended steps:
 2. Keep `legacy/index.html` as the parity oracle during UI cutover.
 3. Treat scoring parity and RLS verification as hard gates before UI cutover.
 
-## Current Handoff: Scoring Modules Complete
+## Checkpoint 14: Settlement Aggregation
 
 Date: 2026-06-08
 
 Branch:
 
 - `rewrite`
-- Putt poker scoring commit will be the latest after this checkpoint is pushed.
-- Worktree status at handoff: clean after pushing Checkpoint 13.
+- Previous pushed commit: `af6964a Add putt poker scoring`
+
+Files changed since Checkpoint 13:
+
+- Added `src/scoring/settlement.ts`.
+- Added `tests/scoring/settlement.test.ts`.
+- Updated `README.md`.
+
+Implementation notes:
+
+- Discovered a gap while planning the UI phase: the individual game modules were
+  all ported, but the legacy `computePlayerPnL()` settlement aggregator and the
+  `computeSettlement()` transfer matcher had not been. The results screen needs
+  both, so they were ported first.
+- `computePlayerPnL(input)` is a pure port that composes the existing skins,
+  team game, head-to-head, Stableford, three-man Nassau, and Wolf modules into a
+  single per-player profit/loss map. It takes an explicit `SettlementInput`
+  instead of reading global `ROUND`.
+- Scramble settlement reads the team score matrix directly through `scoreAt`,
+  reproducing the legacy `teamScoreRange()` behavior.
+- `computeSettlement(pnl)` is a faithful port of the greedy largest-debtor /
+  largest-creditor transfer minimizer.
+- Parity quirks preserved: putt poker and pair match play are NOT part of the
+  P&L. `gamesHaveBets()` was also ported and DOES count putt poker, because the
+  legacy results screen uses it only to decide whether to show the settlement
+  section.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 17 files, 112 tests.
+- `npm run build`: passed.
+
+Next recommended steps:
+
+1. Build the Pinia round store as the UI foundation (state, localStorage
+   persistence, derived `players`/`courseHandicaps`/`strokes`/`scoreContext`
+   getters, and score/putt mutation with cell timestamps).
+2. Expose the pure scoring modules (including settlement) as store getters.
+3. Then wire screens one at a time against `legacy/index.html`.
+
+## Current Handoff: Scoring Layer Complete, Ready for Stores
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Settlement commit will be the latest after this checkpoint is pushed.
+- Worktree status at handoff: clean after pushing Checkpoint 14.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
   branch should create deployments.
 
 Most recent verification:
 
 - `node scripts/event-format-tests.js`: passed.
-- `npm run test:run`: passed, 16 files, 101 tests.
+- `npm run test:run`: passed, 17 files, 112 tests.
 - `npm run build`: passed.
 
 Current implementation state:
 
 - The rewrite foundation, typed domain helpers, event config normalization,
   score-cell compatibility, handicap helpers, event round scoring, skins, team
-  games, pair match, head-to-head, Stableford, three-man Nassau, Wolf, and putt
-  poker have all been ported as pure modules with focused Vitest coverage.
-- All scoring formats from the legacy monolith now have a pure TypeScript
-  module. The scoring-port phase is complete.
-- No Pinia stores or production UI screens have been wired to these scoring
-  modules yet.
+  games, pair match, head-to-head, Stableford, three-man Nassau, Wolf, putt
+  poker, and the settlement aggregation/transfer layer have all been ported as
+  pure modules with focused Vitest coverage.
+- The scoring layer is now complete end to end: individual games plus the final
+  settlement P&L and who-pays-who transfers.
+- No Pinia stores or production UI screens have been wired to these modules yet.
+  `src/main.ts` already installs Pinia, but `src/stores/` does not exist.
 - The old monolith remains available as the parity oracle at
   `legacy/index.html`.
 
 The next task should begin:
 
-- Start wiring pure scoring/domain modules into Pinia stores and Vue screens,
-  one screen at a time, validating each against `legacy/index.html`.
-- Keep scoring parity and RLS verification as hard gates before cutting the
-  production UI over from the legacy monolith.
+- Build the Pinia round store (`src/stores/round.ts`) as the UI foundation:
+  hold `RoundState` plus the player handicap-index map, persist to localStorage
+  under `dmi_round`, and expose derived `players` (team1+team2),
+  `courseHandicaps` (`computeWHSCourseHcp`), `strokes` (`allocateNetStrokes`),
+  and a `scoreContext` for the pure modules.
+- Add score/putt mutation actions that write timestamped cells via
+  `writeCell()` for sync compatibility.
+- Expose the scoring modules (skins, settlement, etc.) as store getters.
+- Then wire screens one at a time against `legacy/index.html`, keeping scoring
+  parity and RLS verification as hard gates before UI cutover.
 - After each step, run:
   - `node scripts/event-format-tests.js`
   - `npm run test:run`

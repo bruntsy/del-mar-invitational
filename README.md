@@ -478,6 +478,18 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 - The coin follows the most recent penalty putt in hole order, then player order.
 - Putt poker is a standalone pot and does not feed the settlement P&L ledger.
 
+### Settlement
+
+- Pure helpers aggregate every money game into a per-player profit/loss map and
+  reduce it to a minimal "who pays who" transfer list.
+- `computePlayerPnL()` composes skins, best ball, scramble, two-ball, aggy,
+  head-to-head, Stableford, three-man Nassau, and Wolf results.
+- `computeSettlement()` greedily matches the largest debtor to the largest
+  creditor until everyone is square.
+- Putt poker and pair match play are not part of the P&L, matching the legacy
+  monolith. `gamesHaveBets()` still counts putt poker when deciding whether to
+  show the settlement section.
+
 ## Realtime Sync
 
 Sync target:

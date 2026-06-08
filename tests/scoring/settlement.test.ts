@@ -1,0 +1,211 @@
+import { describe, expect, it } from 'vitest';
+import { cloneDefaultGames } from '@/domain/games';
+import { type ScoreContext } from '@/scoring/round';
+import {
+  computePlayerPnL,
+  computeSettlement,
+  gamesHaveBets,
+  type SettlementInput,
+} from '@/scoring/settlement';
+import type { Course, GameConfig, ScoreMatrix } from '@/types';
+
+const course: Course = {
+  tee: { name: 'Test', rating: 72, slope: 113, parTotal: 72 },
+  par: Array(18).fill(4),
+  si: Array.from({ length: 18 }, (_, index) => index + 1),
+  yds: Array(18).fill(400),
+};
+
+function matrix(players: string[]): ScoreMatrix {
+  return Object.fromEntries(players.map((player) => [player, Array(18).fill(null)]));
+}
+
+function fill(scores: ScoreMatrix, player: string, value: number) {
+  for (let hole = 0; hole < 18; hole += 1) scores[player][hole] = value;
+}
+
+function makeInput(
+  players: string[],
+  scores: ScoreMatrix,
+  configure: (g: GameConfig) => void,
+  extra: Partial<SettlementInput> = {},
+): SettlementInput {
+  const games = cloneDefaultGames();
+  configure(games);
+  const strokes = Object.fromEntries(players.map((p) => [p, 0]));
+  const context: ScoreContext = { course, scores, strokes };
+  const half = Math.ceil(players.length / 2);
+  return {
+    scoreContext: context,
+    team1: players.slice(0, half),
+    team2: players.slice(half),
+    players,
+    matchups: [],
+    games,
+    ...extra,
+  };
+}
+
+describe('settlement P&L', () => {
+  it('returns all zeros when no money games are enabled', () => {
+    const players = ['A', 'B'];
+    const scores = matrix(players);
+    fill(scores, 'A', 4);
+    fill(scores, 'B', 5);
+
+    expect(computePlayerPnL(makeInput(players, scores, () => {}))).toEqual({ A: 0, B: 0 });
+  });
+
+  it('settles a best-ball Nassau team game across the two teams', () => {
+    const players = ['A', 'B', 'C', 'D'];
+    const scores = matrix(players);
+    fill(scores, 'A', 4); // team1 best ball = 4
+    fill(scores, 'B', 6);
+    fill(scores, 'C', 5); // team2 best ball = 5
+    fill(scores, 'D', 6);
+
+    const pnl = computePlayerPnL(
+      makeInput(players, scores, (g) => {
+        g.bestBall.enabled = true;
+        g.bestBall.type = 'gross';
+        g.bestBall.front = 10;
+        g.bestBall.back = 10;
+        g.bestBall.total = 20;
+      }),
+    );
+
+    // team1 wins front, back, and total -> +40 each, team2 -40 each
+    expect(pnl).toEqual({ A: 40, B: 40, C: -40, D: -40 });
+  });
+
+  it('distributes the skins pot proportionally net of each buy-in', () => {
+    const players = ['A', 'B'];
+    const scores = matrix(players);
+    fill(scores, 'A', 3); // wins every hole -> 18 skins
+    fill(scores, 'B', 5);
+
+    const pnl = computePlayerPnL(
+      makeInput(players, scores, (g) => {
+        g.skins.enabled = true;
+        g.skins.pot = 10;
+      }),
+    );
+
+    // pot = 20, A wins all -> +20-10 = +10, B -10
+    expect(pnl.A).toBeCloseTo(10);
+    expect(pnl.B).toBeCloseTo(-10);
+  });
+
+  it('settles head-to-head matchups by total net score', () => {
+    const players = ['A', 'B', 'C', 'D'];
+    const scores = matrix(players);
+    fill(scores, 'A', 4);
+    fill(scores, 'B', 5);
+    fill(scores, 'C', 4);
+    fill(scores, 'D', 4);
+
+    const pnl = computePlayerPnL(
+      makeInput(
+        players,
+        scores,
+        (g) => {
+          g.h2h.enabled = true;
+          g.h2h.type = 'gross';
+          g.h2h.perMatchup = 5;
+        },
+        {
+          matchups: [
+            { t1: 'A', t2: 'B' }, // A lower -> A +5, B -5
+            { t1: 'C', t2: 'D' }, // tie -> no change
+          ],
+        },
+      ),
+    );
+
+    expect(pnl).toEqual({ A: 5, B: -5, C: 0, D: 0 });
+  });
+
+  it('splits the stableford pot among the top scorers and charges the buy-in', () => {
+    const players = ['A', 'B', 'C'];
+    const scores = matrix(players);
+    fill(scores, 'A', 3); // birdies -> most points
+    fill(scores, 'B', 4);
+    fill(scores, 'C', 4);
+
+    const pnl = computePlayerPnL(
+      makeInput(players, scores, (g) => {
+        g.stableford.enabled = true;
+        g.stableford.type = 'gross';
+        g.stableford.buyIn = 6;
+      }),
+    );
+
+    // pot = 18, A wins outright -> -6 + 18 = +12, B and C -6 each
+    expect(pnl.A).toBeCloseTo(12);
+    expect(pnl.B).toBeCloseTo(-6);
+    expect(pnl.C).toBeCloseTo(-6);
+  });
+
+  it('settles scramble team scores from the team score matrix', () => {
+    const players = ['A', 'B', 'C', 'D'];
+    const scores = matrix(players);
+    const teamScores: ScoreMatrix = { team1: Array(18).fill(4), team2: Array(18).fill(5) };
+
+    const pnl = computePlayerPnL(
+      makeInput(
+        players,
+        scores,
+        (g) => {
+          g.scramble4.enabled = true;
+          g.scramble4.total = 30;
+        },
+        { teamScores },
+      ),
+    );
+
+    // team1 lower total -> +30 each, team2 -30 each
+    expect(pnl).toEqual({ A: 30, B: 30, C: -30, D: -30 });
+  });
+});
+
+describe('settlement transfers', () => {
+  it('produces minimal who-pays-who transfers from a P&L map', () => {
+    const transfers = computeSettlement({ A: 40, B: 40, C: -40, D: -40 });
+
+    expect(transfers).toEqual([
+      { from: 'C', to: 'A', amount: 40 },
+      { from: 'D', to: 'B', amount: 40 },
+    ]);
+  });
+
+  it('returns no transfers when everyone is square', () => {
+    expect(computeSettlement({ A: 0, B: 0 })).toEqual([]);
+  });
+
+  it('greedily matches the largest debtor to the largest creditor', () => {
+    const transfers = computeSettlement({ A: 30, B: 10, C: -25, D: -15 });
+
+    expect(transfers).toEqual([
+      { from: 'C', to: 'A', amount: 25 },
+      { from: 'D', to: 'A', amount: 5 },
+      { from: 'D', to: 'B', amount: 10 },
+    ]);
+  });
+});
+
+describe('gamesHaveBets', () => {
+  it('is false for default games and true once a stake exists', () => {
+    const games = cloneDefaultGames();
+    expect(gamesHaveBets(games)).toBe(false);
+
+    games.puttPoker.enabled = true;
+    games.puttPoker.pot = 5;
+    expect(gamesHaveBets(games)).toBe(true);
+  });
+
+  it('ignores enabled games that have no stake', () => {
+    const games = cloneDefaultGames();
+    games.bestBall.enabled = true; // all amounts still zero
+    expect(gamesHaveBets(games)).toBe(false);
+  });
+});
