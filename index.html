@@ -2009,6 +2009,8 @@ function eventRoundGames(round){
     g.scramble4={enabled:true,front:Number(round.scrambleBet?.front||0),back:Number(round.scrambleBet?.back||0),total:Number(round.scrambleBet?.total||0),type:'gross'};
   } else if(round.format==='twoManBestBallAggy'){
     g.pairMatch={enabled:false,pointsPerHole:1,type:'net'};
+  } else if(round.format==='scramble2v2Nassau'){
+    g.pairMatch={enabled:true,pointsPerHole:1,type:'gross'};
   } else {
     g.pairMatch={enabled:true,pointsPerHole:1,type:'net'};
   }
@@ -2929,11 +2931,11 @@ function threeManNassauResults(strokes){
 }
 function pairMatchups(){ ensurePairMatches(); return (ROUND.pairMatches||[]).map((m,i)=>({idx:i+1,a:(m.a||[]).filter(p=>(ROUND.team1||[]).includes(p)),b:(m.b||[]).filter(p=>(ROUND.team2||[]).includes(p))})).filter(m=>m.a.length&&m.b.length); }
 function pairBestBallScore(pair,h,strokes,type){ const vals=pair.map(p=>playerHoleScore(p,h,strokes,type)).filter(v=>v!=null); return pair.length>0&&vals.length===pair.length?Math.min(...vals):null; }
-function pairSegmentStatus(holes,start,end,t1Name,t2Name){ const seg=holes.slice(start,end); const aW=seg.filter(h=>h.winner==='a').length,bW=seg.filter(h=>h.winner==='b').length; if(aW===bW)return'AS'; return aW>bW?`${t1Name} +${aW-bW}`:`${t2Name} +${bW-aW}`; }
+function pairSegmentStatus(holes,start,end,t1Name,t2Name){ const seg=holes.slice(start,end); const aW=seg.filter(h=>h.winner==='a').length,bW=seg.filter(h=>h.winner==='b').length; if(aW===bW)return'All Square'; return aW>bW?`${t1Name} ${aW-bW} UP`:`${t2Name} ${bW-aW} UP`; }
 function isScrambleRound(){ return !!(ROUND?.event && EVENT?.config?.rounds?.[ROUND.event?.roundIndex]?.format==='scramble2v2Nassau'); }
 function pairSegmentHoles(holes,start,end){ const s=holes.slice(start,end); const played=s.filter(h=>h.winner).length; return {aWon:s.filter(h=>h.winner==='a').length,bWon:s.filter(h=>h.winner==='b').length,tied:s.filter(h=>h.winner==='tie').length,played,total:end-start}; }
 function pairPlayerContributions(players,strokes,scoreType){ const c=Object.fromEntries(players.map(p=>[p,0])); for(let h=0;h<18;h++){ const best=pairBestBallScore(players,h,strokes,scoreType); if(best==null)continue; const matched=players.filter(p=>playerHoleScore(p,h,strokes,scoreType)===best); if(matched.length)matched.forEach(p=>c[p]++); } return c; }
-function computePairMatchPlay(strokes){ const cfg=normalizeGames(ROUND.games).pairMatch, pts=Number(cfg.pointsPerHole||1), matches=pairMatchups().map(m=>{ let aPts=0,bPts=0,aWon=0,bWon=0,tied=0,played=0; const holes=[]; for(let h=0;h<18;h++){ const a=pairBestBallScore(m.a,h,strokes,cfg.type), b=pairBestBallScore(m.b,h,strokes,cfg.type); let winner=null; if(a!=null&&b!=null){ played++; if(a<b){aPts+=pts; aWon++; winner='a';} else if(b<a){bPts+=pts; bWon++; winner='b';} else {tied++; winner='tie';} } holes.push({hole:h+1,a,b,winner}); } return {...m,aPts,bPts,aWon,bWon,tied,played,holes}; }); return {matches,team1Points:sum(matches.map(m=>m.aPts)),team2Points:sum(matches.map(m=>m.bPts)),team1Holes:sum(matches.map(m=>m.aWon)),team2Holes:sum(matches.map(m=>m.bWon)),tiedHoles:sum(matches.map(m=>m.tied))}; }
+function computePairMatchPlay(strokes){ const cfg=normalizeGames(ROUND.games).pairMatch, pts=Number(cfg.pointsPerHole||1), type=isScrambleRound()?'gross':cfg.type; const ctx=eventRoundConfigForCurrent(), useAggy=ctx?.round.format==='twoManBestBallAggy'; const matches=pairMatchups().map(m=>{ let aPts=0,bPts=0,aWon=0,bWon=0,tied=0,played=0; const holes=[]; for(let h=0;h<18;h++){ let hA=null,hB=null,winner=null; if(useAggy){ const comp=bestBallAggyHoleComponent(m.a||[],m.b||[],h,strokes,'net'); hA=comp.team1; hB=comp.team2; if(comp.winner!=='open'){ played++; if(comp.winner==='team1'){aPts+=comp.team1;aWon++;winner='a';} else if(comp.winner==='team2'){bPts+=comp.team2;bWon++;winner='b';} else{aPts+=comp.team1;bPts+=comp.team2;tied++;winner='tie';} } } else { hA=pairBestBallScore(m.a,h,strokes,type); hB=pairBestBallScore(m.b,h,strokes,type); if(hA!=null&&hB!=null){ played++; if(hA<hB){aPts+=pts;aWon++;winner='a';} else if(hB<hA){bPts+=pts;bWon++;winner='b';} else{tied++;winner='tie';} } } holes.push({hole:h+1,a:hA,b:hB,winner}); } return {...m,aPts,bPts,aWon,bWon,tied,played,holes}; }); return {matches,team1Points:sum(matches.map(m=>m.aPts)),team2Points:sum(matches.map(m=>m.bPts)),team1Holes:sum(matches.map(m=>m.aWon)),team2Holes:sum(matches.map(m=>m.bWon)),tiedHoles:sum(matches.map(m=>m.tied))}; }
 function shortTeamLabel(key){
   const clean=teamName(key).replace(/[^a-z0-9 ]/gi,' ').trim();
   if(/^team\s*1$/i.test(clean)) return 'T1';
@@ -2943,16 +2945,21 @@ function shortTeamLabel(key){
 function renderPairMatchLivePanel(strokes=getPlayerStrokes()){
   const el=document.getElementById('pair-match-live'), cfg=normalizeGames(ROUND.games).pairMatch;
   if(!el)return;
-  if(!cfg.enabled){ el.style.display='none'; el.innerHTML=''; return; }
+  const ctx=eventRoundConfigForCurrent();
+  const eventMatchPlay=!!(ctx && ctx.round.scoringMode!=='strokePlay' && ctx.round.format!=='fourManScramble');
+  if(!cfg.enabled && !eventMatchPlay){ el.style.display='none'; el.innerHTML=''; return; }
   const selected=scorecardPlayers(), selectedSet=new Set(selected), allSelected=selected.length===currentPlayers().length;
   const res=computePairMatchPlay(strokes);
   const matches=res.matches.filter(m=>allSelected || [...m.a, ...m.b].some(p=>selectedSet.has(p)));
   if(!matches.length){ el.style.display='none'; el.innerHTML=''; return; }
-  const t1Label=shortTeamLabel('team1'), t2Label=shortTeamLabel('team2'), pointsMode=Number(cfg.pointsPerHole||1)!==1;
+  const t1Label=shortTeamLabel('team1'), t2Label=shortTeamLabel('team2');
+  const useAggy=ctx?.round.format==='twoManBestBallAggy';
+  const pointsMode=useAggy || Number(cfg.pointsPerHole||1)!==1;
   const t1Total=sum(matches.map(m=>m.aPts)), t2Total=sum(matches.map(m=>m.bPts));
   const scoreWord=pointsMode?'pts':'holes';
+  const title=eventMatchPlay?(useAggy?'Best Ball + Aggy':'Match Play'):'Pair Match Play';
   el.style.display='';
-  el.innerHTML=`<div class="pair-live-title"><span>Pair Match Play</span><span class="pair-live-total">${escHtml(teamName('team1'))} ${t1Total} - ${t2Total} ${escHtml(teamName('team2'))} ${scoreWord}</span></div><div class="pair-live-grid">${matches.map(m=>renderPairMatchLiveCard(m,t1Label,t2Label,scoreWord)).join('')}</div>`;
+  el.innerHTML=`<div class="pair-live-title"><span>${escHtml(title)}</span><span class="pair-live-total">${escHtml(teamName('team1'))} ${t1Total} - ${t2Total} ${escHtml(teamName('team2'))} ${scoreWord}</span></div><div class="pair-live-grid">${matches.map(m=>renderPairMatchLiveCard(m,t1Label,t2Label,scoreWord)).join('')}</div>`;
 }
 function renderPairMatchLiveCard(m,t1Label,t2Label,scoreWord){
   const aLead=m.aPts>m.bPts, bLead=m.bPts>m.aPts;
@@ -3017,10 +3024,17 @@ function mobileTeamSummary(strokes=getPlayerStrokes()){
 }
 function mobileTeamGameRows(strokes=getPlayerStrokes()){
   const g=normalizeGames(ROUND.games), rows=[];
-  if(g.bestBall.enabled) rows.push(['Best Ball', teamGameStatus(teamGameToPar(ROUND.team1,strokes,g.bestBall.type,'bestBall'), teamGameToPar(ROUND.team2,strokes,g.bestBall.type,'bestBall'))]);
-  if(g.twoBall.enabled) rows.push(['2-Ball', teamGameStatus(teamGameToPar(ROUND.team1,strokes,g.twoBall.type,'twoBall'), teamGameToPar(ROUND.team2,strokes,g.twoBall.type,'twoBall'))]);
-  if(g.aggy.enabled) rows.push(['Aggy', teamGameStatus(teamGameToPar(ROUND.team1,strokes,g.aggy.type,'aggy'), teamGameToPar(ROUND.team2,strokes,g.aggy.type,'aggy'))]);
-  if(g.pairMatch.enabled){ const r=computePairMatchPlay(strokes); rows.push(['Pair Match', pointsGameStatus(r.team1Points,r.team2Points)]); }
+  const ctx=eventRoundConfigForCurrent();
+  const eventMatchPlay=!!(ctx && ctx.round.scoringMode!=='strokePlay' && ctx.round.format!=='fourManScramble');
+  if(eventMatchPlay){
+    const res=computePairMatchPlay(strokes);
+    rows.push([eventFormatLabel(ctx.round.format), matchPlayStatus(res.team1Holes,res.team2Holes)]);
+  } else {
+    if(g.bestBall.enabled) rows.push(['Best Ball', teamGameStatus(teamGameToPar(ROUND.team1,strokes,g.bestBall.type,'bestBall'), teamGameToPar(ROUND.team2,strokes,g.bestBall.type,'bestBall'))]);
+    if(g.twoBall.enabled) rows.push(['2-Ball', teamGameStatus(teamGameToPar(ROUND.team1,strokes,g.twoBall.type,'twoBall'), teamGameToPar(ROUND.team2,strokes,g.twoBall.type,'twoBall'))]);
+    if(g.aggy.enabled) rows.push(['Aggy', teamGameStatus(teamGameToPar(ROUND.team1,strokes,g.aggy.type,'aggy'), teamGameToPar(ROUND.team2,strokes,g.aggy.type,'aggy'))]);
+    if(g.pairMatch.enabled){ const r=computePairMatchPlay(strokes); rows.push(['Pair Match', matchPlayStatus(r.team1Holes,r.team2Holes)]); }
+  }
   return rows;
 }
 function teamGameStatus(a,b){
@@ -3038,6 +3052,13 @@ function pointsGameStatus(a,b){
   if(a===b)return {primary:'All square', note:`${a} each`};
   const lead=a>b?t1:t2;
   return {primary:`${lead} ${Math.max(a,b)}`, note:`leads by ${Math.abs(a-b)}`};
+}
+function matchPlayStatus(a,b){
+  const t1=shortTeamLabel('team1'), t2=shortTeamLabel('team2');
+  if(!a&&!b)return {primary:'Pending', note:'enter scores'};
+  if(a===b)return {primary:'All Square', note:`${a} holes each`};
+  const lead=a>b?t1:t2, diff=Math.abs(a-b);
+  return {primary:`${lead} ${diff} UP`, note:`${Math.max(a,b)}-${Math.min(a,b)} holes`};
 }
 function teamGameToPar(teamPlayers,strokes,type,format){
   const multiplier=format==='twoBall'?2:format==='aggy'?teamPlayers.length:1;
@@ -3076,6 +3097,22 @@ function renderMobileScoreChips(player,h,gross){
   const par=ROUND.course.par[h], vals=[par-1,par,par+1].filter(v=>v>0);
   return `<div class="mobile-chip-row">${vals.map(v=>`<button class="score-chip ${gross===v?'selected':''}" type="button" onclick="setMobileScore('${escJs(player)}',${h},${v})">${escHtml(mobileScoreToParLabel(v,par))}</button>`).join('')}</div>`;
 }
+function mobileHolePlayerCards(players,strokes,h){
+  const games=normalizeGames(ROUND.games);
+  if(games.scramble4.enabled){
+    return [{key:'team1',label:teamName('team1')},{key:'team2',label:teamName('team2')}].filter(t=>(ROUND[t.key]||[]).length).map(t=>renderMobileScrambleTeamCard(t.key,t.label,h)).join('');
+  }
+  if(isScrambleRound()){
+    const allPlayers=currentPlayers(),rendered=new Set();
+    return players.map(p=>{ if(rendered.has(p))return''; const pm=(ROUND.pairMatches||[]).find(m=>(m.a||[]).includes(p)||(m.b||[]).includes(p)); const side=pm?((pm.a||[]).includes(p)?pm.a:pm.b):[p]; const pair=side.filter(q=>allPlayers.includes(q)); pair.forEach(q=>rendered.add(q)); const teamLabel=ROUND.team1.includes(p)?teamName('team1'):teamName('team2'); return renderMobileScramblePairCard(pair,teamLabel,h); }).join('');
+  }
+  return players.map(p=>{ const gross=ROUND.scores[p]?.[h]??null, putts=ROUND.putts?.[p]?.[h]??null, dot=getsStroke(strokes[p],ROUND.course.si[h]), total=sumRange(p,0,18), net=computeNetTotal(p,strokes), scoreVal=gross??'', puttVal=putts??2; return `<div class="mobile-hole-row mobile-player-card" data-player="${escHtml(p)}"><div class="mobile-player-head"><div><div class="mobile-player-name">${escHtml(p)}</div><div class="mobile-player-meta">${dot?'Gets a stroke here':'No stroke'} / ${escHtml(mobileScoreToParLabel(gross,ROUND.course.par[h]))}</div></div><div class="mobile-player-total">Total<strong>${total??'-'}</strong><span>Net ${net??'-'}</span></div></div><div class="mobile-score-controls"><div><div class="mobile-control-label">Score</div>${renderMobileScoreChips(p,h,gross)}<div class="mobile-stepper"><button class="stepper-btn" type="button" onclick="adjustMobileScore('${escJs(p)}',${h},-1)">-</button><input class="mobile-score-input" type="number" inputmode="numeric" min="1" max="20" value="${scoreVal}" oninput="onMobileScoreInput('${escJs(p)}',${h},this.value)" onfocus="this.select()"><button class="stepper-btn" type="button" onclick="adjustMobileScore('${escJs(p)}',${h},1)">+</button></div></div><div><div class="mobile-control-label">Putts</div><div class="mobile-stepper"><button class="stepper-btn" type="button" onclick="adjustMobilePutt('${escJs(p)}',${h},-1)">-</button><input class="mobile-score-input" type="number" inputmode="numeric" min="0" max="9" value="${puttVal}" oninput="onMobilePuttInput('${escJs(p)}',${h},this.value)" onfocus="this.select()"><button class="stepper-btn" type="button" onclick="adjustMobilePutt('${escJs(p)}',${h},1)">+</button></div></div></div></div>`; }).join('');
+}
+function renderMobileScramblePairCard(pair,teamLabel,h){ const anchor=pair[0],p2=pair[1]||null,gross=ROUND.scores[anchor]?.[h]??null,total=sumRange(anchor,0,18),par=ROUND.course.par[h],scoreVal=gross??''; const p2arg=p2?`,'${escJs(p2)}'`:''; const chips=`<div class="mobile-chip-row">${[par-1,par,par+1].filter(v=>v>0).map(v=>`<button class="score-chip ${gross===v?'selected':''}" type="button" onclick="setMobileScramblePairScore('${escJs(anchor)}'${p2arg},${h},${v})">${escHtml(mobileScoreToParLabel(v,par))}</button>`).join('')}</div>`; return `<div class="mobile-hole-row mobile-player-card" data-player="${escHtml(anchor)}"><div class="mobile-player-head"><div><div class="mobile-player-name">${pair.map(escHtml).join(' &amp; ')}</div><div class="mobile-player-meta">${escHtml(teamLabel)} / ${escHtml(mobileScoreToParLabel(gross,par))}</div></div><div class="mobile-player-total">Total<strong>${total??'-'}</strong></div></div><div class="mobile-score-controls"><div><div class="mobile-control-label">Score</div>${chips}<div class="mobile-stepper"><button class="stepper-btn" type="button" onclick="adjustMobileScramblePairScore('${escJs(anchor)}'${p2arg},${h},-1)">-</button><input class="mobile-score-input" type="number" inputmode="numeric" min="1" max="20" value="${scoreVal}" oninput="onScramblePairScoreInput('${escJs(anchor)}'${p2arg},${h},this.value);renderMobileLiveContext()" onfocus="this.select()"><button class="stepper-btn" type="button" onclick="adjustMobileScramblePairScore('${escJs(anchor)}'${p2arg},${h},1)">+</button></div></div></div></div>`; }
+function setMobileScramblePairScore(p1,p2OrH,hOrVal,maybeVal){ const multi=typeof p2OrH==='string'; const h=multi?hOrVal:p2OrH; const val=multi?maybeVal:hOrVal; if(multi)onScramblePairScoreInput(p1,p2OrH,h,String(val)); else onScramblePairScoreInput(p1,h,String(val)); renderMobileHoleEntry(); }
+function adjustMobileScramblePairScore(p1,p2OrH,hOrVal,maybeVal){ const multi=typeof p2OrH==='string'; const h=multi?hOrVal:p2OrH,delta=multi?maybeVal:hOrVal; const cur=ROUND.scores[p1]?.[h]??ROUND.course.par[h]; if(multi)setMobileScramblePairScore(p1,p2OrH,h,Math.max(1,Math.min(20,Number(cur)+delta))); else setMobileScramblePairScore(p1,h,Math.max(1,Math.min(20,Number(cur)+delta))); }
+function renderMobileScrambleTeamCard(teamKey,teamLabel,h){ const gross=ROUND.teamScores?.[teamKey]?.[h]??null,total=teamScoreRange(teamKey,0,18),par=ROUND.course.par[h],scoreVal=gross??'',players=(ROUND[teamKey]||[]).map(escHtml).join(', '); const chips=`<div class="mobile-chip-row">${[par-1,par,par+1].filter(v=>v>0).map(v=>`<button class="score-chip ${gross===v?'selected':''}" type="button" onclick="onTeamScoreInput('${escJs(teamKey)}',${h},'${v}')">${escHtml(mobileScoreToParLabel(v,par))}</button>`).join('')}</div>`; return `<div class="mobile-hole-row mobile-player-card" data-team-key="${escHtml(teamKey)}"><div class="mobile-player-head"><div><div class="mobile-player-name">${escHtml(teamLabel)}</div><div class="mobile-player-meta">${players} / ${escHtml(mobileScoreToParLabel(gross,par))}</div></div><div class="mobile-player-total">Total<strong>${total??'-'}</strong></div></div><div class="mobile-score-controls"><div><div class="mobile-control-label">Score</div>${chips}<div class="mobile-stepper"><button class="stepper-btn" type="button" onclick="adjustMobileTeamScore('${escJs(teamKey)}',${h},-1)">-</button><input class="mobile-score-input" type="number" inputmode="numeric" min="1" max="20" value="${scoreVal}" oninput="onTeamScoreInput('${escJs(teamKey)}',${h},this.value)" onfocus="this.select()"><button class="stepper-btn" type="button" onclick="adjustMobileTeamScore('${escJs(teamKey)}',${h},1)">+</button></div></div></div></div>`; }
+function adjustMobileTeamScore(teamKey,h,delta){ const cur=ROUND.teamScores?.[teamKey]?.[h]??ROUND.course.par[h]; onTeamScoreInput(teamKey,h,String(Math.max(1,Math.min(20,Number(cur)+delta)))); }
 function updateMobilePlayerCard(player,h){
   const card=document.querySelector(`.mobile-player-card[data-player="${CSS.escape(player)}"]`);
   if(!card||!ROUND?.course)return;
@@ -3085,7 +3122,7 @@ function updateMobilePlayerCard(player,h){
   if(totalEl) totalEl.textContent=total??'-';
   if(netEl) netEl.textContent=`Net ${net??'-'}`;
 }
-function renderMobileHoleEntry(){ const el=document.getElementById('mobile-hole-entry'); if(!el||!ROUND?.course)return; const h=Math.max(0,Math.min(17,mobileHole)), strokes=getPlayerStrokes(), players=scorecardPlayers(); mobileHole=h; el.innerHTML=`<div class="mobile-score-shell"><div class="mobile-command-card"><div class="mobile-hole-head"><div><div class="mobile-hole-title">Hole ${h+1}</div><div class="mobile-hole-kicker">Par ${ROUND.course.par[h]} / Handicap ${ROUND.course.si[h]} / ${ROUND.course.yds[h] || '-'} yds</div></div><select class="form-input mobile-hole-select" onchange="setMobileHole(this.value)">${Array.from({length:18},(_,i)=>`<option value="${i}" ${i===h?'selected':''}>Hole ${i+1}</option>`).join('')}</select></div><div id="mobile-live-context"></div></div><div class="mobile-hole-grid">${players.map(p=>{ const gross=ROUND.scores[p]?.[h]??null, putts=ROUND.putts?.[p]?.[h]??null, dot=getsStroke(strokes[p],ROUND.course.si[h]), total=sumRange(p,0,18), net=computeNetTotal(p,strokes), scoreVal=gross??'', puttVal=putts??2; return `<div class="mobile-hole-row mobile-player-card" data-player="${escHtml(p)}"><div class="mobile-player-head"><div><div class="mobile-player-name">${escHtml(p)}</div><div class="mobile-player-meta">${dot?'Gets a stroke here':'No stroke'} / ${escHtml(mobileScoreToParLabel(gross,ROUND.course.par[h]))}</div></div><div class="mobile-player-total">Total<strong>${total??'-'}</strong><span>Net ${net??'-'}</span></div></div><div class="mobile-score-controls"><div><div class="mobile-control-label">Score</div>${renderMobileScoreChips(p,h,gross)}<div class="mobile-stepper"><button class="stepper-btn" type="button" onclick="adjustMobileScore('${escJs(p)}',${h},-1)">-</button><input class="mobile-score-input" type="number" inputmode="numeric" min="1" max="20" value="${scoreVal}" oninput="onMobileScoreInput('${escJs(p)}',${h},this.value)" onfocus="this.select()"><button class="stepper-btn" type="button" onclick="adjustMobileScore('${escJs(p)}',${h},1)">+</button></div></div><div><div class="mobile-control-label">Putts</div><div class="mobile-stepper"><button class="stepper-btn" type="button" onclick="adjustMobilePutt('${escJs(p)}',${h},-1)">-</button><input class="mobile-score-input" type="number" inputmode="numeric" min="0" max="9" value="${puttVal}" oninput="onMobilePuttInput('${escJs(p)}',${h},this.value)" onfocus="this.select()"><button class="stepper-btn" type="button" onclick="adjustMobilePutt('${escJs(p)}',${h},1)">+</button></div></div></div></div>`; }).join('')}</div><div class="mobile-hole-actions"><button class="group-btn" onclick="setMobileHole(${Math.max(0,h-1)})" ${h===0?'disabled':''}>Back</button><button class="group-btn" onclick="toggleMobileScorecardTable()">${mobileShowFullCard?'Hide Card':'Full Card'}</button><button class="group-btn primary" onclick="setMobileHole(${Math.min(17,h+1)})" ${h===17?'disabled':''}>Next</button></div></div>`; renderMobileLiveContext(); }
+function renderMobileHoleEntry(){ const el=document.getElementById('mobile-hole-entry'); if(!el||!ROUND?.course)return; const h=Math.max(0,Math.min(17,mobileHole)), strokes=getPlayerStrokes(), players=scorecardPlayers(); mobileHole=h; el.innerHTML=`<div class="mobile-score-shell"><div class="mobile-command-card"><div class="mobile-hole-head"><div><div class="mobile-hole-title">Hole ${h+1}</div><div class="mobile-hole-kicker">Par ${ROUND.course.par[h]} / Handicap ${ROUND.course.si[h]} / ${ROUND.course.yds[h] || '-'} yds</div></div><select class="form-input mobile-hole-select" onchange="setMobileHole(this.value)">${Array.from({length:18},(_,i)=>`<option value="${i}" ${i===h?'selected':''}>Hole ${i+1}</option>`).join('')}</select></div><div id="mobile-live-context"></div></div><div class="mobile-hole-grid">${mobileHolePlayerCards(players,strokes,h)}</div><div class="mobile-hole-actions"><button class="group-btn" onclick="setMobileHole(${Math.max(0,h-1)})" ${h===0?'disabled':''}>Back</button><button class="group-btn" onclick="toggleMobileScorecardTable()">${mobileShowFullCard?'Hide Card':'Full Card'}</button><button class="group-btn primary" onclick="setMobileHole(${Math.min(17,h+1)})" ${h===17?'disabled':''}>Next</button></div></div>`; renderMobileLiveContext(); }
 function setMobileHole(h){ mobileHole=Math.max(0,Math.min(17,parseInt(h,10)||0)); localStorage.setItem(mobileHoleStorageKey(), String(mobileHole)); renderMobileHoleEntry(); }
 function toggleMobileScorecardTable(){ mobileShowFullCard=!mobileShowFullCard; const wrap=document.getElementById('sc-table-wrap'); if(wrap)wrap.classList.toggle('mobile-table-open', mobileShowFullCard); renderMobileHoleEntry(); }
 function setMobileScore(player,h,value){ onScoreInput(player,h,String(value)); renderMobileHoleEntry(); }
