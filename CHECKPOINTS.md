@@ -1318,28 +1318,75 @@ Next recommended steps:
    hole-by-hole entry mode.
 3. Keep reusing store getters; do not recompute scoring in components.
 
-## Current Handoff: All Per-Game Results Panels Complete
+## Checkpoint 27: Supabase Foundation
+
+Date: 2026-06-08
+
+Branch: `rewrite`
+
+Goal: lay the groundwork for the group/Supabase layer without shipping any UI or
+store wiring. This is the first of four planned steps (27 foundation → 28 group
+membership → 29 round history → 30 realtime sync).
+
+What changed:
+
+- Env config. Added `.env.example` (committed) listing `VITE_SUPABASE_URL` and
+  `VITE_SUPABASE_ANON_KEY`, and `.env` (gitignored) holding the real values.
+  Reuses the existing legacy project `dhpkeueubhpmvaungjfj`; the anon key is the
+  publishable client key (legacy hardcoded it at `legacy/index.html:1793-1794`).
+- `src/env.d.ts` now declares an `ImportMetaEnv` interface typing the two
+  `VITE_SUPABASE_*` vars.
+- `src/services/supabase.ts`: thin client. Reads the env vars, exports
+  `supabase` (a `createClient` instance, or `null` when either var is missing)
+  and `hasSupabase()` so downstream callers can degrade to local-only behavior
+  instead of throwing. No queries live here — construction + guard only.
+- `src/types/db.ts`: wire-shape row types `GroupRow`, `RoundRow`, `EventRow`
+  (snake_case, matching the live schema documented in `README.md`). Re-exported
+  from `src/types/index.ts`. The DB ⇄ domain normalize/serialize mapping is
+  intentionally deferred to Checkpoint 28.
+
+Deliberately out of scope (later checkpoints): normalizeGroup/groupForDb/
+normalizeRound mappers, any group store/screen/join-create flow, round history,
+`scheduleSync`/`pushToSupabase`/`subscribeToGroup` realtime, and the
+course-search edge-function call.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 22 files, 161 tests (added
+  `tests/services/supabase.test.ts` covering the `hasSupabase()` guard).
+- `npm run build`: passed; Vite inlines the `VITE_*` vars and the new modules
+  type-check.
+- No browser QA: nothing renders or calls the network in this checkpoint.
+
+Next: Checkpoint 28 — port `groupCode()` / create / join into a Pinia group
+store plus a screen, local-first with a graceful no-credentials fallback via
+`hasSupabase()`. Reference legacy `createGroup`/`joinGroup`/`normalizeGroup`
+(`legacy/index.html` ~2052, ~2160-2182).
+
+## Current Handoff: Supabase Foundation Complete
 
 Date: 2026-06-08
 
 Branch:
 
 - `rewrite`
-- The Putt Poker panel commit will be the latest after this checkpoint is
+- The Supabase foundation commit will be the latest after this checkpoint is
   pushed.
-- Worktree status at handoff: clean after pushing Checkpoint 26.
+- Worktree status at handoff: clean after pushing Checkpoint 27.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
   branch should create deployments.
 
 Most recent verification:
 
 - `node scripts/event-format-tests.js`: passed.
-- `npm run test:run`: passed, 21 files, 159 tests.
+- `npm run test:run`: passed, 22 files, 161 tests.
 - `npm run build`: passed.
 - Browser QA:
   - Checkpoint 22 pair-match browser QA passed.
   - Checkpoints 23–26 browser QA blocked by browser-tool sandbox; no broad
     macOS access requested.
+  - Checkpoint 27 needs no browser QA (no UI/network); covered by a unit test.
   - All panels are covered by focused store and screen tests.
 
 Current implementation state:
@@ -1361,15 +1408,21 @@ Current implementation state:
   getters/actions.
 - `HomeScreen.vue` links to New round (`/setup`), Start demo round, the
   scorecard, and results. Routing: `/`, `/setup`, `/scorecard`, `/results`.
-- Still demo/local only: no group membership, no Supabase course search, and no
+- Supabase foundation is now wired (Checkpoint 27): `src/services/supabase.ts`
+  client + `hasSupabase()` guard, env config (`.env` / `.env.example`,
+  `VITE_SUPABASE_*`), and `src/types/db.ts` row types. Nothing consumes the
+  client yet — still no group membership, no Supabase course search, and no
   realtime sync.
 - The old monolith remains available as the parity oracle at
   `legacy/index.html`.
 
 The next task should begin (pick one):
 
-- Start the group/Supabase layer for course search, group membership, round
-  history, and realtime sync.
+- Checkpoint 28 — group membership: port `groupCode()` / create / join into a
+  Pinia group store plus a screen, local-first with a `hasSupabase()` fallback.
+  Reference legacy `createGroup`/`joinGroup`/`normalizeGroup`/`groupForDb`
+  (`legacy/index.html` ~2052-2053, ~2160-2182). Then 29 round history, 30
+  realtime sync.
 - UX polish: playing-group filtering on the scorecard, mobile hole-by-hole
   entry mode.
 - Keep reusing store getters; do not recompute scoring in components. Validate

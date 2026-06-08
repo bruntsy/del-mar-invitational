@@ -72,6 +72,20 @@ Install dependencies once:
 npm install
 ```
 
+Configure Supabase credentials. Copy the example env file and fill in the
+project URL and publishable anon key (read by the rewrite via
+`import.meta.env`):
+
+```bash
+cp .env.example .env
+```
+
+The committed `.env.example` lists the required `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_ANON_KEY` keys. `.env` is gitignored. With both vars set,
+`src/services/supabase.ts` constructs the client; when either is missing the
+client is `null` and `hasSupabase()` returns `false`, so callers fall back to
+local-only behavior.
+
 Run the Vite dev server:
 
 ```bash
