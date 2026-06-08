@@ -473,6 +473,10 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 - 1-putt adds 1 card.
 - 3-putt moves the coin and adds $1 to the pot.
 - 4+ putt moves the coin and adds $2 to the pot.
+- Pure scoring helpers compute card counts, coin holder, pot, and per-player
+  3-putt/4+ putt penalty counts.
+- The coin follows the most recent penalty putt in hole order, then player order.
+- Putt poker is a standalone pot and does not feed the settlement P&L ledger.
 
 ## Realtime Sync
 

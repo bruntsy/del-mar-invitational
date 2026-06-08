@@ -554,31 +554,80 @@ Next recommended steps:
 2. Begin wiring pure modules into Pinia stores/UI once putt poker is covered.
 3. Keep README and CHECKPOINTS current before handing off.
 
-## Current Handoff: Ready for Putt Poker
+## Checkpoint 13: Putt Poker Scoring
 
 Date: 2026-06-08
 
 Branch:
 
 - `rewrite`
-- Wolf scoring commit: `af5da47 Add Wolf scoring`
-- Handoff/documentation updates were pushed after the scoring commit.
-- Worktree status at handoff: clean after pushing Checkpoint 12.
+- Previous pushed commit: `71bf1ce Clarify Wolf handoff status`
+
+Files changed since Checkpoint 12:
+
+- Added `src/scoring/puttPoker.ts`.
+- Added `tests/scoring/puttPoker.test.ts`.
+- Updated `README.md`.
+
+Implementation notes:
+
+- Ported putt poker from the legacy monolith as pure helpers. The actual legacy
+  oracle is `computePuttPoker()` and `puttPenaltyNote()` (the handoff's named
+  `puttPokerCards()` / `bestPokerHand()` / `renderPuttPokerPanel()` helpers do
+  not exist in `legacy/index.html`; there is no poker-hand evaluation in the
+  current app).
+- `computePuttPoker(putts, players, pot)` returns card counts, the coin holder,
+  the running pot, and per-player 3-putt/4+ putt counts.
+- Every player starts with two cards. A no-putt hole adds two cards, a one-putt
+  adds one, and a two-putt changes nothing.
+- A three-putt hands the coin and adds $1; a four-or-more putt hands the coin
+  and adds $2. The coin follows the most recent penalty in hole order, then
+  player order, matching the legacy loop.
+- Putts are read through the shared `scoreAt`/`cellValue` helpers, so raw
+  numbers and timed putt cells both work.
+- Parity check against the legacy settlement flow: putt poker is intentionally a
+  standalone pot and is **not** part of `computePlayerPnL()` / `computeSettlement()`.
+  It only feeds the putt poker panel display, so no settlement P&L helper was
+  added.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 16 files, 101 tests.
+- `npm run build`: passed.
+
+Next recommended steps:
+
+1. Begin wiring the pure scoring modules into Pinia stores/UI screens.
+2. Keep `legacy/index.html` as the parity oracle during UI cutover.
+3. Treat scoring parity and RLS verification as hard gates before UI cutover.
+
+## Current Handoff: Scoring Modules Complete
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Putt poker scoring commit will be the latest after this checkpoint is pushed.
+- Worktree status at handoff: clean after pushing Checkpoint 13.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
   branch should create deployments.
 
 Most recent verification:
 
 - `node scripts/event-format-tests.js`: passed.
-- `npm run test:run`: passed, 15 files, 91 tests.
+- `npm run test:run`: passed, 16 files, 101 tests.
 - `npm run build`: passed.
 
 Current implementation state:
 
 - The rewrite foundation, typed domain helpers, event config normalization,
   score-cell compatibility, handicap helpers, event round scoring, skins, team
-  games, pair match, head-to-head, Stableford, three-man Nassau, and Wolf have
-  all been ported as pure modules with focused Vitest coverage.
+  games, pair match, head-to-head, Stableford, three-man Nassau, Wolf, and putt
+  poker have all been ported as pure modules with focused Vitest coverage.
+- All scoring formats from the legacy monolith now have a pure TypeScript
+  module. The scoring-port phase is complete.
 - No Pinia stores or production UI screens have been wired to these scoring
   modules yet.
 - The old monolith remains available as the parity oracle at
@@ -586,19 +635,12 @@ Current implementation state:
 
 The next task should begin:
 
-- Port putt poker as a pure module.
-- Relevant legacy functions are in `legacy/index.html` around putt poker
-  helpers such as `puttPokerCards()`, `puttPokerPlayerCards()`,
-  `bestPokerHand()`, and `renderPuttPokerPanel()`.
-- Settlement behavior is part of the current settlement/results flow and should
-  be validated against the legacy monolith before porting.
-
-Suggested next files:
-
-- Add `src/scoring/puttPoker.ts`.
-- Add `tests/scoring/puttPoker.test.ts`.
-- After implementation, run:
+- Start wiring pure scoring/domain modules into Pinia stores and Vue screens,
+  one screen at a time, validating each against `legacy/index.html`.
+- Keep scoring parity and RLS verification as hard gates before cutting the
+  production UI over from the legacy monolith.
+- After each step, run:
   - `node scripts/event-format-tests.js`
   - `npm run test:run`
   - `npm run build`
-- Add Checkpoint 13, then commit and push to `origin/rewrite`.
+- Add the next checkpoint, then commit and push to `origin/rewrite`.
