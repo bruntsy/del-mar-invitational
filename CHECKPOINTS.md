@@ -1218,58 +1218,108 @@ Next recommended steps:
    sync layer.
 3. Keep reusing store getters/actions; do not recompute scoring in components.
 
-## Current Handoff: Stableford Results Panel Live
+## Checkpoint 25: 3-Man Nassau Results Panel
 
 Date: 2026-06-08
 
 Branch:
 
 - `rewrite`
-- The Stableford-panel commit will be the latest after this checkpoint is
+- Previous pushed commit: `24b94ce Add stableford results panel`
+
+Files changed since Checkpoint 24:
+
+- Updated `src/stores/round.ts`.
+- Updated `src/components/screens/ResultsScreen.vue`.
+- Updated tests:
+  - `tests/stores/round.test.ts`
+  - `tests/screens/results.test.ts`
+- Updated `README.md`.
+- Updated this checkpoint file.
+
+Implementation notes:
+
+- Added `store.threeManNassauResult`, a store-derived display result that wraps
+  the existing pure `threeManNassauResults` scorer and exposes:
+  - enabled flag, score type, and per-opponent amount
+  - `valid` flag (false when roster ≠ 3 players — the pure module requires
+    exactly 3)
+  - per-segment rows (Match / Nassau / Solo score / Best Ball / Result) with a
+    `resultLabel` string matching the legacy format
+- Results renders a 3-Man Nassau section (after Stableford, before Wolf,
+  matching legacy order). When the roster is not exactly 3 players it shows a
+  "Requires exactly 3 players" note instead of an empty table.
+- The component does no scoring math; it reads the getter only.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 21 files, 157 tests.
+- `npm run build`: passed.
+- Browser QA: blocked by browser sandbox as in prior checkpoints; no broad
+  macOS access requested. Coverage is from store getter tests (invalid-roster
+  and valid 3-player round) plus a screen test asserting the "Requires exactly
+  3 players" note for a 4-player demo round.
+
+Next recommended steps:
+
+1. Add the putt poker detail results panel (the last remaining per-game panel).
+2. Start the group/Supabase layer for course search, group membership, history,
+   and realtime sync.
+3. Keep reusing store getters/actions; do not recompute scoring in components.
+
+## Current Handoff: 3-Man Nassau Results Panel Live
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- The 3-Man Nassau panel commit will be the latest after this checkpoint is
   pushed.
-- Worktree status at handoff: clean after pushing Checkpoint 24.
+- Worktree status at handoff: clean after pushing Checkpoint 25.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
   branch should create deployments.
 
 Most recent verification:
 
 - `node scripts/event-format-tests.js`: passed.
-- `npm run test:run`: passed, 21 files, 154 tests.
+- `npm run test:run`: passed, 21 files, 157 tests.
 - `npm run build`: passed.
 - Browser QA:
   - Checkpoint 22 pair-match browser QA passed.
-  - Checkpoint 23 Wolf and Checkpoint 24 Stableford browser QA were blocked by
-    browser-tool permissions; do not request broad macOS access just for visual
-    QA.
-  - Wolf and Stableford behavior is covered by focused store and screen tests.
+  - Checkpoints 23–25 browser QA blocked by browser-tool sandbox; no broad
+    macOS access requested.
+  - All three panels are covered by focused store and screen tests.
 
 Current implementation state:
 
 - The full pure scoring layer plus the Pinia round store are complete and
   covered.
-- A real local create-score-results flow works end to end: `/setup` builds a round
-  (course, teams, players, games) and `/scorecard` scores it live with score
-  entry, net/skins columns, putt rows, the putt poker panel, and settlement.
-  `/results` shows team scores, leaderboard, team-game breakdowns, pair-match
-  breakdowns, Wolf standings/detail tables, the Stableford points table, skins,
-  and settlement. 4-man
-  scramble can be enabled from setup, scored through team rows on the
-  scorecard, and displayed/settled through results. Best Ball and 2-Ball render
-  read-only derived team rows driven by player scores. Pair Match Play can be
-  configured from setup and renders live scorecard plus results panels. Wolf can
-  be configured from setup, adjusted per hole on the scorecard, and shown in
+- A real local create-score-results flow works end to end: `/setup` builds a
+  round (course, teams, players, games) and `/scorecard` scores it live with
+  score entry, net/skins columns, putt rows, the putt poker panel, and
+  settlement. `/results` shows team scores, leaderboard, team-game breakdowns,
+  pair-match breakdowns, Wolf standings/detail tables, the Stableford points
+  table, the 3-Man Nassau segment table, skins, and settlement. 4-man scramble
+  can be enabled from setup, scored through team rows on the scorecard, and
+  displayed/settled through results. Best Ball and 2-Ball render read-only
+  derived team rows driven by player scores. Pair Match Play can be configured
+  from setup and renders live scorecard plus results panels. Wolf can be
+  configured from setup, adjusted per hole on the scorecard, and shown in
   results. All scoring is read from store getters/actions.
 - `HomeScreen.vue` links to New round (`/setup`), Start demo round, the
   scorecard, and results. Routing: `/`, `/setup`, `/scorecard`, `/results`.
 - Still demo/local only: no group membership, no Supabase course search, and no
-  realtime sync. Results still lacks the legacy per-game detail panels for
-  three-man Nassau and putt poker detail.
+  realtime sync. Results still lacks the legacy per-game detail panel for
+  putt poker.
 - The old monolith remains available as the parity oracle at
   `legacy/index.html`.
 
 The next task should begin (pick one):
 
-- Add the missing per-game detail panels to the results screen.
+- Add the putt poker detail panel to the results screen (the last remaining
+  per-game panel).
 - Start the group/Supabase layer for course search, group membership, history,
   and realtime sync.
 - Keep reusing store getters; do not recompute scoring in components. Validate

@@ -32,6 +32,8 @@ const wolf = computed(() => store.wolfResult);
 const wolfVisible = computed(() => wolf.value.enabled && wolf.value.rows.length > 0);
 const stableford = computed(() => store.stablefordResult);
 const stablefordVisible = computed(() => stableford.value.enabled && stableford.value.rows.length > 0);
+const nassau = computed(() => store.threeManNassauResult);
+const nassauVisible = computed(() => nassau.value.enabled);
 const settlement = computed(() => store.settlement);
 const settlementRows = computed(() =>
   store.playerNames.map((player) => ({ player, pnl: Math.round(settlement.value.pnl[player] || 0) })),
@@ -273,6 +275,40 @@ function goHome() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section v-if="nassauVisible" class="rs-section">
+        <h2 class="rs-section-hdr">3-Man Nassau</h2>
+        <p v-if="!nassau.valid" class="rs-empty-note">Requires exactly 3 players.</p>
+        <template v-else>
+          <div class="rs-table-wrap">
+            <table class="rs-table nassau-table">
+              <thead>
+                <tr>
+                  <th class="col-left">Match</th>
+                  <th class="col-left">Nassau</th>
+                  <th>Solo</th>
+                  <th>Best Ball</th>
+                  <th class="col-left">Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, i) in nassau.rows" :key="i">
+                  <td class="col-left">{{ row.solo }} vs {{ row.side.join(' / ') }}</td>
+                  <td class="col-left">{{ row.label }}</td>
+                  <td>{{ row.soloScore ?? '—' }}</td>
+                  <td>{{ row.sideScore ?? '—' }}</td>
+                  <td class="col-left nassau-result" :class="{ 'rs-net': row.winner === 'solo', 'rs-winner': row.winner === 'solo' }">
+                    {{ row.resultLabel }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p v-if="nassau.amount" class="nassau-note">
+            ${{ nassau.amount }}/opponent · {{ nassau.scoreType }} scoring · two-man side is best ball
+          </p>
+        </template>
       </section>
 
       <section v-if="wolfVisible" class="rs-section">
@@ -722,6 +758,10 @@ function goHome() {
 }
 
 .skin-chip.tied .skin-winner { color: #9aa49a; font-style: italic; }
+
+.nassau-table { min-width: 500px; }
+.nassau-result { font-weight: 700; }
+.nassau-note { margin-top: 10px; font-size: 0.78rem; color: #6a7a6f; }
 
 .rs-empty-note { color: #6a7a6f; }
 

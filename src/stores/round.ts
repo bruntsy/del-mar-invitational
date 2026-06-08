@@ -14,6 +14,7 @@ import {
 } from '@/scoring/settlement';
 import { computePuttPoker, type PuttPokerResult } from '@/scoring/puttPoker';
 import { computeStableford } from '@/scoring/stableford';
+import { threeManNassauResults, type ThreeManNassauRow } from '@/scoring/threeManNassau';
 import { computeTeamHoleStats, computeTeamTotals, type TeamTotals } from '@/scoring/teamGames';
 import {
   computePairMatchPlay,
@@ -141,6 +142,18 @@ export interface StablefordDisplayResult {
   scoreType: ScoreType;
   buyIn: number;
   rows: StablefordDisplayRow[];
+}
+
+export interface ThreeManNassauDisplayRow extends ThreeManNassauRow {
+  resultLabel: string;
+}
+
+export interface ThreeManNassauDisplayResult {
+  enabled: boolean;
+  scoreType: ScoreType;
+  amount: number;
+  valid: boolean;
+  rows: ThreeManNassauDisplayRow[];
 }
 
 function sum(values: number[]): number {
@@ -553,6 +566,38 @@ export const useRoundStore = defineStore('round', {
         }))
         .sort((a, b) => b.points - a.points || a.player.localeCompare(b.player));
       return { ...empty, rows };
+    },
+
+    /**
+     * Three-man Nassau results per segment, matching the legacy
+     * `renderThreeManNassauResults()` table. Valid only when exactly three
+     * players are in the round; invalid rounds render an explanatory note.
+     */
+    threeManNassauResult(state): ThreeManNassauDisplayResult {
+      const games = this.games;
+      const empty: ThreeManNassauDisplayResult = {
+        enabled: games.threeManNassau.enabled,
+        scoreType: games.threeManNassau.type,
+        amount: Number(games.threeManNassau.amount || 0),
+        valid: false,
+        rows: [],
+      };
+      const context = this.scoreContext;
+      if (!context || !state.round || !games.threeManNassau.enabled) return empty;
+      const players = this.playerNames;
+      const result = threeManNassauResults(context, players, games.threeManNassau.type);
+      const rows: ThreeManNassauDisplayRow[] = result.rows.map((row) => ({
+        ...row,
+        resultLabel:
+          row.winner == null
+            ? 'In progress'
+            : row.winner === 'push'
+              ? 'Push'
+              : row.winner === 'solo'
+                ? `${row.solo} wins`
+                : `${row.side.join(' / ')} wins`,
+      }));
+      return { ...empty, valid: result.valid, rows };
     },
   },
 

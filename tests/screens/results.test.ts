@@ -142,6 +142,19 @@ describe('ResultsScreen', () => {
     expect(table.find('tbody tr .rs-winner').text()).toBe('Wes');
   });
 
+  it('renders three-man nassau with an invalid note when roster is not 3 players', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound(); // 4-player round
+    round.games.threeManNassau.enabled = true;
+    store.setRound(round, players);
+
+    const wrapper = mountResults();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('3-Man Nassau');
+    expect(wrapper.text()).toContain('Requires exactly 3 players');
+  });
+
   it('toggles round completion through the store', async () => {
     const store = useRoundStore();
     const { round, players } = demoRound();

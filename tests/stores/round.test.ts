@@ -296,6 +296,45 @@ describe('round store', () => {
     expect(result.rows.find((row) => row.player === 'D')).toMatchObject({ points: 0, holes: 0, leader: false });
   });
 
+  it('returns invalid three-man nassau result when roster is not exactly 3 players', () => {
+    const store = useRoundStore();
+    store.setRound(roundWithRoster(), players); // 4-player roster
+    store.setGames({ ...store.games, threeManNassau: { ...store.games.threeManNassau, enabled: true, type: 'gross' } });
+
+    const result = store.threeManNassauResult;
+    expect(result.enabled).toBe(true);
+    expect(result.valid).toBe(false);
+    expect(result.rows).toHaveLength(0);
+  });
+
+  it('derives three-man nassau rows with result labels for a 3-player round', () => {
+    const store = useRoundStore();
+    const threePlayers: PlayerMap = { A: { name: 'A', handicapIndex: 0 }, B: { name: 'B', handicapIndex: 0 }, C: { name: 'C', handicapIndex: 0 } };
+    store.setRound(
+      { ...emptyRound(), course, team1: ['A', 'B'], team2: ['C'] },
+      threePlayers,
+    );
+    store.setGames({ ...store.games, threeManNassau: { enabled: true, amount: 10, type: 'gross' } });
+
+    // par-4 course; A birdies front 9 solo, side best-balls a par
+    for (let hole = 0; hole < 9; hole += 1) {
+      store.setScore('A', hole, 3); // birdie
+      store.setScore('B', hole, 4); // par
+      store.setScore('C', hole, 5); // bogey
+    }
+
+    const result = store.threeManNassauResult;
+    expect(result.valid).toBe(true);
+    expect(result.amount).toBe(10);
+    expect(result.rows).toHaveLength(9); // 3 players × 3 segments
+
+    const aFront = result.rows.find((row) => row.solo === 'A' && row.label === 'Front');
+    expect(aFront).toMatchObject({ soloScore: 27, sideScore: 36, winner: 'solo', resultLabel: 'A wins' });
+
+    const bFront = result.rows.find((row) => row.solo === 'B' && row.label === 'Front');
+    expect(bFront).toMatchObject({ winner: 'side', resultLabel: 'A / C wins' });
+  });
+
   it('marks a round complete and reopens it', () => {
     const store = useRoundStore();
     store.setRound(roundWithRoster(), players);
