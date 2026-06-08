@@ -9,5 +9,10 @@ export const router = createRouter({
       name: 'home',
       component: HomeScreen,
     },
+    {
+      path: '/scorecard',
+      name: 'scorecard',
+      component: () => import('@/components/screens/ScorecardScreen.vue'),
+    },
   ],
 });

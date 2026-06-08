@@ -498,10 +498,25 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 - Derived getters mirror the legacy globals: `playerNames` (team1 then team2),
   `courseHandicaps` (`computeWHSCourseHcp`), `strokes` (`allocateNetStrokes`),
   and a `scoreContext` consumed by every pure scoring module.
-- Scoring getters (`skins`, `settlement`, `puttPokerFor`, `hasBets`) wire the
-  pure modules to the live round.
+- Scoring getters (`skins`, `settlement`, `playerTotals`, `puttPokerFor`,
+  `hasBets`) wire the pure modules to the live round.
 - Score, putt, and team-score mutations write timestamped cells via
   `writeCell()` so concurrent edits stay sync-friendly.
+
+### Scorecard Screen (rewrite)
+
+- `src/components/screens/ScorecardScreen.vue` is the first real rewrite screen,
+  routed at `/scorecard`.
+- It renders the player rows, par/stroke-index rows, per-hole score inputs with
+  birdie/bogey color coding and net-stroke dots, OUT/IN/TOT/NET/SKN columns, and
+  a live settlement panel.
+- All scoring is read from the round store getters; the component does no
+  scoring math of its own beyond display formatting.
+- `src/fixtures/demoRound.ts` seeds a ready-to-score sample round so the screen
+  is reachable from the home screen before the full setup flow exists.
+- Not yet ported from the legacy scorecard: scramble/best-ball/two-ball team
+  rows, the pair-match and wolf live panels, the putt entry rows, playing-group
+  filtering, and the mobile hole-by-hole entry mode.
 
 ## Realtime Sync
 

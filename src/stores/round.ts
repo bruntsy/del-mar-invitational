@@ -4,7 +4,7 @@ import { normalizePlayingGroups } from '@/domain/playingGroups';
 import { groupPlayerByName } from '@/domain/players';
 import { scoreAt, writeCell } from '@/scoring/cells';
 import { computeWHSCourseHcp, allocateNetStrokes } from '@/scoring/handicap';
-import type { ScoreContext } from '@/scoring/round';
+import { playerRangeScore, type ScoreContext } from '@/scoring/round';
 import { computeSkins, type SkinsResult } from '@/scoring/skins';
 import {
   computePlayerPnL,
@@ -21,6 +21,14 @@ const STORAGE_KEY = 'dmi_round';
 interface PersistedRound {
   round: RoundState | null;
   players: PlayerMap;
+}
+
+export interface PlayerTotals {
+  out: number | null;
+  in: number | null;
+  total: number | null;
+  net: number | null;
+  skins: number;
 }
 
 function sum(values: number[]): number {
@@ -134,6 +142,27 @@ export const useRoundStore = defineStore('round', {
       const context = this.scoreContext;
       if (!context) return { skinsByPlayer: {}, holeResults: [], pendingPot: 0 };
       return computeSkins(context, this.playerNames);
+    },
+
+    /**
+     * Per-player gross out/in/total plus net total and skins won, matching the
+     * legacy scorecard summary columns.
+     */
+    playerTotals(): Record<string, PlayerTotals> {
+      const context = this.scoreContext;
+      const { skinsByPlayer } = this.skins;
+      return Object.fromEntries(
+        this.playerNames.map((player) => {
+          if (!context) {
+            return [player, { out: null, in: null, total: null, net: null, skins: 0 }];
+          }
+          const out = playerRangeScore(context, player, 0, 9, 'gross');
+          const inn = playerRangeScore(context, player, 9, 18, 'gross');
+          const total = out == null && inn == null ? null : (out ?? 0) + (inn ?? 0);
+          const net = playerRangeScore(context, player, 0, 18, 'net');
+          return [player, { out, in: inn, total, net, skins: skinsByPlayer[player] || 0 }];
+        }),
+      );
     },
 
     hasBets(): boolean {

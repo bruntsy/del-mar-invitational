@@ -706,47 +706,109 @@ Next recommended steps:
 3. Reconcile the store's localStorage/DB persistence shape when realtime sync is
    wired.
 
-## Current Handoff: Round Store Landed, Ready for Screens
+## Checkpoint 16: Scorecard Screen
 
 Date: 2026-06-08
 
 Branch:
 
 - `rewrite`
-- Round store commit will be the latest after this checkpoint is pushed.
-- Worktree status at handoff: clean after pushing Checkpoint 15.
+- Previous pushed commit: `82ef5d5 Add Pinia round store`
+
+Files changed since Checkpoint 15:
+
+- Added `src/components/screens/ScorecardScreen.vue`.
+- Added `src/fixtures/demoRound.ts`.
+- Added `tests/screens/scorecard.test.ts`.
+- Added a `playerTotals` getter to `src/stores/round.ts`.
+- Updated `src/router/index.ts` (added the `/scorecard` route).
+- Updated `src/components/screens/HomeScreen.vue` (demo-round entry buttons).
+- Updated `tests/smoke/app.test.ts` for the new HomeScreen.
+- Updated `README.md`.
+
+Implementation notes:
+
+- First real rewrite screen. It renders player rows, par and stroke-index rows,
+  per-hole score inputs with birdie/bogey color coding and net-stroke dots,
+  OUT/IN/TOT/NET/SKN columns, and a live settlement panel.
+- All scoring is read from round store getters. Added `playerTotals` to the
+  store (gross out/in/total, net total, skins) so the component does no scoring
+  math beyond display formatting.
+- `demoRound.ts` seeds a ready-to-score sample (two teams of two, skins + net
+  best-ball + putt poker enabled) so the screen is reachable from the home
+  screen before the full setup flow exists.
+- Score inputs write through `store.setScore`, which records timestamped cells.
+- The smoke test now mocks `vue-router` and installs Pinia, because HomeScreen
+  uses the router and store.
+
+Browser verification (Vite dev server, preview tool):
+
+- Home screen renders with "Start demo round" / "Open scorecard".
+- Scorecard renders the demo roster, correct WHS course handicaps (e.g. index
+  21.0 -> course hcp 25, +20 strokes) and stroke-dot allocation.
+- Entering Wes's full front nine updated OUT to 34 live; birdies rendered green.
+- Settlement correctly stayed "All square" with only one complete card, since
+  team games and skins require every scorer on a hole.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 19 files, 126 tests.
+- `npm run build`: passed (scorecard is a lazy-loaded route chunk).
+
+Not yet ported from the legacy scorecard (future checkpoints):
+
+- Scramble / best-ball / two-ball team rows and the pair-match and wolf live
+  panels.
+- Putt entry rows and the putt poker panel UI.
+- Playing-group filtering and the mobile hole-by-hole entry mode.
+
+Next recommended steps:
+
+1. Extend the scorecard with putt entry rows + the putt poker panel (the store
+   already exposes `puttPokerFor`), or
+2. Build the round setup screen so rounds can be created without the demo
+   fixture, then
+3. Add a group/event store when a screen needs membership or event config.
+
+## Current Handoff: First Screen Live
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Scorecard screen commit will be the latest after this checkpoint is pushed.
+- Worktree status at handoff: clean after pushing Checkpoint 16.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
   branch should create deployments.
 
 Most recent verification:
 
 - `node scripts/event-format-tests.js`: passed.
-- `npm run test:run`: passed, 18 files, 122 tests.
+- `npm run test:run`: passed, 19 files, 126 tests.
 - `npm run build`: passed.
 
 Current implementation state:
 
-- The full pure scoring layer (individual games + settlement aggregation/
-  transfers) is ported and covered.
-- The first Pinia store (`src/stores/round.ts`) is live: it holds `RoundState`
-  plus the player handicap map, persists to `localStorage` under `dmi_round`,
-  exposes `playerNames`/`courseHandicaps`/`strokes`/`scoreContext`, and wires the
-  scoring modules through `skins`/`settlement`/`puttPokerFor`/`hasBets`.
-- `tests/setup.ts` provides a jsdom `localStorage` polyfill, registered in
-  `vite.config.ts`.
-- Production UI screens are still placeholders. `src/components/screens/`
-  contains only `HomeScreen.vue`, and the router has a single `/` route.
+- The full pure scoring layer plus the Pinia round store are complete and
+  covered.
+- The first real screen is live: `ScorecardScreen.vue` at `/scorecard`, wired
+  entirely through the round store, verified in the browser with a demo round.
+- `HomeScreen.vue` seeds a demo round (`src/fixtures/demoRound.ts`) and links to
+  the scorecard.
+- Routing: `/` (home) and `/scorecard`. No group/event stores or setup flow yet.
 - The old monolith remains available as the parity oracle at
   `legacy/index.html`.
 
-The next task should begin:
+The next task should begin (pick one):
 
-- Wire the first real screen (recommended: round setup or the scorecard) to the
-  round store, validating layout and behavior against `legacy/index.html`.
-- Add a router route and screen component, and read/write the round through the
-  store rather than introducing new global state.
-- Keep scoring parity as a hard gate; reuse the store getters instead of
-  recomputing scoring in components.
+- Add putt entry + the putt poker panel to the scorecard (store already exposes
+  `puttPokerFor`), giving full parity on the per-player scoring rows; OR
+- Build a round setup screen (course, teams, players, games) so real rounds can
+  be created, then add a group/event store as needed.
+- Keep reusing store getters; do not recompute scoring in components. Validate
+  each screen against `legacy/index.html`.
 - After each step, run:
   - `node scripts/event-format-tests.js`
   - `npm run test:run`
