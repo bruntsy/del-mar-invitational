@@ -1,51 +1,39 @@
 import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMockSupabase, type MockResult } from '../helpers/mockSupabase';
 
-// Mutable mock client so individual tests can toggle online/offline and
-// program the next Supabase response. Prefixed `mock*` so vitest allows it
-// inside the hoisted factory.
-const mockSupabase = {
-  client: null as unknown,
-  nextResult: { data: null as unknown, error: null as unknown },
-};
-
-function chainable() {
-  const result = Promise.resolve(mockSupabase.nextResult);
-  const builder: Record<string, unknown> = {
-    insert: () => builder,
-    update: () => builder,
-    select: () => builder,
-    eq: () => builder,
-    single: () => result,
-    maybeSingle: () => result,
-    then: (onFulfilled: unknown, onRejected: unknown) =>
-      result.then(onFulfilled as never, onRejected as never),
-  };
-  return builder;
-}
+// Mutable mock client so individual tests can toggle online/offline and program
+// per-table Supabase responses. Prefixed `mock*` so vitest allows it inside the
+// hoisted factory.
+const mockDb = createMockSupabase();
+const mockState = { online: false };
 
 vi.mock('@/services/supabase', () => ({
   get supabase() {
-    return mockSupabase.client;
+    return mockState.online ? mockDb.client : null;
   },
-  hasSupabase: () => mockSupabase.client !== null,
+  hasSupabase: () => mockState.online,
 }));
 
 // Imported after the mock is registered.
 const { useGroupStore } = await import('@/stores/group');
+const { useRoundStore } = await import('@/stores/round');
 
 function goOffline() {
-  mockSupabase.client = null;
+  mockState.online = false;
 }
 
-function goOnline(result: { data: unknown; error: unknown }) {
-  mockSupabase.client = { from: () => chainable() };
-  mockSupabase.nextResult = result;
+/** Bring the client online; `result` programs the `groups` table response. */
+function goOnline(result: MockResult) {
+  mockState.online = true;
+  mockDb.reset();
+  mockDb.set('groups', result);
 }
 
 beforeEach(() => {
   setActivePinia(createPinia());
   localStorage.clear();
+  mockDb.reset();
   goOffline();
 });
 
@@ -110,6 +98,22 @@ describe('group store — online (mocked Supabase)', () => {
     expect(ok).toBe(false);
     expect(store.statusError).toBe(true);
     expect(store.group).toBeNull();
+  });
+
+  it('pulls the active round into the round store on join', async () => {
+    goOnline({ data: { id: 'g3', room_code: 'ACTV', name: 'Active', players: {} }, error: null });
+    mockDb.set('rounds', {
+      data: { id: 'r1', group_id: 'g3', state: { team1: ['Amy'], team2: ['Bo'] }, completed: false },
+      error: null,
+    });
+    const store = useGroupStore();
+    const round = useRoundStore();
+
+    const ok = await store.joinGroup('actv');
+    expect(ok).toBe(true);
+    expect(round.round?.id).toBe('r1');
+    expect(round.round?.groupId).toBe('g3');
+    expect(round.playerNames).toEqual(['Amy', 'Bo']);
   });
 });
 

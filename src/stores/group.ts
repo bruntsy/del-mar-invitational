@@ -6,6 +6,7 @@ import {
   normalizeGroup,
 } from '@/domain/group';
 import { hasSupabase, supabase } from '@/services/supabase';
+import { useRoundStore } from '@/stores/round';
 import type { GroupRow } from '@/types/db';
 import type { Group } from '@/types/group';
 
@@ -184,6 +185,9 @@ export const useGroupStore = defineStore('group', {
         this.group = normalizeGroup(data as GroupRow);
         this.persist();
         this.rememberGroup();
+        // Pull the group's latest in-progress round into the round store
+        // (legacy `joinGroup` → `loadActiveRound`).
+        await useRoundStore().loadActiveRound(this.group.id);
         this.setStatus('');
         return true;
       } finally {

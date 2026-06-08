@@ -1,7 +1,9 @@
 import { defineStore } from 'pinia';
 import { cloneDefaultGames, normalizeGames } from '@/domain/games';
-import { normalizePlayingGroups } from '@/domain/playingGroups';
 import { groupPlayerByName } from '@/domain/players';
+import { ACTIVE_ROUND_COLUMNS, normalizeRoundRow, normalizeRoundState } from '@/domain/round';
+import { hasSupabase, supabase } from '@/services/supabase';
+import type { RoundRow } from '@/types/db';
 import { scoreAt, writeCell } from '@/scoring/cells';
 import { computeWHSCourseHcp, allocateNetStrokes } from '@/scoring/handicap';
 import { playerRangeScore, type ScoreContext } from '@/scoring/round';
@@ -224,31 +226,6 @@ export function emptyRound(groupId: string | null = null): RoundState {
     teamScores: {},
     wolf: { holes: {} },
     completed: false,
-  };
-}
-
-/**
- * Repairs a round loaded from storage/db the way legacy `loadState()` and
- * `normalizeRound()` do: normalize games, backfill missing structures, and
- * re-derive playing groups from the current roster.
- */
-function normalizeRoundState(round: RoundState): RoundState {
-  const team1 = Array.isArray(round.team1) ? round.team1 : [];
-  const team2 = Array.isArray(round.team2) ? round.team2 : [];
-  const players = [...team1, ...team2];
-
-  return {
-    ...round,
-    team1,
-    team2,
-    games: normalizeGames(round.games),
-    wolf: round.wolf?.holes ? round.wolf : { holes: {} },
-    teamNames: round.teamNames || { team1: 'Team 1', team2: 'Team 2' },
-    pairMatches: Array.isArray(round.pairMatches) ? round.pairMatches : [],
-    playingGroups: normalizePlayingGroups(round.playingGroups, players),
-    scores: round.scores || {},
-    putts: round.putts || {},
-    teamScores: round.teamScores || {},
   };
 }
 
@@ -644,6 +621,27 @@ export const useRoundStore = defineStore('round', {
       } catch {
         return false;
       }
+    },
+
+    /**
+     * Fetch a group's latest incomplete round from Supabase and make it active
+     * (legacy `loadActiveRound`). No-ops to `null` when offline or the group has
+     * no active round, leaving any local round untouched.
+     */
+    async loadActiveRound(groupId: string | null): Promise<RoundState | null> {
+      if (!groupId || !hasSupabase() || !supabase) return null;
+      const { data, error } = await supabase
+        .from('rounds')
+        .select(ACTIVE_ROUND_COLUMNS)
+        .eq('group_id', groupId)
+        .eq('completed', false)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error || !data) return null;
+      const { round, players } = normalizeRoundRow(data as RoundRow);
+      this.setRound(round, players);
+      return round;
     },
 
     persist() {

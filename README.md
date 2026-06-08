@@ -587,8 +587,7 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   builds the `RoundState` + player handicap map, generates head-to-head matchups
   by zipping `team1[i]` vs `team2[i]` (as legacy did), writes through
   `store.setRound`, and routes to the scorecard.
-- Not yet included: Supabase course search and group membership; course par/SI
-  are entered manually.
+- Not yet included: Supabase course search; course par/SI are entered manually.
 
 ### Results Screen (rewrite)
 
@@ -605,8 +604,8 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   does not recompute game math in the component.
 - Rounds can be marked complete or reopened locally from the results screen.
 - Home and scorecard screens now link to results.
-- All legacy per-game detail panels have now been ported; next gap is
-  completed-round history persistence (group/Supabase wiring).
+- All legacy per-game detail panels have now been ported. Completed-round
+  history persistence is wired via the group/history stores (Checkpoint 29).
 
 ### Group Membership (rewrite)
 
@@ -624,9 +623,27 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   on code collision), join selects by `room_code`, and rename syncs the name.
 - `src/components/screens/GroupScreen.vue`, routed at `/group` and linked from
   the home screen, renders create / join-by-code / recent-groups when there is
-  no active group, and the group code, an editable name, and Leave when there
-  is. Loading a group's active round and history is deferred to the next
-  checkpoint.
+  no active group, and the group code, an editable name, Leave, and a "Past
+  rounds" history section when there is one.
+
+### Round History (rewrite)
+
+- `src/domain/round.ts` holds the DB↔domain mappers: `normalizeRoundRow` parses
+  a `rounds` row (handling JSON string or object `state`, letting the row's
+  `id`/`group_id`/`completed` win over stale copies in the blob), and
+  `summarizeRound` reduces a completed round to per-player net + skins sorted by
+  net. `normalizeRoundState` (moved here from the round store) is the shared
+  repair helper used by both the local load path and the DB row mapper.
+- `src/stores/round.ts` has a new `loadActiveRound(groupId)` action that fetches
+  the group's latest incomplete round from Supabase and makes it active. It fires
+  automatically on every `joinGroup` call (legacy `loadActiveRound`).
+- `src/stores/history.ts` is the Pinia history store: `loadHistory(groupId)`
+  selects all completed rounds for a group (newest first) and maps each through
+  `normalizeRoundRow` → `summarizeRound` into a `RoundSummary[]`. Clears rather
+  than throwing when offline.
+- `GroupScreen.vue` loads history on mount and after join/switch, and renders a
+  per-round card (course name, completed date, player net/skins table) when a
+  group is active and Supabase is configured.
 
 ## Realtime Sync
 

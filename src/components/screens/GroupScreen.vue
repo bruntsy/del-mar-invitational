@@ -3,8 +3,10 @@ import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { hasSupabase } from '@/services/supabase';
 import { useGroupStore } from '@/stores/group';
+import { useHistoryStore } from '@/stores/history';
 
 const store = useGroupStore();
+const history = useHistoryStore();
 const router = useRouter();
 
 const newName = ref('');
@@ -15,12 +17,19 @@ const online = hasSupabase();
 onMounted(() => {
   store.load();
   renameValue.value = store.group?.name ?? '';
+  if (store.group?.id) void history.loadHistory(store.group.id);
 });
+
+function refreshHistory() {
+  if (store.group?.id) void history.loadHistory(store.group.id);
+  else history.clear();
+}
 
 async function create() {
   if (await store.createGroup(newName.value)) {
     newName.value = '';
     renameValue.value = store.group?.name ?? '';
+    refreshHistory();
   }
 }
 
@@ -28,13 +37,23 @@ async function join() {
   if (await store.joinGroup(joinCode.value)) {
     joinCode.value = '';
     renameValue.value = store.group?.name ?? '';
+    refreshHistory();
   }
 }
 
 async function openRecent(code: string) {
   if (await store.switchToRecentGroup(code)) {
     renameValue.value = store.group?.name ?? '';
+    refreshHistory();
   }
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? '—'
+    : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 async function rename() {
@@ -44,6 +63,7 @@ async function rename() {
 function leave() {
   store.leaveGroup();
   renameValue.value = '';
+  history.clear();
 }
 
 function goSetup() {
@@ -80,6 +100,33 @@ function goHome() {
           <button class="btn-ghost" type="button" @click="goHome">Home</button>
           <button class="btn-ghost danger" type="button" @click="leave">Leave group</button>
         </div>
+
+        <!-- Past rounds (online only) -->
+        <section v-if="online" class="history">
+          <span class="field-label">Past rounds</span>
+          <p v-if="history.loading" class="hint">Loading…</p>
+          <p v-else-if="history.error" class="status error">{{ history.error }}</p>
+          <p v-else-if="!history.rounds.length" class="hint">No completed rounds yet.</p>
+          <div v-for="round in history.rounds" :key="round.id ?? round.completedAt ?? round.courseName" class="hist-card">
+            <div class="hist-hdr">
+              <div class="hist-course">{{ round.courseName }}</div>
+              <div class="hist-date">{{ formatDate(round.completedAt) }}</div>
+            </div>
+            <table class="hist-table">
+              <thead>
+                <tr><th>Player</th><th>Team</th><th>Net</th><th>Skins</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="p in round.players" :key="p.name">
+                  <td><strong>{{ p.name }}</strong></td>
+                  <td>{{ p.team }}</td>
+                  <td>{{ p.net }}</td>
+                  <td>{{ p.skins > 0 ? p.skins : '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </template>
 
       <!-- No active group -->
@@ -270,6 +317,56 @@ function goHome() {
   margin: 8px 0 0;
   color: #7a8a7f;
   font-size: 0.85rem;
+}
+
+.history {
+  margin-top: 28px;
+}
+
+.hist-card {
+  border: 1px solid #e0d7c4;
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 10px;
+}
+
+.hist-hdr {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.hist-course {
+  font-weight: 700;
+  color: #24362c;
+}
+
+.hist-date {
+  color: #7a8a7f;
+  font-size: 0.8rem;
+}
+
+.hist-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.hist-table th,
+.hist-table td {
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid #efe9da;
+}
+
+.hist-table th {
+  color: #7a8a7f;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
 }
 
 .status {

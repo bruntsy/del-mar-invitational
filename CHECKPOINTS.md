@@ -1420,32 +1420,102 @@ Next: Checkpoint 29 — round history. Load a group's active + completed rounds
 (legacy `loadActiveRound`/round-history queries, `normalizeRound`), wiring the
 group store to the round store. Then 30 realtime sync.
 
-## Current Handoff: Group Membership Complete
+## Checkpoint 29: Round History
+
+Date: 2026-06-08
+
+Branch: `rewrite`
+
+Goal: load a group's active + completed rounds and wire the group store to the
+round store. Third of four steps (27 foundation → 28 group membership → 29 round
+history → 30 realtime sync). Online-only, with the same `hasSupabase()` fallback.
+
+What changed:
+
+- `src/domain/round.ts` (new): the round DB ⇄ domain mappers, ported from legacy
+  `normalizeRound`. `normalizeRoundState` moved here out of the round store (a
+  pure helper now shared by the store's local load and the row mappers, avoiding
+  a store ⇄ domain import cycle). `normalizeRoundRow(row)` parses the JSON
+  `state` column (string or object), lets the row's `id`/`group_id`/`completed`
+  win over stale copies inside the blob, and returns the normalized round plus
+  the handicap `players` map embedded by legacy `roundForDb()`. `summarizeRound`
+  reduces a completed round to per-player net + skins (legacy `renderHistory` /
+  `_stateStrokes` / `_stateSkins`), sorted by net; `courseDisplayName` and the
+  `ACTIVE_ROUND_COLUMNS` / `HISTORY_ROUND_COLUMNS` constants live here too.
+- `src/stores/round.ts`: new `loadActiveRound(groupId)` action — fetches the
+  latest incomplete round (`group_id` + `completed=false`, newest first) and
+  makes it active via `setRound`, no-op to `null` when offline / group-less
+  (legacy `loadActiveRound`). Now imports `normalizeRoundState`/`normalizeRoundRow`
+  from `src/domain/round.ts`.
+- `src/stores/history.ts` (new): Pinia `history` store. `loadHistory(groupId)`
+  selects every completed round for a group, newest first, and maps each row
+  through `normalizeRoundRow` → `summarizeRound` into a `RoundSummary[]`
+  (`rounds`, `loading`, `error`, `loadedGroupId`); clears rather than throwing
+  offline (legacy `showHistory`).
+- `src/stores/group.ts`: `joinGroup` (and so `switchToRecentGroup`) now calls
+  `useRoundStore().loadActiveRound(group.id)` after a successful online join —
+  the group store → round store wiring.
+- `src/components/screens/GroupScreen.vue`: a "Past rounds" section (online +
+  active group) renders the history cards — course name, completed date, and a
+  per-player Net/Skins table — loaded on mount and after join/open-recent,
+  cleared on leave.
+- `tests/helpers/mockSupabase.ts` (new): a per-table Supabase test double
+  supporting the full `select/eq/order/limit/maybeSingle` chain; the group test
+  was refactored onto it (routes `groups` vs `rounds`).
+- Tests: `tests/domain/round.test.ts` (6) for `normalizeRoundRow` /
+  `summarizeRound` / `courseDisplayName`; `tests/stores/history.test.ts` (4) for
+  online mapping, offline, error, and clear; plus the join→`loadActiveRound`
+  wiring test in the group suite and an offline `loadActiveRound` test in the
+  round suite.
+
+Deliberately out of scope (later checkpoints): realtime `subscribeToGroup` /
+push sync (30), the all-time Stats screen (legacy `showStats`), and Supabase
+course search. History summaries are self-contained from each round's embedded
+`players` map, so no extra roster fetch is needed.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 25 files, 182 tests (+12: 2 new files, plus
+  wiring/offline cases).
+- `npm run build`: passed (`vue-tsc` clean).
+- Browser QA: dev server preview confirmed `/group` renders the join view with
+  no console errors after the changes; the history section stays hidden without
+  an active group (correct), and its template compiles in the build. Did not
+  click Create/Join or load history against the live production DB; those paths
+  are covered by the mocked store/domain tests.
+
+Next: Checkpoint 30 — realtime sync. Push round/group writes to Supabase and
+subscribe to live updates (legacy `subscribeToGroup` / `scheduleSync`).
+
+## Current Handoff: Round History Complete
 
 Date: 2026-06-08
 
 Branch:
 
 - `rewrite`
-- The group-membership commit will be the latest after this checkpoint is
-  pushed.
-- Worktree status at handoff: clean after pushing Checkpoint 28.
+- Latest commit: Add round history store and domain mappers (Checkpoint 29).
+- Worktree status at handoff: clean after pushing Checkpoint 29.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
-  branch should create deployments.
+  branch create deployments.
 
 Most recent verification:
 
 - `node scripts/event-format-tests.js`: passed.
-- `npm run test:run`: passed, 23 files, 170 tests.
-- `npm run build`: passed.
+- `npm run test:run`: passed, 25 files, 182 tests.
+- `npm run build`: passed (vue-tsc clean).
 - Browser QA:
   - Checkpoint 22 pair-match browser QA passed.
   - Checkpoints 23–26 browser QA blocked by browser-tool sandbox; no broad
     macOS access requested.
   - Checkpoint 27 needs no browser QA (no UI/network); covered by a unit test.
   - Checkpoint 28 group screen verified via dev-server preview (Home → Groups
-    nav, create/join/recent UI renders, no console errors); Create/Join not
-    exercised against the live DB, covered by mocked store tests instead.
+    nav, create/join/recent UI renders, no console errors).
+  - Checkpoint 29 verified via dev-server preview: `/group` renders without
+    errors, history section correctly hidden without an active group.
+  - Create/Join and history load not exercised against the live DB; covered by
+    mocked store/domain tests.
   - All panels are covered by focused store and screen tests.
 
 Current implementation state:
@@ -1472,23 +1542,25 @@ Current implementation state:
   client + `hasSupabase()` guard, env config (`.env` / `.env.example`,
   `VITE_SUPABASE_*`), and `src/types/db.ts` row types.
 - Group membership is wired (Checkpoint 28): `src/stores/group.ts` Pinia store +
-  `src/domain/group.ts` mappers (`normalizeGroup`/`groupForDb`/`generateCode`) +
-  `GroupScreen.vue` at `/group`. Create/join/leave/rename + recent groups work,
-  local-first with a `hasSupabase()` fallback. Still missing: loading a group's
-  active round + history on join, Supabase course search, and realtime sync.
+  `src/domain/group.ts` mappers. Create/join/leave/rename + recent groups work,
+  local-first with a `hasSupabase()` fallback.
+- Round history is wired (Checkpoint 29): `src/domain/round.ts` DB↔domain
+  mappers (`normalizeRoundRow`, `summarizeRound`, `courseDisplayName`); the
+  round store has `loadActiveRound(groupId)` which fires on every `joinGroup`;
+  `src/stores/history.ts` fetches and reduces all completed rounds for a group;
+  `GroupScreen.vue` renders history cards (course, date, player net/skins table)
+  online once a group is active. Still missing: realtime sync and Supabase
+  course search.
 - The old monolith remains available as the parity oracle at
   `legacy/index.html`.
 
-The next task should begin (pick one):
+The next task should begin with Checkpoint 30 — realtime sync:
 
-- Checkpoint 29 — round history: load a group's active + completed rounds and
-  wire the group store to the round store. Reference legacy `loadActiveRound`
-  and the round-history queries (`legacy/index.html` ~2098, ~2200, ~2248) plus
-  `normalizeRound` (~2054). Then 30 realtime sync.
-- UX polish: playing-group filtering on the scorecard, mobile hole-by-hole
-  entry mode.
-- Keep reusing store getters; do not recompute scoring in components. Validate
-  against `legacy/index.html`.
+- Wire `subscribeToGroup` / `scheduleSync` so score writes on one device appear
+  on others without a manual refresh. Reference legacy `subscribeToGroup` and
+  the realtime channel pattern (`legacy/index.html` ~2280+).
+- Keep using `hasSupabase()` guards; fall back gracefully offline.
+- Keep reusing store getters; do not recompute scoring in components.
 - After each step, run:
   - `node scripts/event-format-tests.js`
   - `npm run test:run`

@@ -33,6 +33,14 @@ beforeEach(() => {
 });
 
 describe('round store', () => {
+  it('loadActiveRound is a no-op when offline or group-less', async () => {
+    const store = useRoundStore();
+    expect(await store.loadActiveRound(null)).toBeNull();
+    // No Supabase credentials in the test env, so a group id still returns null.
+    expect(await store.loadActiveRound('group-1')).toBeNull();
+    expect(store.round).toBeNull();
+  });
+
   it('starts empty', () => {
     const store = useRoundStore();
     expect(store.round).toBeNull();
