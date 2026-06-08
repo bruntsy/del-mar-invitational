@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { eventDefaultRound, normalizeEventConfig } from '@/domain/events';
 import { computeEventRoundResult, bestBallAggyHoleComponent } from '@/scoring/eventRound';
-import type { Course, EventRoundConfig, PairMatch, ScoreMatrix } from '@/types';
+import type { Course, EventRoundConfig, EventRoundFormat, PairMatch, ScoreMatrix } from '@/types';
 
 const course: Course = {
   tee: { name: 'Test', rating: 72, slope: 113, parTotal: 72 },
@@ -20,16 +20,33 @@ function setHole(scores: ScoreMatrix, hole: number, values: Record<string, numbe
   }
 }
 
-function inputFor(pairMatches: PairMatch[] = [{ a: ['A', 'B'], b: ['C', 'D'] }]) {
+function inputFor(
+  pairMatches: PairMatch[] = [{ a: ['A', 'B'], b: ['C', 'D'] }],
+  options: {
+    format?: EventRoundFormat;
+    scoringMode?: EventRoundConfig['scoringMode'];
+    points?: EventRoundConfig['points'];
+    teamScores?: ScoreMatrix;
+  } = {},
+) {
   const team1 = [...new Set(pairMatches.flatMap((match) => match.a))];
   const team2 = [...new Set(pairMatches.flatMap((match) => match.b))];
   const players = [...team1, ...team2];
+  const format = options.format ?? 'twoManBestBallAggy';
   const config = normalizeEventConfig(
     {
       teamNames: { team1: 'Team One', team2: 'Team Two' },
       team1,
       team2,
-      rounds: [{ ...eventDefaultRound(0, team1, team2), format: 'twoManBestBallAggy', pairMatches }],
+      rounds: [
+        {
+          ...eventDefaultRound(0, team1, team2),
+          format,
+          scoringMode: options.scoringMode ?? 'matchPlay',
+          points: options.points ?? { front: 1, back: 1, total: 1 },
+          pairMatches,
+        },
+      ],
     },
     players,
   );
@@ -44,6 +61,7 @@ function inputFor(pairMatches: PairMatch[] = [{ a: ['A', 'B'], b: ['C', 'D'] }])
     pairMatches,
     team1,
     team2,
+    teamScores: options.teamScores,
   };
 }
 
@@ -157,5 +175,104 @@ describe('event round scoring', () => {
       bb: { winner: 'team1', a: 4, b: 5 },
       aggy: { winner: 'team1', a: 9, b: 11 },
     });
+  });
+
+  it('scores best-ball Nassau match play by front, back, and overall hole wins', () => {
+    const input = inputFor([{ a: ['A', 'B'], b: ['C', 'D'] }], {
+      format: 'bestBallNassau',
+      scoringMode: 'matchPlay',
+      points: { front: 2, back: 3, total: 5 },
+    });
+
+    for (let hole = 0; hole < 18; hole += 1) {
+      setHole(input.scoreContext.scores, hole, { A: 4, B: 5, C: 5, D: 6 });
+    }
+
+    const result = computeEventRoundResult(input);
+
+    expect(result.team1).toBe(10);
+    expect(result.team2).toBe(0);
+    expect(result.rows[0].components.map((component) => component.a)).toEqual([9, 9, 18]);
+    expect(result.rows[0].components.map((component) => component.unit)).toEqual([
+      'holes',
+      'holes',
+      'holes',
+    ]);
+  });
+
+  it('scores best-ball Nassau stroke play by lower range totals', () => {
+    const input = inputFor([{ a: ['A', 'B'], b: ['C', 'D'] }], {
+      format: 'bestBallNassau',
+      scoringMode: 'strokePlay',
+      points: { front: 1, back: 1, total: 2 },
+    });
+
+    for (let hole = 0; hole < 9; hole += 1) {
+      setHole(input.scoreContext.scores, hole, { A: 4, B: 5, C: 5, D: 6 });
+    }
+    for (let hole = 9; hole < 18; hole += 1) {
+      setHole(input.scoreContext.scores, hole, { A: 6, B: 7, C: 4, D: 5 });
+    }
+
+    const result = computeEventRoundResult(input);
+
+    expect(result.team1).toBe(1);
+    expect(result.team2).toBe(3);
+    expect(result.rows[0].components.map((component) => component.winner)).toEqual([
+      'team1',
+      'team2',
+      'team2',
+    ]);
+    expect(result.rows[0].components.map((component) => component.unit)).toEqual([
+      'strokes',
+      'strokes',
+      'strokes',
+    ]);
+  });
+
+  it('scores four-man scramble match play from team score rows', () => {
+    const input = inputFor([{ a: ['A', 'B'], b: ['C', 'D'] }], {
+      format: 'fourManScramble',
+      scoringMode: 'matchPlay',
+      points: { front: 1, back: 1, total: 1 },
+      teamScores: { team1: Array(18).fill(null), team2: Array(18).fill(null) },
+    });
+
+    for (let hole = 0; hole < 18; hole += 1) {
+      input.teamScores!.team1[hole] = hole < 9 ? 4 : 5;
+      input.teamScores!.team2[hole] = hole < 9 ? 5 : 4;
+    }
+
+    const result = computeEventRoundResult(input);
+
+    expect(result.team1).toBe(1.5);
+    expect(result.team2).toBe(1.5);
+    expect(result.rows[0].label).toBe('4-Man Scramble');
+    expect(result.rows[0].components.map((component) => component.winner)).toEqual([
+      'team1',
+      'team2',
+      'tie',
+    ]);
+  });
+
+  it('scores four-man scramble stroke play from team score totals', () => {
+    const input = inputFor([{ a: ['A', 'B'], b: ['C', 'D'] }], {
+      format: 'fourManScramble',
+      scoringMode: 'strokePlay',
+      points: { front: 1, back: 1, total: 1 },
+      teamScores: { team1: Array(18).fill(null), team2: Array(18).fill(null) },
+    });
+
+    for (let hole = 0; hole < 18; hole += 1) {
+      input.teamScores!.team1[hole] = 4;
+      input.teamScores!.team2[hole] = 5;
+    }
+
+    const result = computeEventRoundResult(input);
+
+    expect(result.team1).toBe(3);
+    expect(result.team2).toBe(0);
+    expect(result.rows[0].components.map((component) => component.a)).toEqual([36, 36, 72]);
+    expect(result.rows[0].components.map((component) => component.b)).toEqual([45, 45, 90]);
   });
 });

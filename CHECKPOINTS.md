@@ -297,3 +297,39 @@ Next recommended steps:
 2. Port skins scoring as the next standalone game module.
 3. Continue porting one scoring module at a time with golden tests before
    stores or UI consume them.
+
+## Checkpoint 6: Event Scoring Branch Coverage
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Previous pushed checkpoint commit: `a86019e Add pure event round scoring`
+
+Files changed since Checkpoint 5:
+
+- Updated `tests/scoring/eventRound.test.ts`.
+
+Implementation notes:
+
+- Added event scoring tests for:
+  - best-ball Nassau match play
+  - best-ball Nassau stroke play
+  - four-man scramble match play
+  - four-man scramble stroke play
+- Corrected test expectations around Nassau overall points after validating
+  front/back/overall scoring math.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 8 files, 47 tests.
+- `npm run build`: passed.
+
+Next recommended steps:
+
+1. Port skins scoring as `src/scoring/skins.ts`.
+2. Include tests for gross/net skins, incomplete holes, tied holes, and the
+   current legacy no-carry result behavior.
+3. Then move to best-ball/two-ball/aggy team game modules.
