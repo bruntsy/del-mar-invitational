@@ -63,6 +63,12 @@ http://localhost:5173/
 
 You can also open `index.html` directly, but a local HTTP server is closer to production behavior.
 
+Run event format regression tests:
+
+```bash
+node scripts/event-format-tests.js
+```
+
 ## Dependencies
 
 ### Browser
