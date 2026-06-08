@@ -370,3 +370,38 @@ Next recommended steps:
 2. Add tests for partial rounds and completed front/back/overall totals.
 3. Decide later whether to intentionally fix gross skins/carry behavior after
    parity is fully protected.
+
+## Checkpoint 8: Team Game Scoring
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Previous pushed checkpoint commit: `bc8fdbc Add skins scoring module`
+- Empty Vercel trigger commit was pushed as `bc036bd Trigger Vercel rewrite preview`
+
+Files changed since Checkpoint 7:
+
+- Added `src/scoring/teamGames.ts`.
+- Added `tests/scoring/teamGames.test.ts`.
+
+Implementation notes:
+
+- Ported best-ball, two-ball, and aggy team game helpers.
+- Supports gross and net score modes.
+- Preserves legacy partial-round behavior: totals include completed holes and
+  skip incomplete holes.
+- Returns `null` totals when no complete holes exist.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 10 files, 59 tests.
+- `npm run build`: passed.
+
+Next recommended steps:
+
+1. Port pair match play and head-to-head helpers.
+2. Port Stableford scoring.
+3. Continue keeping each scoring module pure and covered before stores/UI use it.
