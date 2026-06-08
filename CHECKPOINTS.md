@@ -248,3 +248,52 @@ Next recommended steps:
    assertions from the legacy event regression script.
 3. Convert the existing legacy event-format regression cases into Vitest cases
    against the new pure event scoring module.
+
+## Checkpoint 5: Pure Event Round Scoring
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Previous pushed checkpoint commit: `811c39e Add event config normalization`
+
+Files changed since Checkpoint 4:
+
+- Added `src/scoring/round.ts`.
+- Added `src/scoring/eventRound.ts`.
+- Added `tests/scoring/eventRound.test.ts`.
+
+Implementation notes:
+
+- Added pure score helpers for:
+  - player hole score
+  - player range score
+  - pair best-ball score
+  - pair aggregate score
+  - pair range score
+  - best-ball range score
+  - pair match range wins
+  - pair segment summaries
+- Added pure event round scoring for:
+  - best-ball Nassau style rounds
+  - two-man best ball + aggy rounds
+  - scramble event branches
+- Ported the existing best-ball + aggy regression cases from the legacy script
+  into Vitest against the new TypeScript scoring module.
+- Event scoring now receives an explicit `EventRoundInput` instead of reading
+  global `ROUND` or `EVENT`.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 8 files, 43 tests.
+- `npm run build`: passed.
+
+Next recommended steps:
+
+1. Add more event scoring coverage for best-ball Nassau, scramble match play,
+   and stroke-play branches.
+2. Port skins scoring as the next standalone game module.
+3. Continue porting one scoring module at a time with golden tests before
+   stores or UI consume them.
