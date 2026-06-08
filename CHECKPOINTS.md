@@ -441,3 +441,37 @@ Next recommended steps:
 1. Port Stableford scoring with configurable point map.
 2. Port three-man Nassau.
 3. Port Wolf and putt poker after the simpler scoring modules are covered.
+
+## Checkpoint 10: Stableford Scoring
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Previous pushed checkpoint commit: `c764bab Add pair match and head-to-head scoring`
+
+Files changed since Checkpoint 9:
+
+- Added `src/scoring/stableford.ts`.
+- Added `tests/scoring/stableford.test.ts`.
+
+Implementation notes:
+
+- Ported Stableford point mapping from the legacy monolith.
+- Added pure per-player Stableford totals with configurable point maps.
+- Preserved legacy behavior where incomplete holes are skipped and the player
+  still receives totals for completed holes.
+- Supports gross and net scoring by reusing the shared player-hole score helper.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 13 files, 73 tests.
+- `npm run build`: passed.
+
+Next recommended steps:
+
+1. Port three-man Nassau.
+2. Port Wolf scoring after three-man Nassau is covered.
+3. Port putt poker and then begin wiring pure modules into Pinia stores/UI.
