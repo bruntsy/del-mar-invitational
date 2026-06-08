@@ -13,8 +13,9 @@ import {
   type SettlementTransfer,
 } from '@/scoring/settlement';
 import { computePuttPoker, type PuttPokerResult } from '@/scoring/puttPoker';
+import { computeTeamTotals, type TeamTotals } from '@/scoring/teamGames';
 import type { WolfHoleConfig } from '@/scoring/wolf';
-import type { PlayerMap, RoundState, ScoreMatrix } from '@/types';
+import type { PlayerMap, RoundState, ScoreMatrix, ScoreType } from '@/types';
 
 const STORAGE_KEY = 'dmi_round';
 
@@ -29,6 +30,31 @@ export interface PlayerTotals {
   total: number | null;
   net: number | null;
   skins: number;
+}
+
+/** One row of the results-screen individual leaderboard. */
+export interface LeaderboardRow {
+  player: string;
+  team: string;
+  gross: number | null;
+  strokes: number;
+  net: number | null;
+  skins: number;
+}
+
+interface TeamRangeScores {
+  front: number | null;
+  back: number | null;
+  total: number | null;
+}
+
+/** A single team-game's front/back/total breakdown for both teams. */
+export interface TeamGameResult {
+  key: 'bestBall' | 'scramble4' | 'twoBall' | 'aggy';
+  label: string;
+  type: ScoreType;
+  team1: TeamRangeScores;
+  team2: TeamRangeScores;
 }
 
 function sum(values: number[]): number {
@@ -187,6 +213,120 @@ export const useRoundStore = defineStore('round', {
       });
       return { pnl, transfers: computeSettlement(pnl) };
     },
+
+    /**
+     * Individual leaderboard rows sorted by net (best first, incomplete last),
+     * matching the legacy `renderResults()` board.
+     */
+    leaderboard(state): LeaderboardRow[] {
+      if (!state.round) return [];
+      const totals = this.playerTotals;
+      const strokes = this.strokes;
+      const team1 = state.round.team1 || [];
+      const names = state.round.teamNames;
+      const rows: LeaderboardRow[] = this.playerNames.map((player) => ({
+        player,
+        team: team1.includes(player) ? names.team1 : names.team2,
+        gross: totals[player].total,
+        strokes: strokes[player] || 0,
+        net: totals[player].net,
+        skins: totals[player].skins,
+      }));
+      return rows.sort((a, b) => (a.net == null ? 1 : b.net == null ? -1 : a.net - b.net));
+    },
+
+    /**
+     * Team net totals, null until every member has a complete net total, matching
+     * the legacy `team1HasAll`/`team2HasAll` gate on the Team Scores section.
+     */
+    teamNetTotals(state): { team1: number | null; team2: number | null } {
+      const totals = this.playerTotals;
+      const sumTeam = (members: string[]): number | null => {
+        if (!members.length) return null;
+        let total = 0;
+        for (const player of members) {
+          const net = totals[player]?.net;
+          if (net == null) return null;
+          total += net;
+        }
+        return total;
+      };
+      return {
+        team1: sumTeam(state.round?.team1 || []),
+        team2: sumTeam(state.round?.team2 || []),
+      };
+    },
+
+    /**
+     * Front/back/total breakdowns for every enabled team game, matching the
+     * legacy `renderFormatResults()` boxes. Best ball / two-ball / aggy derive
+     * from individual scores; the scramble uses the manually entered team row.
+     */
+    teamGameResults(state): TeamGameResult[] {
+      const context = this.scoreContext;
+      if (!context || !state.round) return [];
+      const g = this.games;
+      const team1 = state.round.team1 || [];
+      const team2 = state.round.team2 || [];
+      const results: TeamGameResult[] = [];
+
+      const pickBest = (t: TeamTotals): TeamRangeScores => ({ front: t.bbOut, back: t.bbIn, total: t.bbTotal });
+      const pickTwo = (t: TeamTotals): TeamRangeScores => ({ front: t.tbOut, back: t.tbIn, total: t.tbTotal });
+      const pickAggy = (t: TeamTotals): TeamRangeScores => ({ front: t.agOut, back: t.agIn, total: t.agTotal });
+      const teamRange = (teamKey: 'team1' | 'team2', start: number, end: number): number | null => {
+        const matrix = state.round?.teamScores;
+        if (!matrix) return null;
+        let total = 0;
+        let any = false;
+        for (let hole = start; hole < end; hole += 1) {
+          const value = scoreAt(matrix, teamKey, hole);
+          if (value != null) {
+            total += value;
+            any = true;
+          }
+        }
+        return any ? total : null;
+      };
+
+      if (g.bestBall.enabled) {
+        results.push({
+          key: 'bestBall',
+          label: 'Best Ball',
+          type: g.bestBall.type,
+          team1: pickBest(computeTeamTotals(context, team1, g.bestBall.type)),
+          team2: pickBest(computeTeamTotals(context, team2, g.bestBall.type)),
+        });
+      }
+      if (g.scramble4.enabled) {
+        results.push({
+          key: 'scramble4',
+          label: '4-Man Scramble',
+          type: g.scramble4.type,
+          team1: { front: teamRange('team1', 0, 9), back: teamRange('team1', 9, 18), total: teamRange('team1', 0, 18) },
+          team2: { front: teamRange('team2', 0, 9), back: teamRange('team2', 9, 18), total: teamRange('team2', 0, 18) },
+        });
+      }
+      if (g.twoBall.enabled) {
+        results.push({
+          key: 'twoBall',
+          label: '2-Ball',
+          type: g.twoBall.type,
+          team1: pickTwo(computeTeamTotals(context, team1, g.twoBall.type)),
+          team2: pickTwo(computeTeamTotals(context, team2, g.twoBall.type)),
+        });
+      }
+      if (g.aggy.enabled) {
+        results.push({
+          key: 'aggy',
+          label: 'Aggy',
+          type: g.aggy.type,
+          team1: pickAggy(computeTeamTotals(context, team1, g.aggy.type)),
+          team2: pickAggy(computeTeamTotals(context, team2, g.aggy.type)),
+        });
+      }
+
+      return results;
+    },
   },
 
   actions: {
@@ -265,6 +405,13 @@ export const useRoundStore = defineStore('round', {
     puttPokerFor(groupPlayers: string[]): PuttPokerResult {
       const putts = this.round?.putts || {};
       return computePuttPoker(putts, groupPlayers, this.games.puttPoker.pot || 0);
+    },
+
+    /** Marks the round complete (or reopens it), matching legacy `completeRound()`. */
+    setCompleted(value: boolean) {
+      if (!this.round) return;
+      this.round.completed = value;
+      this.persist();
     },
 
     reset() {

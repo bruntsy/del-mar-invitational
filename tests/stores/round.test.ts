@@ -153,4 +153,69 @@ describe('round store', () => {
     expect(store.round).toBeNull();
     expect(localStorage.getItem('dmi_round')).toBeNull();
   });
+
+  it('builds a leaderboard sorted by net with team labels', () => {
+    const store = useRoundStore();
+    store.setRound(roundWithRoster(), players);
+    // par-4 every hole, SI 1..18 -> course hcp == index (A10 B5 C5 D0)
+    for (let hole = 0; hole < 18; hole += 1) {
+      for (const player of ['A', 'B', 'C', 'D']) store.setScore(player, hole, 4);
+    }
+
+    const board = store.leaderboard;
+    expect(board.map((r) => r.player)).toEqual(['A', 'B', 'C', 'D']);
+    // gross 72 each; net = gross minus relative strokes
+    expect(board[0]).toMatchObject({ player: 'A', team: 'Team 1', gross: 72, strokes: 10, net: 62 });
+    expect(board.find((r) => r.player === 'D')).toMatchObject({ team: 'Team 2', strokes: 0, net: 72 });
+  });
+
+  it('pushes incomplete players to the bottom of the leaderboard', () => {
+    const store = useRoundStore();
+    store.setRound(roundWithRoster(), players);
+    // only A has a full card
+    for (let hole = 0; hole < 18; hole += 1) store.setScore('A', hole, 4);
+
+    const board = store.leaderboard;
+    expect(board[0].player).toBe('A');
+    expect(board.slice(1).every((r) => r.net == null)).toBe(true);
+  });
+
+  it('sums team net totals only when every member is complete', () => {
+    const store = useRoundStore();
+    store.setRound(roundWithRoster(), players);
+
+    expect(store.teamNetTotals).toEqual({ team1: null, team2: null });
+
+    for (let hole = 0; hole < 18; hole += 1) {
+      for (const player of ['A', 'B', 'C', 'D']) store.setScore(player, hole, 4);
+    }
+    // team1 = A(62) + B(67); team2 = C(67) + D(72)
+    expect(store.teamNetTotals).toEqual({ team1: 129, team2: 139 });
+  });
+
+  it('exposes enabled team-game breakdowns', () => {
+    const store = useRoundStore();
+    store.setRound(roundWithRoster(), players);
+    store.setGames({ ...store.games, bestBall: { ...store.games.bestBall, enabled: true, type: 'gross' } });
+    for (let hole = 0; hole < 18; hole += 1) {
+      for (const player of ['A', 'B', 'C', 'D']) store.setScore(player, hole, 4);
+    }
+
+    const results = store.teamGameResults;
+    expect(results.map((r) => r.key)).toEqual(['bestBall']);
+    // gross best ball = min team gross (4) per hole -> 36/36/72 for both teams
+    expect(results[0].team1).toEqual({ front: 36, back: 36, total: 72 });
+    expect(results[0].team2).toEqual({ front: 36, back: 36, total: 72 });
+  });
+
+  it('marks a round complete and reopens it', () => {
+    const store = useRoundStore();
+    store.setRound(roundWithRoster(), players);
+
+    expect(store.round?.completed).toBe(false);
+    store.setCompleted(true);
+    expect(store.round?.completed).toBe(true);
+    store.setCompleted(false);
+    expect(store.round?.completed).toBe(false);
+  });
 });

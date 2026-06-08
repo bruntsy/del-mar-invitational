@@ -498,10 +498,13 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 - Derived getters mirror the legacy globals: `playerNames` (team1 then team2),
   `courseHandicaps` (`computeWHSCourseHcp`), `strokes` (`allocateNetStrokes`),
   and a `scoreContext` consumed by every pure scoring module.
-- Scoring getters (`skins`, `settlement`, `playerTotals`, `puttPokerFor`,
-  `hasBets`) wire the pure modules to the live round.
+- Scoring/results getters (`skins`, `settlement`, `playerTotals`,
+  `leaderboard`, `teamNetTotals`, `teamGameResults`, `puttPokerFor`, `hasBets`)
+  wire the pure modules to the live round.
 - Score, putt, and team-score mutations write timestamped cells via
   `writeCell()` so concurrent edits stay sync-friendly.
+- `setCompleted()` marks a local round complete or reopens it; Supabase
+  historical persistence is still deferred to the sync/group phase.
 
 ### Scorecard Screen (rewrite)
 
@@ -537,6 +540,21 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 - Not yet included: scramble/pair-match config, Supabase course search, and
   group membership; course par/SI are entered manually.
 
+### Results Screen (rewrite)
+
+- `src/components/screens/ResultsScreen.vue`, routed at `/results`, renders the
+  first rewrite results view.
+- It shows team net scores, an individual leaderboard sorted by net score,
+  settlement P&L and transfer rows, enabled team-game front/back/total
+  breakdowns, and a skins breakdown.
+- The screen uses round-store getters for all scoring and formatting inputs; it
+  does not recompute game math in the component.
+- Rounds can be marked complete or reopened locally from the results screen.
+- Home and scorecard screens now link to results.
+- Not yet included: legacy-equivalent per-format detail panels for pair match,
+  Wolf, Stableford, three-man Nassau, and putt poker; completed-round history
+  persistence still waits for group/Supabase wiring.
+
 ## Realtime Sync
 
 Sync target:
@@ -559,7 +577,15 @@ For multi-device testing, use two browsers/devices joined to the same group code
 
 ### App
 
-Commit and push to `main`:
+Production is currently the old static app on `main`. The rewrite branch is
+also configured as the Vercel production-tracked branch during migration, so
+push rewrite checkpoints frequently:
+
+```bash
+git push origin rewrite
+```
+
+For the legacy GitHub Pages app, commit and push to `main`:
 
 ```bash
 git add index.html README.md

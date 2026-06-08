@@ -20,6 +20,10 @@ function newRound() {
 function openScorecard() {
   void router.push('/scorecard');
 }
+
+function openResults() {
+  void router.push('/results');
+}
 </script>
 
 <template>
@@ -38,6 +42,7 @@ function openScorecard() {
         <button class="btn-primary" type="button" @click="newRound">New round</button>
         <button class="btn-ghost" type="button" @click="startDemo">Start demo round</button>
         <button class="btn-ghost" type="button" @click="openScorecard">Open scorecard</button>
+        <button class="btn-ghost" type="button" @click="openResults">View results</button>
       </div>
     </section>
   </main>

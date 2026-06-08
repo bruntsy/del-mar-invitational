@@ -880,46 +880,107 @@ Next recommended steps:
 3. Consider a group/event store and Supabase wiring when membership, course
    search, or realtime sync are needed.
 
-## Current Handoff: Setup and Scorecard Flow Live
+## Checkpoint 19: Results Screen
 
 Date: 2026-06-08
 
 Branch:
 
 - `rewrite`
-- Setup screen commit will be the latest after this checkpoint is pushed.
-- Worktree status at handoff: clean after pushing Checkpoint 18.
+- Previous pushed commit: `1f0c6a3 Add round setup screen`
+
+Files changed since Checkpoint 18:
+
+- Added `src/components/screens/ResultsScreen.vue`.
+- Added `tests/screens/results.test.ts`.
+- Updated `src/router/index.ts` (added the `/results` route).
+- Updated `src/components/screens/HomeScreen.vue` (View results button).
+- Updated `src/components/screens/ScorecardScreen.vue` (Results navigation).
+- Updated `src/stores/round.ts` with results getters and completion action.
+- Updated `tests/stores/round.test.ts`.
+- Updated `README.md`.
+
+Implementation notes:
+
+- Added the first rewrite results view, routed at `/results`.
+- Results shows team net scores, an individual leaderboard, settlement P&L and
+  transfers, enabled team-game front/back/total breakdowns, and skins results.
+- Store getters now expose:
+  - `leaderboard`
+  - `teamNetTotals`
+  - `teamGameResults`
+- `teamGameResults` composes `computeTeamTotals()` for best ball, two-ball, and
+  aggy; scramble reads manually entered team scores through `scoreAt()`.
+- `setCompleted()` marks a local round complete or reopens it, preserving the
+  legacy `completeRound()` interaction shape until Supabase history persistence
+  is wired.
+- Components continue to read all scoring through the store instead of
+  recomputing scoring in the UI.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 21 files, 141 tests.
+- `npm run build`: passed (results is a lazy-loaded route chunk).
+
+Not yet ported from legacy results/game detail views:
+
+- Pair-match, Wolf, Stableford, three-man Nassau, and putt-poker specific
+  results/detail panels.
+- Completed-round save to group history.
+- Supabase-backed active/completed round status sync.
+
+Next recommended steps:
+
+1. Extend the scorecard + setup with scramble/team score rows and pair-match
+   setup/live panels, or add the missing per-game detail panels to results.
+2. Build the group/Supabase layer when membership, course search, history, or
+   realtime sync becomes the next priority.
+3. Keep README and this checkpoint file current before every push.
+
+## Current Handoff: Setup, Scorecard, and Results Flow Live
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Results screen commit will be the latest after this checkpoint is pushed.
+- Worktree status at handoff: clean after pushing Checkpoint 19.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
   branch should create deployments.
 
 Most recent verification:
 
 - `node scripts/event-format-tests.js`: passed.
-- `npm run test:run`: passed, 20 files, 132 tests.
+- `npm run test:run`: passed, 21 files, 141 tests.
 - `npm run build`: passed.
 
 Current implementation state:
 
 - The full pure scoring layer plus the Pinia round store are complete and
   covered.
-- A real create-and-score flow works end to end: `/setup` builds a round
+- A real local create-score-results flow works end to end: `/setup` builds a round
   (course, teams, players, games) and `/scorecard` scores it live with score
   entry, net/skins columns, putt rows, the putt poker panel, and settlement.
-  All scoring is read from store getters.
-- `HomeScreen.vue` links to New round (`/setup`), Start demo round, and the
-  scorecard. Routing: `/`, `/setup`, `/scorecard`.
+  `/results` shows team scores, leaderboard, team-game breakdowns, skins, and
+  settlement. All scoring is read from store getters.
+- `HomeScreen.vue` links to New round (`/setup`), Start demo round, the
+  scorecard, and results. Routing: `/`, `/setup`, `/scorecard`, `/results`.
 - Still demo/local only: no group membership, no Supabase course search, no
   realtime sync, and the scorecard lacks scramble/team-game rows and the
-  pair-match/wolf live panels. No results screen yet.
+  pair-match/wolf live panels. Results lacks the legacy per-game detail panels
+  for pair match, Wolf, Stableford, three-man Nassau, and putt poker.
 - The old monolith remains available as the parity oracle at
   `legacy/index.html`.
 
 The next task should begin (pick one):
 
-- Build a results screen (leaderboard, team scores, per-game breakdowns) using
-  the existing settlement and scoring getters; OR
 - Extend the scorecard + setup with scramble / best-ball / two-ball team rows
-  and the pair-match and wolf live panels.
+  and the pair-match and wolf live panels; OR
+- Add the missing per-game detail panels to the results screen.
+- Start the group/Supabase layer for course search, group membership, history,
+  and realtime sync.
 - Keep reusing store getters; do not recompute scoring in components. Validate
   against `legacy/index.html`.
 - After each step, run:

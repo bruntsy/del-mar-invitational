@@ -139,6 +139,10 @@ function loadDemo() {
 function goHome() {
   void router.push('/');
 }
+
+function goResults() {
+  void router.push('/results');
+}
 </script>
 
 <template>
@@ -149,7 +153,10 @@ function goHome() {
           <h1 class="sc-title">{{ courseTitle }}</h1>
           <p class="sc-sub">{{ courseSub }}</p>
         </div>
-        <button class="btn-ghost" type="button" @click="goHome">← Home</button>
+        <div class="sc-topbar-actions">
+          <button class="btn-ghost" type="button" @click="goResults">Results →</button>
+          <button class="btn-ghost" type="button" @click="goHome">← Home</button>
+        </div>
       </header>
 
       <div class="sc-table-wrap">
@@ -364,6 +371,12 @@ function goHome() {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+.sc-topbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .sc-title {

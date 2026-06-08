@@ -19,5 +19,10 @@ export const router = createRouter({
       name: 'scorecard',
       component: () => import('@/components/screens/ScorecardScreen.vue'),
     },
+    {
+      path: '/results',
+      name: 'results',
+      component: () => import('@/components/screens/ResultsScreen.vue'),
+    },
   ],
 });
