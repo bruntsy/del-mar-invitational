@@ -253,6 +253,29 @@ describe('round store', () => {
     expect(result.matches[0].front).toMatchObject({ team1: 1, team2: 1, played: 2, label: 'All Square' });
   });
 
+  it('derives and updates wolf results from stored hole configuration', () => {
+    const store = useRoundStore();
+    store.setRound(roundWithRoster(), players);
+    store.setGames({ ...store.games, wolf: { enabled: true, amount: 5, type: 'gross', nassau: true } });
+    store.setWolfHole(0, 'wolf', 'A');
+    store.setWolfHole(0, 'mode', 'solo');
+
+    store.setScore('A', 0, 4);
+    store.setScore('B', 0, 5);
+    store.setScore('C', 0, 6);
+    store.setScore('D', 0, 6);
+
+    const result = store.wolfResult;
+    expect(result.enabled).toBe(true);
+    expect(result.playedHoles).toBe(1);
+    expect(result.rows[0]).toMatchObject({
+      resultLabel: 'A wins',
+      pointsLabel: 'A +2',
+    });
+    expect(result.standings[0]).toMatchObject({ player: 'A', points: 2, leader: true });
+    expect(result.segments.map((segment) => segment.label)).toEqual(['Front', 'Back', 'Overall']);
+  });
+
   it('marks a round complete and reopens it', () => {
     const store = useRoundStore();
     store.setRound(roundWithRoster(), players);

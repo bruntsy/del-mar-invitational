@@ -20,7 +20,16 @@ import {
   type PairMatchPlayResult,
   type PairMatchResultRow,
 } from '@/scoring/pairMatch';
-import type { WolfHoleConfig } from '@/scoring/wolf';
+import {
+  defaultWolfHole,
+  wolfHoleResult,
+  wolfSegmentResults,
+  wolfSegmentWinners,
+  type WolfHoleConfig,
+  type WolfHoleResult,
+  type WolfMode,
+  type WolfSegmentResult,
+} from '@/scoring/wolf';
 import type { PlayerMap, RoundState, ScoreMatrix, ScoreType } from '@/types';
 
 const STORAGE_KEY = 'dmi_round';
@@ -94,6 +103,31 @@ export interface PairMatchDisplayResult extends PairMatchPlayResult {
   pointsPerHole: number;
 }
 
+export interface WolfHoleDisplayRow {
+  hole: number;
+  config: Required<WolfHoleConfig>;
+  result: WolfHoleResult;
+  resultLabel: string;
+  pointsLabel: string;
+}
+
+export interface WolfStandingRow {
+  player: string;
+  points: number;
+  leader: boolean;
+}
+
+export interface WolfDisplayResult {
+  enabled: boolean;
+  scoreType: ScoreType;
+  nassau: boolean;
+  amount: number;
+  rows: WolfHoleDisplayRow[];
+  standings: WolfStandingRow[];
+  segments: WolfSegmentResult[];
+  playedHoles: number;
+}
+
 function sum(values: number[]): number {
   return values.reduce((total, value) => total + value, 0);
 }
@@ -116,6 +150,19 @@ function segmentFor(
     else label = team1 > team2 ? `${team1Name} ${team1 - team2} UP` : `${team2Name} ${team2 - team1} UP`;
   }
   return { team1, team2, tied, played, label };
+}
+
+function wolfResultLabel(result: WolfHoleResult): string {
+  if (!result.winner) return 'In progress';
+  if (result.winner === 'tie') return 'Push';
+  return result.winner === 'wolf' ? `${result.sideA.join(' + ')} wins` : 'Field wins';
+}
+
+function wolfPointsLabel(result: WolfHoleResult): string {
+  const points = Object.entries(result.points)
+    .filter(([, value]) => value > 0)
+    .map(([player, value]) => `${player} +${value}`);
+  return points.length ? points.join(', ') : '—';
 }
 
 function hasLocalStorage(): boolean {
@@ -419,6 +466,50 @@ export const useRoundStore = defineStore('round', {
         })),
       };
     },
+
+    wolfResult(state): WolfDisplayResult {
+      const games = this.games;
+      const empty: WolfDisplayResult = {
+        enabled: games.wolf.enabled,
+        scoreType: games.wolf.type,
+        nassau: games.wolf.nassau,
+        amount: Number(games.wolf.amount || 0),
+        rows: [],
+        standings: [],
+        segments: [],
+        playedHoles: 0,
+      };
+      const context = this.scoreContext;
+      if (!context || !state.round || !games.wolf.enabled) return empty;
+      const players = this.playerNames;
+      const holes = (state.round.wolf?.holes || {}) as Record<string, WolfHoleConfig | undefined>;
+      const rows: WolfHoleDisplayRow[] = Array.from({ length: 18 }, (_, hole) => {
+        const config = {
+          ...defaultWolfHole(players, hole),
+          ...(holes[hole] || {}),
+        } as Required<WolfHoleConfig>;
+        const result = wolfHoleResult(context, players, hole, config, games.wolf.type);
+        return {
+          hole: hole + 1,
+          config,
+          result,
+          resultLabel: wolfResultLabel(result),
+          pointsLabel: wolfPointsLabel(result),
+        };
+      });
+      const segments = wolfSegmentResults(context, players, holes, games.wolf.nassau, games.wolf.type);
+      const overall = segments.find((segment) => segment.label === 'Overall')?.points ?? {};
+      const leaders = wolfSegmentWinners(overall);
+      return {
+        ...empty,
+        rows,
+        segments,
+        playedHoles: rows.filter((row) => row.result.winner != null).length,
+        standings: Object.entries(overall)
+          .map(([player, points]) => ({ player, points, leader: leaders.includes(player) }))
+          .sort((a, b) => b.points - a.points || a.player.localeCompare(b.player)),
+      };
+    },
   },
 
   actions: {
@@ -488,6 +579,34 @@ export const useRoundStore = defineStore('round', {
         [side]: values.filter(Boolean).slice(0, 2),
       };
       this.round.pairMatches = matches;
+      this.persist();
+    },
+
+    setWolfHole(hole: number, key: 'wolf' | 'mode' | 'partner', value: string) {
+      if (!this.round || hole < 0 || hole > 17) return;
+      const players = this.playerNames;
+      const holes = { ...((this.round.wolf?.holes || {}) as Record<string, WolfHoleConfig | undefined>) };
+      const existing = holes[hole] || defaultWolfHole(players, hole);
+      const next: WolfHoleConfig = { ...existing };
+      if (key === 'mode') {
+        next.mode = value === 'solo' ? 'solo' : 'partner';
+      } else {
+        next[key] = value;
+      }
+      if (key === 'wolf') {
+        const other = players.find((player) => player !== value) || '';
+        if (next.partner === value) next.partner = other;
+      }
+      if (next.mode === 'solo') next.partner = next.partner || '';
+      if (next.mode !== 'solo' && !next.partner) {
+        next.partner = players.find((player) => player !== next.wolf) || '';
+      }
+      holes[hole] = {
+        wolf: players.includes(next.wolf || '') ? next.wolf : '',
+        mode: next.mode as WolfMode,
+        partner: players.includes(next.partner || '') && next.partner !== next.wolf ? next.partner : '',
+      };
+      this.round.wolf = { holes };
       this.persist();
     },
 

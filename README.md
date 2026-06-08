@@ -526,8 +526,9 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   `courseHandicaps` (`computeWHSCourseHcp`), `strokes` (`allocateNetStrokes`),
   and a `scoreContext` consumed by every pure scoring module.
 - Scoring/results getters (`skins`, `settlement`, `playerTotals`,
-  `leaderboard`, `teamNetTotals`, `teamGameResults`, `puttPokerFor`, `hasBets`)
-  wire the pure modules to the live round.
+  `leaderboard`, `teamNetTotals`, `teamGameResults`, `pairMatchResult`,
+  `wolfResult`, `puttPokerFor`, `hasBets`) wire the pure modules to the live
+  round.
 - Score, putt, and team-score mutations write timestamped cells via
   `writeCell()` so concurrent edits stay sync-friendly.
 - `setCompleted()` marks a local round complete or reopens it; Supabase
@@ -544,6 +545,10 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   and writes those scores to `round.teamScores`.
 - When Best Ball or 2-Ball are enabled, it renders read-only derived team rows
   from the player score matrix.
+- When Pair Match Play is enabled, it renders live match cards backed by
+  `store.pairMatchResult`.
+- When Wolf is enabled, it renders an editable per-hole Wolf panel backed by
+  `store.wolfResult` and `store.setWolfHole`.
 - All scoring is read from the round store getters; the component does no
   scoring math of its own beyond display formatting.
 - `src/fixtures/demoRound.ts` seeds a ready-to-score sample round so the screen
@@ -552,8 +557,8 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   neutral for 2, red for 3+), and a putt poker panel renders per playing group
   with coin holder, card counts, penalty notes, and the running pot — all read
   from `store.puttPokerFor`.
-- Not yet ported from the legacy scorecard: the pair-match and wolf live panels,
-  playing-group filtering, and the mobile hole-by-hole entry mode.
+- Not yet ported from the legacy scorecard: playing-group filtering and the
+  mobile hole-by-hole entry mode.
 
 ### Setup Screen (rewrite)
 
@@ -561,15 +566,15 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   without the demo fixture.
 - Sections: course (club/course/location, tee rating/slope, editable par + SI
   grid prefilled to a par-72 layout), teams and players (name + handicap index +
-  team per row), and a games config covering skins, best ball, 4-man scramble,
-  two-ball, aggy, head-to-head, Stableford, three-man Nassau, Wolf, and putt
-  poker.
+  team per row), and a games config covering skins, best ball, pair match play,
+  4-man scramble, two-ball, aggy, head-to-head, Stableford, three-man Nassau,
+  Wolf, and putt poker.
 - "Start round" validates (par present, both teams populated, unique names),
   builds the `RoundState` + player handicap map, generates head-to-head matchups
   by zipping `team1[i]` vs `team2[i]` (as legacy did), writes through
   `store.setRound`, and routes to the scorecard.
-- Not yet included: pair-match config, Supabase course search, and group
-  membership; course par/SI are entered manually.
+- Not yet included: Supabase course search and group membership; course par/SI
+  are entered manually.
 
 ### Results Screen (rewrite)
 
@@ -577,14 +582,15 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   first rewrite results view.
 - It shows team net scores, an individual leaderboard sorted by net score,
   settlement P&L and transfer rows, enabled team-game front/back/total
-  breakdowns, and a skins breakdown.
+  breakdowns, pair-match results, Wolf standings/detail tables, and a skins
+  breakdown.
 - The screen uses round-store getters for all scoring and formatting inputs; it
   does not recompute game math in the component.
 - Rounds can be marked complete or reopened locally from the results screen.
 - Home and scorecard screens now link to results.
-- Not yet included: legacy-equivalent per-format detail panels for pair match,
-  Wolf, Stableford, three-man Nassau, and putt poker; completed-round history
-  persistence still waits for group/Supabase wiring.
+- Not yet included: legacy-equivalent per-format detail panels for Stableford,
+  three-man Nassau, and putt poker; completed-round history persistence still
+  waits for group/Supabase wiring.
 
 ## Realtime Sync
 

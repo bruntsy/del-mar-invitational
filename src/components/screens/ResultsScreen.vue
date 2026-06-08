@@ -28,6 +28,8 @@ const teamNet = computed(() => store.teamNetTotals);
 const teamGameResults = computed(() => store.teamGameResults);
 const pairMatch = computed(() => store.pairMatchResult);
 const pairMatchVisible = computed(() => pairMatch.value.enabled && pairMatch.value.matches.length > 0);
+const wolf = computed(() => store.wolfResult);
+const wolfVisible = computed(() => wolf.value.enabled && wolf.value.rows.length > 0);
 const settlement = computed(() => store.settlement);
 const settlementRows = computed(() =>
   store.playerNames.map((player) => ({ player, pnl: Math.round(settlement.value.pnl[player] || 0) })),
@@ -251,6 +253,61 @@ function goHome() {
           Total holes — {{ teamNames.team1 }} {{ pairMatch.team1Holes }} · {{ teamNames.team2 }} {{ pairMatch.team2Holes }}
           <template v-if="pairMatch.tiedHoles"> · {{ pairMatch.tiedHoles }} halved</template>
         </p>
+      </section>
+
+      <section v-if="wolfVisible" class="rs-section">
+        <h2 class="rs-section-hdr">Wolf</h2>
+        <div class="wolf-standings">
+          <div v-for="row in wolf.standings" :key="row.player" class="wolf-stand" :class="{ winner: row.leader }">
+            <div class="wolf-player">{{ row.player }}</div>
+            <div class="wolf-points-total">{{ row.points }}</div>
+            <div class="wolf-tag">{{ row.leader ? 'Leader' : 'points' }}</div>
+          </div>
+        </div>
+
+        <div v-if="wolf.nassau" class="wolf-scroll">
+          <table class="rs-table wolf-segments">
+            <thead>
+              <tr>
+                <th class="col-left">Nassau</th>
+                <th v-for="player in store.playerNames" :key="`seg-head-${player}`">{{ player }}</th>
+                <th class="col-left">Winner</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="segment in wolf.segments" :key="segment.label">
+                <td class="col-left">{{ segment.label }}</td>
+                <td v-for="player in store.playerNames" :key="`${segment.label}-${player}`">
+                  {{ segment.points[player] || 0 }}
+                </td>
+                <td class="col-left">{{ segment.winners.length ? segment.winners.join(', ') : '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="wolf-scroll">
+          <table class="rs-table wolf-holes">
+            <thead>
+              <tr>
+                <th>Hole</th>
+                <th class="col-left">Wolf Side</th>
+                <th class="col-left">Field</th>
+                <th class="col-left">Result</th>
+                <th class="col-left">Points</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in wolf.rows" :key="row.hole">
+                <td>{{ row.hole }}</td>
+                <td class="col-left">{{ row.result.sideA.join(' + ') || '—' }}</td>
+                <td class="col-left">{{ row.result.sideB.join(' + ') || '—' }}</td>
+                <td class="col-left">{{ row.resultLabel }}</td>
+                <td class="col-left">{{ row.pointsLabel }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section v-if="skinsEnabled" class="rs-section">
@@ -562,6 +619,55 @@ function goHome() {
   margin: 12px 0 0;
   color: #4a5a4f;
   font-weight: 700;
+}
+
+.wolf-standings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.wolf-stand {
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 12px;
+  text-align: center;
+}
+
+.wolf-stand.winner {
+  border-color: #c9a14a;
+  background: #fcf6e6;
+  box-shadow: 0 0 0 1px #c9a14a inset;
+}
+
+.wolf-player {
+  color: #2f5d43;
+  font-weight: 800;
+}
+
+.wolf-points-total {
+  color: #24362c;
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.wolf-tag {
+  color: #8a9489;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.wolf-scroll {
+  overflow-x: auto;
+  margin-top: 12px;
+}
+
+.wolf-segments,
+.wolf-holes {
+  min-width: 560px;
 }
 
 .skins-grid {

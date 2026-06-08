@@ -1106,28 +1106,87 @@ Next recommended steps:
    sync layer.
 4. Keep reusing store getters/actions; do not recompute scoring in components.
 
-## Current Handoff: Pair Match Panels Live
+## Checkpoint 23: Wolf Live Panel and Results
 
 Date: 2026-06-08
 
 Branch:
 
 - `rewrite`
-- Pair-match commit will be the latest after this checkpoint is pushed.
-- Worktree status at handoff: clean after pushing Checkpoint 22.
+- Previous pushed commit: `cdf7246 Add pair match panels`
+
+Files changed since Checkpoint 22:
+
+- Updated `src/stores/round.ts`.
+- Updated `src/components/screens/ScorecardScreen.vue`.
+- Updated `src/components/screens/ResultsScreen.vue`.
+- Updated tests:
+  - `tests/stores/round.test.ts`
+  - `tests/screens/scorecard.test.ts`
+  - `tests/screens/results.test.ts`
+- Updated `README.md`.
+- Updated this checkpoint file.
+
+Implementation notes:
+
+- Added `store.wolfResult`, a store-derived display result that wraps the pure
+  Wolf scorer and exposes:
+  - per-hole Wolf config/result rows
+  - point standings
+  - optional Nassau front/back/overall segments
+  - settled-hole count
+- Added `store.setWolfHole()` so components can edit wolf/mode/partner state
+  without mutating round internals directly.
+- Scorecard renders an editable Wolf panel with hole, wolf, choice, partner,
+  field, result, and points columns.
+- Results renders Wolf standings, optional Nassau segment rows, and the
+  hole-by-hole Wolf side / field / result / points table.
+- Tables use horizontal containment for narrow screens instead of widening the
+  page.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 21 files, 152 tests.
+- `npm run build`: passed.
+- Browser QA note:
+  - In-app browser could inspect pages, but form typing/localStorage seeding was
+    blocked by the browser sandbox.
+  - The standalone Playwright/Chrome QA path required broad macOS access and was
+    rejected intentionally.
+  - No broad access is required for this checkpoint; coverage is from unit,
+    store, screen, event-format, and build verification.
+
+Next recommended steps:
+
+1. Add the remaining per-game results panels for Stableford, three-man Nassau,
+   and putt poker detail.
+2. Start the group/Supabase course search, membership, history, and realtime
+   sync layer.
+3. Keep reusing store getters/actions; do not recompute scoring in components.
+
+## Current Handoff: Pair Match and Wolf Panels Live
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Wolf commit will be the latest after this checkpoint is pushed.
+- Worktree status at handoff: clean after pushing Checkpoint 23.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
   branch should create deployments.
 
 Most recent verification:
 
 - `node scripts/event-format-tests.js`: passed.
-- `npm run test:run`: passed, 21 files, 149 tests.
+- `npm run test:run`: passed, 21 files, 152 tests.
 - `npm run build`: passed.
 - Browser QA:
-  - setup -> pair-match-enabled scorecard path passed.
-  - first scored hole updated the live pair-match panel.
-  - results showed matching Pair Match Play breakdown.
-  - mobile overflow check passed at `390x844`.
+  - Checkpoint 22 pair-match browser QA passed.
+  - Checkpoint 23 Wolf browser QA was blocked by browser-tool permissions; do
+    not request broad macOS access just for visual QA.
+  - Wolf behavior is covered by focused store and screen tests.
 
 Current implementation state:
 
@@ -1137,23 +1196,23 @@ Current implementation state:
   (course, teams, players, games) and `/scorecard` scores it live with score
   entry, net/skins columns, putt rows, the putt poker panel, and settlement.
   `/results` shows team scores, leaderboard, team-game breakdowns, pair-match
-  breakdowns, skins, and settlement. 4-man scramble can be enabled from setup,
-  scored through team rows on the scorecard, and displayed/settled through
-  results. Best Ball and 2-Ball render read-only derived team rows driven by
-  player scores. Pair Match Play can be configured from setup and renders live
-  scorecard plus results panels. All scoring is read from store getters/actions.
+  breakdowns, Wolf standings/detail tables, skins, and settlement. 4-man
+  scramble can be enabled from setup, scored through team rows on the
+  scorecard, and displayed/settled through results. Best Ball and 2-Ball render
+  read-only derived team rows driven by player scores. Pair Match Play can be
+  configured from setup and renders live scorecard plus results panels. Wolf can
+  be configured from setup, adjusted per hole on the scorecard, and shown in
+  results. All scoring is read from store getters/actions.
 - `HomeScreen.vue` links to New round (`/setup`), Start demo round, the
   scorecard, and results. Routing: `/`, `/setup`, `/scorecard`, `/results`.
-- Still demo/local only: no group membership, no Supabase course search, no
-  realtime sync, and the scorecard still lacks the Wolf live panel. Results
-  lacks the legacy per-game detail panels for Wolf, Stableford, three-man
-  Nassau, and putt poker detail.
+- Still demo/local only: no group membership, no Supabase course search, and no
+  realtime sync. Results lacks the legacy per-game detail panels for
+  Stableford, three-man Nassau, and putt poker detail.
 - The old monolith remains available as the parity oracle at
   `legacy/index.html`.
 
 The next task should begin (pick one):
 
-- Add Wolf live/results UX; OR
 - Add the missing per-game detail panels to the results screen.
 - Start the group/Supabase layer for course search, group membership, history,
   and realtime sync.

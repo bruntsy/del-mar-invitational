@@ -96,6 +96,30 @@ describe('ResultsScreen', () => {
     expect(wrapper.find('.pm-table').exists()).toBe(true);
   });
 
+  it('renders wolf standings and Nassau segments', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.games.wolf.enabled = true;
+    round.games.wolf.type = 'gross';
+    round.games.wolf.nassau = true;
+    store.setRound(round, players);
+    store.setWolfHole(0, 'wolf', 'Wes');
+    store.setWolfHole(0, 'mode', 'solo');
+    store.setScore('Wes', 0, 4);
+    store.setScore('Aaron', 0, 5);
+    store.setScore('Tito', 0, 6);
+    store.setScore('Q', 0, 6);
+
+    const wrapper = mountResults();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('Wolf');
+    expect(wrapper.find('.wolf-standings').exists()).toBe(true);
+    expect(wrapper.find('.wolf-segments').exists()).toBe(true);
+    expect(wrapper.find('.wolf-holes').text()).toContain('Wes wins');
+    expect(wrapper.find('.wolf-holes').text()).toContain('Wes +2');
+  });
+
   it('toggles round completion through the store', async () => {
     const store = useRoundStore();
     const { round, players } = demoRound();

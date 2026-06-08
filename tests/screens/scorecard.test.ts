@@ -134,6 +134,32 @@ describe('ScorecardScreen', () => {
     expect(wrapper.find('.pair-live-hole.side-a').exists()).toBe(true);
   });
 
+  it('renders and updates the wolf live panel', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.games.wolf.enabled = true;
+    round.games.wolf.type = 'gross';
+    store.setRound(round, players);
+
+    const wrapper = mountScorecard();
+    expect(wrapper.find('.wolf-live').exists()).toBe(true);
+    expect(wrapper.text()).toContain('Wolf');
+
+    const firstWolfRow = wrapper.find('.wolf-table tbody tr');
+    const selects = firstWolfRow.findAll('select');
+    await selects[1].setValue('solo');
+
+    store.setScore('Wes', 0, 4);
+    store.setScore('Aaron', 0, 5);
+    store.setScore('Tito', 0, 6);
+    store.setScore('Q', 0, 6);
+    await nextTick();
+
+    expect(wrapper.find('.wolf-live-total').text()).toContain('1 hole settled');
+    expect(firstWolfRow.text()).toContain('Wes wins');
+    expect(firstWolfRow.text()).toContain('Wes +2');
+  });
+
   it('shows the settlement section once bets exist', () => {
     const store = useRoundStore();
     const { round, players } = demoRound();

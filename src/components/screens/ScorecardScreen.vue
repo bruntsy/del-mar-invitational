@@ -137,6 +137,8 @@ const puttPokerEnabled = computed(() => store.games.puttPoker.enabled);
 const scrambleEnabled = computed(() => store.games.scramble4.enabled);
 const pairMatch = computed(() => store.pairMatchResult);
 const pairMatchVisible = computed(() => pairMatch.value.enabled && pairMatch.value.matches.length > 0);
+const wolf = computed(() => store.wolfResult);
+const wolfVisible = computed(() => wolf.value.enabled && wolf.value.rows.length > 0);
 interface PuttGroup {
   name: string;
   players: string[];
@@ -183,6 +185,10 @@ function holeClass(winner: 'a' | 'b' | 'tie' | null): string {
   if (winner === 'b') return 'side-b';
   if (winner === 'tie') return 'tie';
   return 'pending';
+}
+
+function wolfField(row: (typeof wolf.value.rows)[number]): string {
+  return row.result.sideB.join(' + ') || '—';
 }
 </script>
 
@@ -441,6 +447,74 @@ function holeClass(winner: 'a' | 'b' | 'tie' | null): string {
               <span>T: {{ match.overall.label }}</span>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section v-if="wolfVisible" class="wolf-live">
+        <div class="wolf-live-title">
+          <span>Wolf</span>
+          <span class="wolf-live-total">{{ wolf.playedHoles }} hole{{ wolf.playedHoles === 1 ? '' : 's' }} settled</span>
+        </div>
+        <div class="wolf-table-wrap">
+          <table class="wolf-table">
+            <thead>
+              <tr>
+                <th>Hole</th>
+                <th>Wolf</th>
+                <th>Choice</th>
+                <th>Partner</th>
+                <th>Field</th>
+                <th>Result</th>
+                <th>Pts</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in wolf.rows" :key="row.hole">
+                <td class="wolf-hole">{{ row.hole }}</td>
+                <td>
+                  <select
+                    class="wolf-select"
+                    :value="row.config.wolf"
+                    @change="store.setWolfHole(row.hole - 1, 'wolf', ($event.target as HTMLSelectElement).value)"
+                  >
+                    <option v-for="player in store.playerNames" :key="`wolf-${row.hole}-${player}`" :value="player">
+                      {{ player }}
+                    </option>
+                  </select>
+                </td>
+                <td>
+                  <select
+                    class="wolf-select sm"
+                    :value="row.config.mode === 'solo' ? 'solo' : 'partner'"
+                    @change="store.setWolfHole(row.hole - 1, 'mode', ($event.target as HTMLSelectElement).value)"
+                  >
+                    <option value="partner">Partner</option>
+                    <option value="solo">Solo</option>
+                  </select>
+                </td>
+                <td>
+                  <select
+                    class="wolf-select"
+                    :disabled="row.config.mode === 'solo'"
+                    :value="row.config.partner"
+                    @change="store.setWolfHole(row.hole - 1, 'partner', ($event.target as HTMLSelectElement).value)"
+                  >
+                    <option value="">None</option>
+                    <option
+                      v-for="player in store.playerNames.filter((player) => player !== row.config.wolf)"
+                      :key="`partner-${row.hole}-${player}`"
+                      :value="player"
+                    >
+                      {{ player }}
+                    </option>
+                  </select>
+                </td>
+                <td>{{ wolfField(row) }}</td>
+                <td class="wolf-result">{{ row.resultLabel }}</td>
+                <td class="wolf-points">{{ row.pointsLabel }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -740,7 +814,8 @@ function holeClass(winner: 'a' | 'b' | 'tie' | null): string {
 
 .sc-puttpoker,
 .sc-settlement,
-.pair-live {
+.pair-live,
+.wolf-live {
   margin-top: 24px;
   border: 1px solid #d7cebd;
   border-radius: 8px;
@@ -861,6 +936,78 @@ function holeClass(winner: 'a' | 'b' | 'tie' | null): string {
   color: #6a7a6f;
   font-size: 0.76rem;
   font-weight: 700;
+}
+
+.wolf-live-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-weight: 800;
+  color: #24362c;
+  margin-bottom: 12px;
+}
+
+.wolf-live-total {
+  color: #8a672f;
+}
+
+.wolf-table-wrap {
+  overflow-x: auto;
+}
+
+.wolf-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.wolf-table th,
+.wolf-table td {
+  border-bottom: 1px solid #e4ddcd;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.wolf-table th {
+  color: #6a7a6f;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.wolf-hole {
+  color: #8a672f;
+  font-weight: 800;
+}
+
+.wolf-select {
+  width: 110px;
+  border: 1px solid #cdbf9f;
+  border-radius: 6px;
+  background: #fdfbf4;
+  color: #283b30;
+  padding: 5px 7px;
+}
+
+.wolf-select.sm {
+  width: 94px;
+}
+
+.wolf-select:disabled {
+  color: #9aa49a;
+  background: #f3efe2;
+}
+
+.wolf-result {
+  color: #283b30;
+  font-weight: 700;
+}
+
+.wolf-points {
+  color: #2f5d43;
+  font-weight: 800;
 }
 
 .pp-groups {
