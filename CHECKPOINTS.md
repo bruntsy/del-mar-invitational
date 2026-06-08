@@ -521,8 +521,8 @@ Date: 2026-06-08
 Branch:
 
 - `rewrite`
-- Current pushed commit: pending Checkpoint 11 commit.
-- Worktree status at handoff: pending Checkpoint 11 commit.
+- Current pushed commit: `d5974d2 Add three-man Nassau scoring`
+- Worktree status at handoff: clean after pushing Checkpoint 11.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
   branch should create deployments.
 
