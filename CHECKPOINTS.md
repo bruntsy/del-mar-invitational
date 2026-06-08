@@ -475,3 +475,63 @@ Next recommended steps:
 1. Port three-man Nassau.
 2. Port Wolf scoring after three-man Nassau is covered.
 3. Port putt poker and then begin wiring pure modules into Pinia stores/UI.
+
+## Current Handoff: Ready for Three-Man Nassau
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Current pushed commit: `29d14f1 Add stableford scoring`
+- Worktree status at handoff: clean
+- Vercel production branch tracking is set to `rewrite`, so pushes to this
+  branch should create deployments.
+
+Most recent verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 13 files, 73 tests.
+- `npm run build`: passed.
+
+Current implementation state:
+
+- The rewrite foundation, typed domain helpers, event config normalization,
+  score-cell compatibility, handicap helpers, event round scoring, skins, team
+  games, pair match, head-to-head, and Stableford have all been ported as pure
+  modules with focused Vitest coverage.
+- No Pinia stores or production UI screens have been wired to these scoring
+  modules yet.
+- The old monolith remains available as the parity oracle at
+  `legacy/index.html`.
+
+The next task was just about to begin:
+
+- Port three-man Nassau as a pure scoring module.
+- Relevant legacy functions are in `legacy/index.html` around
+  `threeManNassauSegments()` and `threeManNassauResults(strokes)`.
+- Legacy behavior:
+  - Requires exactly three current players.
+  - Creates three segments: Front holes `0..8`, Back holes `9..17`, Overall
+    holes `0..17`.
+  - For each player, compares that solo player's range score against the best
+    ball of the other two players.
+  - Winner values are `solo`, `side`, `push`, or `null` when either side has no
+    completed holes in the segment.
+  - Best-ball range scoring skips incomplete holes and returns `null` only when
+    no holes in the segment are complete for the full side.
+  - Money settlement in the legacy app pays/takes `amount` per opponent:
+    `solo` wins or loses against both side players; `side` players each win or
+    lose one amount.
+
+Suggested next files:
+
+- Add `src/scoring/threeManNassau.ts`.
+- Add `tests/scoring/threeManNassau.test.ts`.
+- Reuse `playerRangeScore()` and `bestBallRangeScore()` from
+  `src/scoring/round.ts`.
+- After implementation, run:
+  - `node scripts/event-format-tests.js`
+  - `npm run test:run`
+  - `npm run build`
+- Add Checkpoint 11, then commit and push to `origin/rewrite`.
