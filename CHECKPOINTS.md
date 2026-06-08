@@ -405,3 +405,39 @@ Next recommended steps:
 1. Port pair match play and head-to-head helpers.
 2. Port Stableford scoring.
 3. Continue keeping each scoring module pure and covered before stores/UI use it.
+
+## Checkpoint 9: Pair Match and Head-to-Head Scoring
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Previous pushed checkpoint commit: `29894d7 Add team game scoring`
+
+Files changed since Checkpoint 8:
+
+- Added `src/scoring/pairMatch.ts`.
+- Added `src/scoring/headToHead.ts`.
+- Added `tests/scoring/pairMatch.test.ts`.
+- Added `tests/scoring/headToHead.test.ts`.
+
+Implementation notes:
+
+- Ported pair-match repair/default generation behavior.
+- Ported best-ball pair match scoring with configurable points per hole and
+  gross/net modes.
+- Added support for the best-ball + aggy point mode used by event rounds.
+- Ported head-to-head total comparison with gross/net scoring.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 12 files, 67 tests.
+- `npm run build`: passed.
+
+Next recommended steps:
+
+1. Port Stableford scoring with configurable point map.
+2. Port three-man Nassau.
+3. Port Wolf and putt poker after the simpler scoring modules are covered.
