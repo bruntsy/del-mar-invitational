@@ -333,3 +333,40 @@ Next recommended steps:
 2. Include tests for gross/net skins, incomplete holes, tied holes, and the
    current legacy no-carry result behavior.
 3. Then move to best-ball/two-ball/aggy team game modules.
+
+## Checkpoint 7: Skins Scoring
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Previous pushed checkpoint commit: `3ca99ff Expand event scoring coverage`
+
+Files changed since Checkpoint 6:
+
+- Added `src/scoring/skins.ts`.
+- Added `tests/scoring/skins.test.ts`.
+
+Implementation notes:
+
+- Ported the current legacy skins behavior as a pure function.
+- Current parity behavior is net-only skins, matching legacy `computeSkins()`.
+  The legacy UI has a skins type config, but the old scoring helper does not
+  currently branch on gross vs net.
+- Skins stop at the first incomplete hole.
+- Tied holes award no skin and do not carry a pending pot in the current parity
+  implementation.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 9 files, 52 tests.
+- `npm run build`: passed.
+
+Next recommended steps:
+
+1. Port best-ball, two-ball, and aggy team scoring totals.
+2. Add tests for partial rounds and completed front/back/overall totals.
+3. Decide later whether to intentionally fix gross skins/carry behavior after
+   parity is fully protected.
