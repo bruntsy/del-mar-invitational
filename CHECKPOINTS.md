@@ -157,3 +157,50 @@ Next recommended steps:
    `getsStroke()`.
 4. Begin porting event config normalization once players and playing groups are
    available.
+
+## Checkpoint 3: Player, Playing Group, and Handicap Helpers
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Previous pushed checkpoint commit: `3619448 Add Vue rewrite foundation`
+
+Files changed since Checkpoint 2:
+
+- Added `src/domain/players.ts`.
+- Added `src/domain/playingGroups.ts`.
+- Added `src/scoring/handicap.ts`.
+- Added tests:
+  - `tests/domain/players.test.ts`
+  - `tests/domain/playingGroups.test.ts`
+  - `tests/scoring/handicap.test.ts`
+
+Implementation notes:
+
+- Ported legacy player normalization behavior for modern player objects and old
+  string-based player entries.
+- Ported automatic playing-group helpers:
+  - chunk players into fours
+  - interleave two teams
+  - derive groups from pair matches
+  - repair invalid/missing group assignments
+- Ported handicap primitives:
+  - `computeWHSCourseHcp()`
+  - `getsStroke()`
+  - relative net stroke allocation
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 6 files, 26 tests.
+- `npm run build`: passed.
+
+Next recommended steps:
+
+1. Port event format labels/default event round config into `src/domain/events.ts`.
+2. Port `normalizeEventConfig()` using the new player and playing-group helpers.
+3. Add tests for default event config, pair-match repair, duplicate team removal,
+   and win-point calculation.
+4. After event config normalization passes, begin extracting event round scoring.
