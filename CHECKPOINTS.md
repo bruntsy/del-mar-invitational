@@ -204,3 +204,47 @@ Next recommended steps:
 3. Add tests for default event config, pair-match repair, duplicate team removal,
    and win-point calculation.
 4. After event config normalization passes, begin extracting event round scoring.
+
+## Checkpoint 4: Event Config Normalization
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Previous pushed checkpoint commit: `28723c4 Add core domain helpers`
+
+Files changed since Checkpoint 3:
+
+- Added `src/domain/events.ts`.
+- Added `tests/domain/events.test.ts`.
+
+Implementation notes:
+
+- Ported event labels and scoring mode labels.
+- Ported default event round construction.
+- Ported event available-points and win-point calculation.
+- Ported `defaultEventConfig()`.
+- Ported `normalizeEventConfig()` as a pure function. It receives group player
+  names as an argument rather than reading global `GROUP`.
+- Preserved legacy behavior where players found in pair matches are pulled into
+  event teams when missing.
+- Pair matches are repaired to side-valid players and capped at two players per
+  side.
+- Events are clamped to 1-12 rounds.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 7 files, 34 tests.
+- `npm run build`: passed.
+
+Next recommended steps:
+
+1. Start extracting low-level scoring helpers that event scoring depends on:
+   `playerHoleScore`, `pairBestBallScore`, `pairSegmentHoles`, and related
+   range-score helpers.
+2. Port `bestBallAggyHoleComponent()` and `eventRoundAvailablePoints()` parity
+   assertions from the legacy event regression script.
+3. Convert the existing legacy event-format regression cases into Vitest cases
+   against the new pure event scoring module.
