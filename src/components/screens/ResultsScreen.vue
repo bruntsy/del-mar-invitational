@@ -30,6 +30,8 @@ const pairMatch = computed(() => store.pairMatchResult);
 const pairMatchVisible = computed(() => pairMatch.value.enabled && pairMatch.value.matches.length > 0);
 const wolf = computed(() => store.wolfResult);
 const wolfVisible = computed(() => wolf.value.enabled && wolf.value.rows.length > 0);
+const stableford = computed(() => store.stablefordResult);
+const stablefordVisible = computed(() => stableford.value.enabled && stableford.value.rows.length > 0);
 const settlement = computed(() => store.settlement);
 const settlementRows = computed(() =>
   store.playerNames.map((player) => ({ player, pnl: Math.round(settlement.value.pnl[player] || 0) })),
@@ -253,6 +255,24 @@ function goHome() {
           Total holes — {{ teamNames.team1 }} {{ pairMatch.team1Holes }} · {{ teamNames.team2 }} {{ pairMatch.team2Holes }}
           <template v-if="pairMatch.tiedHoles"> · {{ pairMatch.tiedHoles }} halved</template>
         </p>
+      </section>
+
+      <section v-if="stablefordVisible" class="rs-section">
+        <h2 class="rs-section-hdr">Stableford</h2>
+        <div class="rs-table-wrap">
+          <table class="rs-table sf-table">
+            <thead>
+              <tr><th class="col-left">Player</th><th>Points</th><th>Holes</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in stableford.rows" :key="row.player">
+                <td class="col-left"><span :class="{ 'rs-winner': row.leader }">{{ row.player }}</span></td>
+                <td class="rs-net">{{ row.points }}</td>
+                <td>{{ row.holes }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section v-if="wolfVisible" class="rs-section">

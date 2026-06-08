@@ -527,8 +527,8 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   and a `scoreContext` consumed by every pure scoring module.
 - Scoring/results getters (`skins`, `settlement`, `playerTotals`,
   `leaderboard`, `teamNetTotals`, `teamGameResults`, `pairMatchResult`,
-  `wolfResult`, `puttPokerFor`, `hasBets`) wire the pure modules to the live
-  round.
+  `wolfResult`, `stablefordResult`, `puttPokerFor`, `hasBets`) wire the pure
+  modules to the live round.
 - Score, putt, and team-score mutations write timestamped cells via
   `writeCell()` so concurrent edits stay sync-friendly.
 - `setCompleted()` marks a local round complete or reopens it; Supabase
@@ -582,15 +582,15 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   first rewrite results view.
 - It shows team net scores, an individual leaderboard sorted by net score,
   settlement P&L and transfer rows, enabled team-game front/back/total
-  breakdowns, pair-match results, Wolf standings/detail tables, and a skins
-  breakdown.
+  breakdowns, pair-match results, Wolf standings/detail tables, a Stableford
+  points table (best-first, leader highlighted), and a skins breakdown.
 - The screen uses round-store getters for all scoring and formatting inputs; it
   does not recompute game math in the component.
 - Rounds can be marked complete or reopened locally from the results screen.
 - Home and scorecard screens now link to results.
-- Not yet included: legacy-equivalent per-format detail panels for Stableford,
-  three-man Nassau, and putt poker; completed-round history persistence still
-  waits for group/Supabase wiring.
+- Not yet included: legacy-equivalent per-format detail panels for three-man
+  Nassau and putt poker; completed-round history persistence still waits for
+  group/Supabase wiring.
 
 ## Realtime Sync
 

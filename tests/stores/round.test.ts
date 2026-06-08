@@ -276,6 +276,26 @@ describe('round store', () => {
     expect(result.segments.map((segment) => segment.label)).toEqual(['Front', 'Back', 'Overall']);
   });
 
+  it('derives stableford rows sorted best-first with a leader flag', () => {
+    const store = useRoundStore();
+    store.setRound(roundWithRoster(), players);
+    store.setGames({ ...store.games, stableford: { ...store.games.stableford, enabled: true, type: 'gross' } });
+
+    // par is 4 on every hole; default points: par 2, birdie 3, bogey 1
+    store.setScore('A', 0, 3); // birdie -> 3
+    store.setScore('B', 0, 4); // par -> 2
+    store.setScore('C', 0, 5); // bogey -> 1
+    // D has no scores -> 0 points, 0 holes
+
+    const result = store.stablefordResult;
+    expect(result.enabled).toBe(true);
+    expect(result.scoreType).toBe('gross');
+    expect(result.rows.map((row) => row.player)).toEqual(['A', 'B', 'C', 'D']);
+    expect(result.rows[0]).toMatchObject({ player: 'A', points: 3, holes: 1, leader: true });
+    expect(result.rows[1]).toMatchObject({ player: 'B', points: 2, holes: 1, leader: false });
+    expect(result.rows.find((row) => row.player === 'D')).toMatchObject({ points: 0, holes: 0, leader: false });
+  });
+
   it('marks a round complete and reopens it', () => {
     const store = useRoundStore();
     store.setRound(roundWithRoster(), players);

@@ -120,6 +120,28 @@ describe('ResultsScreen', () => {
     expect(wrapper.find('.wolf-holes').text()).toContain('Wes +2');
   });
 
+  it('renders the stableford table from store-derived rows', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.games.stableford.enabled = true;
+    round.games.stableford.type = 'gross';
+    store.setRound(round, players);
+    fillCard(store, 'Wes', 4);
+    fillCard(store, 'Aaron', 5);
+    fillCard(store, 'Tito', 6);
+    fillCard(store, 'Q', 7);
+
+    const wrapper = mountResults();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('Stableford');
+    const table = wrapper.find('.sf-table');
+    expect(table.exists()).toBe(true);
+    expect(table.findAll('tbody tr')).toHaveLength(4);
+    // best gross (Wes) leads the table and is flagged as the winner
+    expect(table.find('tbody tr .rs-winner').text()).toBe('Wes');
+  });
+
   it('toggles round completion through the store', async () => {
     const store = useRoundStore();
     const { round, players } = demoRound();

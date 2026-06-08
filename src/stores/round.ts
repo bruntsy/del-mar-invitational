@@ -13,6 +13,7 @@ import {
   type SettlementTransfer,
 } from '@/scoring/settlement';
 import { computePuttPoker, type PuttPokerResult } from '@/scoring/puttPoker';
+import { computeStableford } from '@/scoring/stableford';
 import { computeTeamHoleStats, computeTeamTotals, type TeamTotals } from '@/scoring/teamGames';
 import {
   computePairMatchPlay,
@@ -126,6 +127,20 @@ export interface WolfDisplayResult {
   standings: WolfStandingRow[];
   segments: WolfSegmentResult[];
   playedHoles: number;
+}
+
+export interface StablefordDisplayRow {
+  player: string;
+  points: number;
+  holes: number;
+  leader: boolean;
+}
+
+export interface StablefordDisplayResult {
+  enabled: boolean;
+  scoreType: ScoreType;
+  buyIn: number;
+  rows: StablefordDisplayRow[];
 }
 
 function sum(values: number[]): number {
@@ -509,6 +524,35 @@ export const useRoundStore = defineStore('round', {
           .map(([player, points]) => ({ player, points, leader: leaders.includes(player) }))
           .sort((a, b) => b.points - a.points || a.player.localeCompare(b.player)),
       };
+    },
+
+    /**
+     * Stableford points per player sorted best-first, matching the legacy
+     * `renderStablefordResults()` table. The top scorer with completed holes is
+     * flagged as leader for winner highlighting.
+     */
+    stablefordResult(state): StablefordDisplayResult {
+      const games = this.games;
+      const empty: StablefordDisplayResult = {
+        enabled: games.stableford.enabled,
+        scoreType: games.stableford.type,
+        buyIn: Number(games.stableford.buyIn || 0),
+        rows: [],
+      };
+      const context = this.scoreContext;
+      if (!context || !state.round || !games.stableford.enabled) return empty;
+      const players = this.playerNames;
+      const result = computeStableford(context, players, games.stableford.type, games.stableford.points);
+      const maxPoints = Math.max(...players.map((player) => result[player].points));
+      const rows: StablefordDisplayRow[] = players
+        .map((player) => ({
+          player,
+          points: result[player].points,
+          holes: result[player].holes,
+          leader: result[player].holes > 0 && result[player].points === maxPoints,
+        }))
+        .sort((a, b) => b.points - a.points || a.player.localeCompare(b.player));
+      return { ...empty, rows };
     },
   },
 
