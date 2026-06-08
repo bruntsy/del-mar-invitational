@@ -771,44 +771,100 @@ Next recommended steps:
    fixture, then
 3. Add a group/event store when a screen needs membership or event config.
 
-## Current Handoff: First Screen Live
+## Checkpoint 17: Putt Entry and Putt Poker Panel
 
 Date: 2026-06-08
 
 Branch:
 
 - `rewrite`
-- Scorecard screen commit will be the latest after this checkpoint is pushed.
-- Worktree status at handoff: clean after pushing Checkpoint 16.
+- Previous pushed commit: `5f9473a Add scorecard screen`
+
+Files changed since Checkpoint 16:
+
+- Updated `src/components/screens/ScorecardScreen.vue` (collapsible putt rows +
+  putt poker panel).
+- Added a `readPutt` action to `src/stores/round.ts`.
+- Updated `tests/screens/scorecard.test.ts`.
+- Updated `README.md`.
+
+Implementation notes:
+
+- Each player row now has a collapsible putt-tracking row, toggled by a chevron
+  in the name cell. Putt inputs write through `store.setPutt` (timestamped
+  cells) and are colored like legacy: green for 0-1 putts, neutral for 2, red
+  for 3+. Putt OUT/IN/TOT sums are shown.
+- Added a `readPutt` store action mirroring `readScore`.
+- The putt poker panel renders per playing group (falling back to the two teams
+  when no groups), showing the coin holder, each player's card count, penalty
+  notes via `puttPenaltyNote`, and the running pot. All values come from
+  `store.puttPokerFor`; the component does no putt poker math itself.
+- The panel and putt rows only render when `games.puttPoker.enabled`.
+
+Browser verification (preview tool, demo round):
+
+- Entered all four cards plus putts including a Wes 3-putt (hole 1) and a Q
+  4-putt (hole 7).
+- Coin correctly went to Q (latest penalty by hole order); cards showed Wes ×4
+  (two 1-putts), others ×2; penalty notes "1x 3-putt" and "1x 4+ putt".
+- Pot showed $11 = $8 base ($2 x 4) + $1 (3-putt) + $2 (4-putt).
+- Putt cell colors and OUT/IN/TOT putt sums rendered correctly.
+
+Verification:
+
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 19 files, 128 tests.
+- `npm run build`: passed.
+
+Next recommended steps:
+
+1. Build the round setup screen so real rounds can be created without the demo
+   fixture (this is the planned Checkpoint 18).
+2. Then add scramble/best-ball/two-ball team rows and the pair-match/wolf live
+   panels to the scorecard.
+
+## Current Handoff: Scorecard at Per-Player Parity
+
+Date: 2026-06-08
+
+Branch:
+
+- `rewrite`
+- Putt poker commit will be the latest after this checkpoint is pushed.
+- Worktree status at handoff: clean after pushing Checkpoint 17.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
   branch should create deployments.
 
 Most recent verification:
 
 - `node scripts/event-format-tests.js`: passed.
-- `npm run test:run`: passed, 19 files, 126 tests.
+- `npm run test:run`: passed, 19 files, 128 tests.
 - `npm run build`: passed.
 
 Current implementation state:
 
 - The full pure scoring layer plus the Pinia round store are complete and
   covered.
-- The first real screen is live: `ScorecardScreen.vue` at `/scorecard`, wired
-  entirely through the round store, verified in the browser with a demo round.
+- `ScorecardScreen.vue` at `/scorecard` is wired entirely through the round
+  store and now has full per-player parity: score entry, net/skins columns,
+  collapsible putt rows, the putt poker panel, and the live settlement panel.
 - `HomeScreen.vue` seeds a demo round (`src/fixtures/demoRound.ts`) and links to
-  the scorecard.
-- Routing: `/` (home) and `/scorecard`. No group/event stores or setup flow yet.
+  the scorecard. Routing: `/` (home) and `/scorecard`.
+- No group/event stores or setup flow yet; rounds only come from the demo
+  fixture.
 - The old monolith remains available as the parity oracle at
   `legacy/index.html`.
 
-The next task should begin (pick one):
+The next task should begin:
 
-- Add putt entry + the putt poker panel to the scorecard (store already exposes
-  `puttPokerFor`), giving full parity on the per-player scoring rows; OR
-- Build a round setup screen (course, teams, players, games) so real rounds can
-  be created, then add a group/event store as needed.
+- Build the round setup screen (course, teams, players, games config) so real
+  rounds can be created and edited without the demo fixture. Route it (e.g.
+  `/setup`) and write the round through the store. A manual course/par entry is
+  fine first; Supabase course search can come later.
+- Decide whether a separate group/players store is needed, or whether setup can
+  manage the player handicap map directly on the round store.
 - Keep reusing store getters; do not recompute scoring in components. Validate
-  each screen against `legacy/index.html`.
+  against `legacy/index.html`.
 - After each step, run:
   - `node scripts/event-format-tests.js`
   - `npm run test:run`

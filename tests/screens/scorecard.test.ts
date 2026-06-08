@@ -78,4 +78,41 @@ describe('ScorecardScreen', () => {
     expect(wrapper.find('.sc-settlement').exists()).toBe(true);
     expect(wrapper.text()).toContain('Settlement');
   });
+
+  it('renders the putt poker panel and reflects the base pot', () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    store.setRound(round, players);
+
+    const wrapper = mountScorecard();
+
+    expect(wrapper.find('.sc-puttpoker').exists()).toBe(true);
+    expect(wrapper.text()).toContain('Putt Poker');
+    // demo buy-in is $2 over 4 players -> $8 base pot, every player starts with 2 cards
+    expect(wrapper.text()).toContain('Pot: $8');
+    expect(wrapper.findAll('.pp-card-count')).toHaveLength(4);
+    expect(wrapper.find('.pp-card-count').text()).toContain('2');
+  });
+
+  it('toggles a putt row and records putts that drive the coin and pot', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    store.setRound(round, players);
+
+    const wrapper = mountScorecard();
+    expect(wrapper.find('.row-putts').exists()).toBe(false);
+
+    await wrapper.find('.putt-toggle').trigger('click');
+    expect(wrapper.find('.row-putts').exists()).toBe(true);
+
+    const firstPutt = wrapper.find('.row-putts .putt-cell input');
+    await firstPutt.setValue('3'); // a three-putt for Wes on hole 1
+    expect(store.readPutt('Wes', 0)).toBe(3);
+
+    await nextTick();
+    // coin moves to Wes and the pot grows by $1 over the $8 base
+    expect(wrapper.find('.pp-coin').text()).toContain('Wes');
+    expect(wrapper.text()).toContain('Pot: $9');
+    expect(wrapper.text()).toContain('1x 3-putt');
+  });
 });

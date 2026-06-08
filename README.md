@@ -514,9 +514,13 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   scoring math of its own beyond display formatting.
 - `src/fixtures/demoRound.ts` seeds a ready-to-score sample round so the screen
   is reachable from the home screen before the full setup flow exists.
+- Each player row has a collapsible putt-tracking row (green for 0-1 putts,
+  neutral for 2, red for 3+), and a putt poker panel renders per playing group
+  with coin holder, card counts, penalty notes, and the running pot — all read
+  from `store.puttPokerFor`.
 - Not yet ported from the legacy scorecard: scramble/best-ball/two-ball team
-  rows, the pair-match and wolf live panels, the putt entry rows, playing-group
-  filtering, and the mobile hole-by-hole entry mode.
+  rows, the pair-match and wolf live panels, playing-group filtering, and the
+  mobile hole-by-hole entry mode.
 
 ## Realtime Sync
 

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import { getsStroke } from '@/scoring/handicap';
+import { puttPenaltyNote } from '@/scoring/puttPoker';
 import { useRoundStore } from '@/stores/round';
 
 const store = useRoundStore();
@@ -14,6 +15,11 @@ onMounted(() => {
 const HOLES = Array.from({ length: 18 }, (_, hole) => hole);
 const FRONT = HOLES.slice(0, 9);
 const BACK = HOLES.slice(9);
+
+const expandedPutts = reactive<Record<string, boolean>>({});
+function togglePutts(player: string) {
+  expandedPutts[player] = !expandedPutts[player];
+}
 
 const course = computed(() => store.course);
 const par = computed(() => course.value?.par ?? []);
@@ -72,6 +78,50 @@ function onScoreInput(player: string, hole: number, raw: string) {
   if (Number.isNaN(value)) return;
   store.setScore(player, hole, value);
 }
+
+function onPuttInput(player: string, hole: number, raw: string) {
+  if (raw === '') {
+    store.setPutt(player, hole, null);
+    return;
+  }
+  const value = Number.parseInt(raw, 10);
+  if (Number.isNaN(value) || value < 0) return;
+  store.setPutt(player, hole, value);
+}
+
+// 0-1 putts read as green, 2 neutral, 3+ red, matching the legacy putt cells.
+function puttColorClass(putts: number | null): string {
+  if (putts == null) return '';
+  if (putts <= 1) return 'putt-good';
+  if (putts === 2) return 'putt-ok';
+  return 'putt-bad';
+}
+
+function puttSum(player: string, start: number, end: number): number | null {
+  let total = 0;
+  let any = false;
+  for (let hole = start; hole < end; hole += 1) {
+    const value = store.readPutt(player, hole);
+    if (value != null) {
+      total += value;
+      any = true;
+    }
+  }
+  return any ? total : null;
+}
+
+const puttPokerEnabled = computed(() => store.games.puttPoker.enabled);
+interface PuttGroup {
+  name: string;
+  players: string[];
+}
+const puttGroups = computed<PuttGroup[]>(() => {
+  const r = store.round;
+  if (!r) return [];
+  const groups = (r.playingGroups || []).filter((group) => group.players.length > 0);
+  if (groups.length) return groups.map((group) => ({ name: group.name, players: group.players }));
+  return teamRows.value.map((team) => ({ name: team.label, players: team.players }));
+});
 
 const settlement = computed(() => store.settlement);
 const settlementRows = computed(() =>
@@ -136,11 +186,23 @@ function goHome() {
           <tbody>
             <template v-for="team in teamRows" :key="team.key">
               <tr class="row-team-divider">
-                <td :colspan="23">{{ team.label }} — {{ team.players.join(' · ') }}</td>
+                <td :colspan="24">{{ team.label }} — {{ team.players.join(' · ') }}</td>
               </tr>
-              <tr v-for="player in team.players" :key="player" class="row-player">
+              <template v-for="player in team.players" :key="player">
+              <tr class="row-player">
                 <td class="name-cell">
-                  <div class="cell-pname">{{ player }}</div>
+                  <div class="name-head">
+                    <div class="cell-pname">{{ player }}</div>
+                    <button
+                      v-if="puttPokerEnabled"
+                      class="putt-toggle"
+                      type="button"
+                      :title="`Toggle putt tracking for ${player}`"
+                      @click="togglePutts(player)"
+                    >
+                      {{ expandedPutts[player] ? '▲' : '▼' }}
+                    </button>
+                  </div>
                   <div class="cell-hcp">
                     Hcp {{ store.courseHandicaps[player] }} · +{{ store.strokes[player] }}
                   </div>
@@ -185,10 +247,72 @@ function goHome() {
                   {{ store.playerTotals[player].skins > 0 ? store.playerTotals[player].skins : '—' }}
                 </td>
               </tr>
+              <tr v-if="puttPokerEnabled && expandedPutts[player]" class="row-putts">
+                <td class="name-cell putt-label">Putts</td>
+                <td v-for="h in FRONT" :key="`pf-${player}-${h}`" class="putt-cell">
+                  <input
+                    type="number"
+                    inputmode="numeric"
+                    min="0"
+                    max="9"
+                    :class="puttColorClass(store.readPutt(player, h))"
+                    :value="store.readPutt(player, h) ?? ''"
+                    @input="onPuttInput(player, h, ($event.target as HTMLInputElement).value)"
+                    @focus="($event.target as HTMLInputElement).select()"
+                  />
+                </td>
+                <td class="sum-cell out-col putt-sum">{{ dash(puttSum(player, 0, 9)) }}</td>
+                <td v-for="h in BACK" :key="`pb-${player}-${h}`" class="putt-cell">
+                  <input
+                    type="number"
+                    inputmode="numeric"
+                    min="0"
+                    max="9"
+                    :class="puttColorClass(store.readPutt(player, h))"
+                    :value="store.readPutt(player, h) ?? ''"
+                    @input="onPuttInput(player, h, ($event.target as HTMLInputElement).value)"
+                    @focus="($event.target as HTMLInputElement).select()"
+                  />
+                </td>
+                <td class="sum-cell in-col putt-sum">{{ dash(puttSum(player, 9, 18)) }}</td>
+                <td class="sum-cell total-col putt-sum">{{ dash(puttSum(player, 0, 18)) }}</td>
+                <td class="sum-cell"></td>
+                <td class="sum-cell"></td>
+              </tr>
+              </template>
             </template>
           </tbody>
         </table>
       </div>
+
+      <section v-if="puttPokerEnabled" class="sc-puttpoker">
+        <h2 class="sc-section-hdr">Putt Poker</h2>
+        <div class="pp-groups">
+          <div v-for="group in puttGroups" :key="group.name" class="pp-group">
+            <div class="pp-group-hdr">{{ group.name }}</div>
+            <template v-for="result in [store.puttPokerFor(group.players)]" :key="group.name">
+              <div class="pp-coin">
+                Coin:
+                <strong v-if="result.coinHolder">{{ result.coinHolder }}</strong>
+                <em v-else class="pp-coin-none">no 3-putts yet</em>
+              </div>
+              <div class="pp-cards">
+                <div v-for="p in group.players" :key="p" class="pp-player">
+                  <div class="pp-player-name">{{ p }}</div>
+                  <div class="pp-card-count">🃏 × {{ result.cards[p] }}</div>
+                  <div
+                    v-if="puttPenaltyNote(result.threePuttCount[p], result.fourPuttCount[p])"
+                    class="pp-note"
+                  >
+                    {{ puttPenaltyNote(result.threePuttCount[p], result.fourPuttCount[p]) }}
+                  </div>
+                </div>
+              </div>
+              <div class="pp-pot">Pot: <strong>${{ result.pot }}</strong></div>
+            </template>
+          </div>
+        </div>
+      </section>
 
       <section v-if="store.hasBets" class="sc-settlement">
         <h2 class="sc-section-hdr">Settlement</h2>
@@ -307,14 +431,77 @@ function goHome() {
   min-width: 120px;
 }
 
+.name-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
 .cell-pname {
   font-weight: 700;
   color: #283b30;
 }
 
+.putt-toggle {
+  border: none;
+  background: transparent;
+  color: #8a672f;
+  cursor: pointer;
+  font-size: 0.6rem;
+  padding: 2px 4px;
+  line-height: 1;
+}
+
+.putt-toggle:hover {
+  background: #efe3cb;
+  border-radius: 4px;
+}
+
 .cell-hcp {
   color: #8a9489;
   font-size: 0.68rem;
+}
+
+.row-putts td {
+  background: #f3efe2;
+  border-top: none;
+}
+
+.putt-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8a672f;
+}
+
+.putt-cell {
+  padding: 0;
+}
+
+.putt-cell input {
+  width: 30px;
+  border: none;
+  background: transparent;
+  text-align: center;
+  padding: 5px 0;
+  font-weight: 700;
+  color: #9aa49a;
+}
+
+.putt-cell input:focus {
+  outline: 2px solid #c37a32;
+  outline-offset: -2px;
+}
+
+.putt-good { color: #27ae60; }
+.putt-ok { color: #5a6a5f; }
+.putt-bad { color: #c0392b; background: rgb(192 57 43 / 10%); }
+
+.putt-sum {
+  color: #8a9489;
+  font-weight: 600;
 }
 
 .score-cell {
@@ -365,6 +552,7 @@ function goHome() {
 .net-col { color: #2f5d43; }
 .skins-col { color: #8a672f; }
 
+.sc-puttpoker,
 .sc-settlement {
   margin-top: 24px;
   border: 1px solid #d7cebd;
@@ -372,6 +560,71 @@ function goHome() {
   background: #f8f4ea;
   padding: 16px 20px;
 }
+
+.pp-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.pp-group {
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 14px 16px;
+  min-width: 240px;
+}
+
+.pp-group-hdr {
+  font-weight: 700;
+  color: #2f5d43;
+  margin-bottom: 6px;
+}
+
+.pp-coin {
+  font-size: 0.85rem;
+  color: #4a5a4f;
+  margin-bottom: 10px;
+}
+
+.pp-coin strong { color: #8a672f; }
+.pp-coin-none { color: #9aa49a; font-size: 0.78rem; }
+
+.pp-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pp-player {
+  text-align: center;
+  min-width: 56px;
+}
+
+.pp-player-name {
+  font-weight: 700;
+  color: #283b30;
+  font-size: 0.82rem;
+}
+
+.pp-card-count {
+  font-size: 0.82rem;
+  color: #4a5a4f;
+}
+
+.pp-note {
+  font-size: 0.62rem;
+  color: #c0392b;
+  margin-top: 2px;
+}
+
+.pp-pot {
+  margin-top: 12px;
+  font-size: 0.9rem;
+  color: #24362c;
+}
+
+.pp-pot strong { color: #2f5d43; }
 
 .sc-section-hdr {
   margin: 0 0 12px;
