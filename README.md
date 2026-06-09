@@ -571,8 +571,13 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   neutral for 2, red for 3+), and a putt poker panel renders per playing group
   with coin holder, card counts, penalty notes, and the running pot — all read
   from `store.puttPokerFor`.
-- Not yet ported from the legacy scorecard: playing-group filtering and the
-  mobile hole-by-hole entry mode.
+- A **group filter bar** appears when the round has more than one playing group.
+  Clicking a group name limits the main table to that group's players; "All"
+  restores the full view. The filter also constrains the mobile player list.
+- A **Mobile mode** toggle swaps the 18-column table for a per-hole card:
+  hole number/par/SI header, per-player score and putt steppers (−/input/+),
+  and an 18-button hole strip for quick navigation. The current hole is persisted
+  to `dmi_mobile_hole_<roundId|local>` in localStorage.
 
 ### Setup Screen (rewrite)
 
@@ -606,6 +611,11 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   keeps the existing local-only behavior.
 - Manual course entry remains available when Supabase is unconfigured or course
   search fails.
+- A **Playing Groups** section previews the auto-assigned groups (derived from
+  pair-match pairings when Pair Match Play is enabled, otherwise interleaved
+  team order) and allows renaming each group before the round starts. Group names
+  and assignments are written into `round.playingGroups` and drive the scorecard
+  group filter and putt poker per-group panel.
 
 ### Results Screen (rewrite)
 
