@@ -2106,3 +2106,58 @@ primary app for event day.
   points / pair-match editing per round.
 - Legacy cleanup: once the rewrite is confirmed primary on event day, archive
   or redirect `legacy/index.html` and the GitHub Pages main-branch URL.
+
+---
+
+## Checkpoint 41 — Event config editor (2026-06-09)
+
+### Summary
+
+Added inline event config editor to the group hub. Users can now edit the
+event name, team names, team rosters, and per-round settings without
+archiving and recreating the event.
+
+### Changes
+
+- **`src/components/EventConfigEditor.vue`** — New component. Receives the
+  active `Event` and the group's `groupPlayers` list. Maintains a local
+  deep-copy draft so edits are staged before save. Sections:
+  - Event name and team names (text inputs).
+  - Team rosters — each player on the left or right team has a → / ← button
+    to move them across. Moving a player purges them from any pair-match
+    slots in all rounds and recomputes playing groups.
+  - Per-round accordion — one collapsible card per round. Fields: name,
+    format (all five formats selectable), points (front/back/total, hidden
+    for `twoManBestBallAggy` which uses its own 36-pt model), pair match
+    builder (add/remove matches, two player slots per side via dropdowns,
+    scoped to the correct team), skins (toggle + pot + gross/net), and putt
+    poker (toggle + buy-in).
+  - Save / Cancel actions. Save runs `normalizeEventConfig` on the draft
+    before emitting, ensuring pair matches are valid for the current rosters.
+
+- **`src/components/screens/GroupScreen.vue`** — Wired the editor:
+  - Added `editingEvent` and `savingEvent` refs.
+  - Event header now has an **Edit** button alongside Archive. Clicking
+    toggles `editingEvent`; Cancel also clears it.
+  - `EventConfigEditor` renders inline (below the header) when
+    `editingEvent` is true.
+  - The team roster display, standings, and round breakdown cards are hidden
+    while the editor is open (no visual overlap).
+  - `saveEventConfig(config, name)` mutates `eventStore.event` in place and
+    calls `eventStore.saveEvent()`, then closes the editor.
+  - Added `event-header-actions` CSS for the two-button header layout.
+
+### Verification
+
+- `node scripts/event-format-tests.js` passed.
+- `npm run test:run` passed: 32 files, 267 tests.
+- `npm run build` passed (vue-tsc clean).
+- Dev server loaded with no console errors.
+
+### Next likely tasks
+
+- Test the editor end-to-end on Vercel with a live event.
+- Event config editor: bet amounts (bestBallBet / scrambleBet) per round —
+  currently not exposed in the editor.
+- Manual winPoints override field if event organizer wants to set a custom
+  win threshold.

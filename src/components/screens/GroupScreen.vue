@@ -10,6 +10,8 @@ import { useEventStore } from '@/stores/event';
 import { useRoundStore } from '@/stores/round';
 import { eventFormatLabel } from '@/domain/events';
 import { useEventLeaderboard } from '@/composables/useEventLeaderboard';
+import EventConfigEditor from '@/components/EventConfigEditor.vue';
+import type { EventConfig } from '@/types/event';
 
 const store = useGroupStore();
 const history = useHistoryStore();
@@ -29,6 +31,8 @@ const newName = ref('');
 const joinCode = ref('');
 const newEventName = ref('');
 const renameValue = ref('');
+const editingEvent = ref(false);
+const savingEvent = ref(false);
 const online = hasSupabase();
 const rosterName = ref('');
 const rosterHandicapIndex = ref<number | string>('');
@@ -146,6 +150,16 @@ async function archiveEvent() {
   await eventStore.archiveEvent();
 }
 
+async function saveEventConfig(config: EventConfig, name: string) {
+  if (!eventStore.event) return;
+  savingEvent.value = true;
+  eventStore.event.name = name;
+  eventStore.event.config = config;
+  await eventStore.saveEvent();
+  savingEvent.value = false;
+  editingEvent.value = false;
+}
+
 function launchEventRound(roundIndex: number) {
   eventStore.setPendingRoundLink(roundIndex);
   void router.push('/setup');
@@ -228,11 +242,25 @@ function goHome() {
           <template v-if="eventStore.event">
             <div class="event-header">
               <div class="event-name">{{ eventStore.event.name }}</div>
-              <button class="btn-ghost sm danger" type="button" @click="archiveEvent">Archive</button>
+              <div class="event-header-actions">
+                <button class="btn-ghost sm" type="button" @click="editingEvent = !editingEvent">
+                  {{ editingEvent ? 'Cancel' : 'Edit' }}
+                </button>
+                <button class="btn-ghost sm danger" type="button" @click="archiveEvent">Archive</button>
+              </div>
             </div>
 
-            <!-- Team rosters -->
-            <div class="event-teams">
+            <!-- Inline config editor -->
+            <EventConfigEditor
+              v-if="editingEvent"
+              :event="eventStore.event"
+              :group-players="rosterPlayers.map(p => p.name)"
+              @save="saveEventConfig"
+              @cancel="editingEvent = false"
+            />
+
+            <!-- Team rosters (hidden while editing) -->
+            <div v-if="!editingEvent" class="event-teams">
               <div class="event-team">
                 <div class="event-team-name">{{ leaderboard.team1Name }}</div>
                 <div class="event-team-players">{{ eventStore.event.config.team1.join(', ') || '—' }}</div>
@@ -244,84 +272,86 @@ function goHome() {
               </div>
             </div>
 
-            <!-- Live standings -->
-            <div class="event-standings">
-              <span class="event-score" :class="{ leading: leaderboard.team1Total > leaderboard.team2Total }">
-                {{ leaderboard.team1Total }}
-              </span>
-              <span class="event-score-sep">–</span>
-              <span class="event-score" :class="{ leading: leaderboard.team2Total > leaderboard.team1Total }">
-                {{ leaderboard.team2Total }}
-              </span>
-              <span class="event-score-label">({{ leaderboard.winPoints }} to win)</span>
-            </div>
-
-            <!-- Per-round breakdown -->
-            <div class="event-rounds">
-              <div
-                v-for="r in leaderboard.rounds"
-                :key="r.roundIndex"
-                class="event-round-card"
-              >
-                <div class="event-round-hdr">
-                  <div>
-                    <div class="event-round-name">{{ r.result.round.name }}</div>
-                    <div class="event-round-meta">{{ eventFormatLabel(r.result.round.format) }}</div>
-                  </div>
-                  <div class="event-round-actions">
-                    <div v-if="r.hasData" class="event-round-pts">
-                      {{ r.result.team1 }} – {{ r.result.team2 }} pts
-                    </div>
-                    <button
-                      v-if="!eventStore.roundsWithStatus[r.roundIndex]?.linked"
-                      class="btn-ghost sm"
-                      type="button"
-                      @click="launchEventRound(r.roundIndex)"
-                    >
-                      Launch
-                    </button>
-                    <span v-else-if="!r.hasData" class="event-round-linked">Linked</span>
-                  </div>
-                </div>
-
-                <!-- Match rows when data is present -->
-                <template v-if="r.hasData && r.result.rows.length">
-                  <table class="event-match-table">
-                    <thead>
-                      <tr>
-                        <th>Match</th>
-                        <th>{{ leaderboard.team1Name }}</th>
-                        <th>{{ leaderboard.team2Name }}</th>
-                        <th v-for="comp in r.result.rows[0].components" :key="comp.label">{{ comp.label }}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="row in r.result.rows" :key="row.label">
-                        <td>{{ row.label }}</td>
-                        <td>{{ row.aPlayers.join(', ') }}</td>
-                        <td>{{ row.bPlayers.join(', ') }}</td>
-                        <td
-                          v-for="comp in row.components"
-                          :key="comp.label"
-                          :class="{
-                            'winner-a': comp.winner === 'team1',
-                            'winner-b': comp.winner === 'team2',
-                            'winner-tie': comp.winner === 'tie',
-                          }"
-                        >
-                          <template v-if="comp.winner === 'open'">—</template>
-                          <template v-else-if="comp.winner === 'tie'">Tie</template>
-                          <template v-else>{{ comp.winner === 'team1' ? leaderboard.team1Name : leaderboard.team2Name }}</template>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </template>
-                <p v-else-if="!r.hasData" class="hint">No scores yet.</p>
+            <template v-if="!editingEvent">
+              <!-- Live standings -->
+              <div class="event-standings">
+                <span class="event-score" :class="{ leading: leaderboard.team1Total > leaderboard.team2Total }">
+                  {{ leaderboard.team1Total }}
+                </span>
+                <span class="event-score-sep">–</span>
+                <span class="event-score" :class="{ leading: leaderboard.team2Total > leaderboard.team1Total }">
+                  {{ leaderboard.team2Total }}
+                </span>
+                <span class="event-score-label">({{ leaderboard.winPoints }} to win)</span>
               </div>
-            </div>
 
-            <p v-if="eventStore.error" class="status error">{{ eventStore.error }}</p>
+              <!-- Per-round breakdown -->
+              <div class="event-rounds">
+                <div
+                  v-for="r in leaderboard.rounds"
+                  :key="r.roundIndex"
+                  class="event-round-card"
+                >
+                  <div class="event-round-hdr">
+                    <div>
+                      <div class="event-round-name">{{ r.result.round.name }}</div>
+                      <div class="event-round-meta">{{ eventFormatLabel(r.result.round.format) }}</div>
+                    </div>
+                    <div class="event-round-actions">
+                      <div v-if="r.hasData" class="event-round-pts">
+                        {{ r.result.team1 }} – {{ r.result.team2 }} pts
+                      </div>
+                      <button
+                        v-if="!eventStore.roundsWithStatus[r.roundIndex]?.linked"
+                        class="btn-ghost sm"
+                        type="button"
+                        @click="launchEventRound(r.roundIndex)"
+                      >
+                        Launch
+                      </button>
+                      <span v-else-if="!r.hasData" class="event-round-linked">Linked</span>
+                    </div>
+                  </div>
+
+                  <!-- Match rows when data is present -->
+                  <template v-if="r.hasData && r.result.rows.length">
+                    <table class="event-match-table">
+                      <thead>
+                        <tr>
+                          <th>Match</th>
+                          <th>{{ leaderboard.team1Name }}</th>
+                          <th>{{ leaderboard.team2Name }}</th>
+                          <th v-for="comp in r.result.rows[0].components" :key="comp.label">{{ comp.label }}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="row in r.result.rows" :key="row.label">
+                          <td>{{ row.label }}</td>
+                          <td>{{ row.aPlayers.join(', ') }}</td>
+                          <td>{{ row.bPlayers.join(', ') }}</td>
+                          <td
+                            v-for="comp in row.components"
+                            :key="comp.label"
+                            :class="{
+                              'winner-a': comp.winner === 'team1',
+                              'winner-b': comp.winner === 'team2',
+                              'winner-tie': comp.winner === 'tie',
+                            }"
+                          >
+                            <template v-if="comp.winner === 'open'">—</template>
+                            <template v-else-if="comp.winner === 'tie'">Tie</template>
+                            <template v-else>{{ comp.winner === 'team1' ? leaderboard.team1Name : leaderboard.team2Name }}</template>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </template>
+                  <p v-else-if="!r.hasData" class="hint">No scores yet.</p>
+                </div>
+              </div>
+
+              <p v-if="eventStore.error" class="status error">{{ eventStore.error }}</p>
+            </template>
           </template>
 
           <!-- No active event -->
@@ -672,6 +702,12 @@ function goHome() {
   justify-content: space-between;
   gap: 12px;
   margin-top: 6px;
+}
+
+.event-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .event-name {
