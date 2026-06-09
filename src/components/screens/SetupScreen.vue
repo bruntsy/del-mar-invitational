@@ -71,12 +71,57 @@ const canSearchCourses = computed(() => form.courseQuery.trim().length >= 3 && !
 function prefillPlayersFromGroup() {
   const players = sortedGroupPlayers(group.group?.players);
   if (!players.length) return;
+
+  // When launched from an event round, use the event's team assignments.
+  const pendingIndex = event.pendingRoundLink?.roundIndex;
+  const eventConfig = event.event?.config;
+  const roundConfig = pendingIndex != null ? eventConfig?.rounds[pendingIndex] : null;
+
+  if (eventConfig && roundConfig) {
+    const hcpMap = Object.fromEntries(players.map((p) => [p.name, p.handicapIndex]));
+    form.teamNames.team1 = eventConfig.teamNames.team1;
+    form.teamNames.team2 = eventConfig.teamNames.team2;
+    form.players = [
+      ...eventConfig.team1.map((name) => ({ name, handicapIndex: hcpMap[name] ?? '', team: 'team1' as const })),
+      ...eventConfig.team2.map((name) => ({ name, handicapIndex: hcpMap[name] ?? '', team: 'team2' as const })),
+    ];
+    form.pairMatches = structuredClone(roundConfig.pairMatches ?? []);
+    form.playingGroupNames = (roundConfig.playingGroups ?? []).map((g) => g.name);
+    applyEventGames(roundConfig);
+    return;
+  }
+
+  // Default: split roster evenly across teams.
   const split = Math.ceil(players.length / 2);
   form.players = players.map((player, index) => ({
     name: player.name,
     handicapIndex: player.handicapIndex,
     team: index < split ? 'team1' : 'team2',
   }));
+}
+
+function applyEventGames(roundConfig: import('@/types/event').EventRoundConfig) {
+  const g = cloneDefaultGames();
+  const { format, bestBallBet, scrambleBet, skins: sk, puttPoker: pp } = roundConfig;
+
+  if (format === 'bestBallNassau') {
+    g.bestBall = { enabled: true, front: bestBallBet.front, back: bestBallBet.back, total: bestBallBet.total, balls: 1, type: bestBallBet.type };
+    g.pairMatch = { enabled: true, pointsPerHole: 1, type: 'net' };
+  } else if (format === 'twoManBestBallAggy') {
+    g.bestBall = { enabled: true, front: bestBallBet.front, back: bestBallBet.back, total: bestBallBet.total, balls: 1, type: bestBallBet.type };
+    g.aggy = { enabled: true, front: 0, back: 0, total: 0, type: 'net' };
+    g.pairMatch = { enabled: true, pointsPerHole: 1, type: 'net' };
+  } else if (format === 'scramble2v2Nassau') {
+    g.scramble4 = { enabled: true, front: scrambleBet.front, back: scrambleBet.back, total: scrambleBet.total, type: scrambleBet.type };
+    g.pairMatch = { enabled: true, pointsPerHole: 1, type: 'gross' };
+  } else if (format === 'fourManScramble') {
+    g.scramble4 = { enabled: true, front: scrambleBet.front, back: scrambleBet.back, total: scrambleBet.total, type: scrambleBet.type };
+  }
+
+  if (sk.enabled) g.skins = { enabled: true, pot: sk.pot, type: sk.type, carry: false };
+  if (pp.enabled) g.puttPoker = { enabled: true, pot: pp.pot };
+
+  form.games = g;
 }
 
 function courseLabel(course: CourseSearchResult) {
