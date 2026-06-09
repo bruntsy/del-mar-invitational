@@ -1,7 +1,7 @@
 import { createPinia, setActivePinia } from 'pinia';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { scoreAt } from '@/scoring/cells';
-import type { RoundState, ScoreMatrix } from '@/types';
+import type { PlayerMap, RoundState, ScoreMatrix } from '@/types';
 import { createMockSupabase } from '../helpers/mockSupabase';
 
 const mockDb = createMockSupabase();
@@ -16,7 +16,12 @@ vi.mock('@/services/supabase', () => ({
 
 const { emptyRound, useRoundStore } = await import('@/stores/round');
 
-function activeRoundRow(state: Partial<RoundState> = {}) {
+const players: PlayerMap = {
+  Amy: { name: 'Amy', handicapIndex: 7 },
+  Bo: { name: 'Bo', handicapIndex: 12 },
+};
+
+function activeRoundRow(state: Partial<RoundState> & { players?: PlayerMap } = {}) {
   return {
     id: 'r1',
     group_id: 'g1',
@@ -29,6 +34,15 @@ function activeRoundRow(state: Partial<RoundState> = {}) {
       team2: ['Bo'],
       ...state,
     } as RoundState,
+  };
+}
+
+function draftRound(state: Partial<RoundState> = {}): RoundState {
+  return {
+    ...emptyRound(),
+    team1: ['Amy'],
+    team2: ['Bo'],
+    ...state,
   };
 }
 
@@ -45,6 +59,41 @@ afterEach(() => {
 });
 
 describe('round realtime sync', () => {
+  it('inserts a Supabase round when starting inside an online group', async () => {
+    mockDb.set('rounds', { data: activeRoundRow({ players }), error: null });
+    const store = useRoundStore();
+
+    await store.startRound(draftRound(), players, 'g1');
+
+    expect(store.round?.id).toBe('r1');
+    expect(store.round?.groupId).toBe('g1');
+    expect(store.players).toEqual(players);
+    expect(mockDb.operations.find((op) => op.table === 'rounds' && op.method === 'insert')).toBeTruthy();
+    expect(mockDb.hasChannel('group-g1')).toBe(true);
+  });
+
+  it('starts locally when online round insert fails', async () => {
+    mockDb.set('rounds', { data: null, error: { message: 'insert failed' } });
+    const store = useRoundStore();
+
+    await store.startRound(draftRound(), players, 'g1');
+
+    expect(store.round?.id).toBeNull();
+    expect(store.round?.groupId).toBe('g1');
+    expect(store.players).toEqual(players);
+    expect(store.syncError).toContain('Started locally');
+  });
+
+  it('starts locally without Supabase when there is no online group id', async () => {
+    const store = useRoundStore();
+
+    await store.startRound(draftRound(), players, null);
+
+    expect(store.round?.id).toBeNull();
+    expect(store.round?.groupId).toBeNull();
+    expect(mockDb.operations.find((op) => op.table === 'rounds' && op.method === 'insert')).toBeFalsy();
+  });
+
   it('debounces local score writes into a Supabase round update', async () => {
     vi.useFakeTimers();
     mockDb.set('rounds', { data: activeRoundRow(), error: null });

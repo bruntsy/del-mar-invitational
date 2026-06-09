@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { cloneDefaultGames, normalizeGames } from '@/domain/games';
+import { generateCode } from '@/domain/group';
 import { groupPlayerByName } from '@/domain/players';
 import {
   ACTIVE_ROUND_COLUMNS,
@@ -255,6 +256,7 @@ export const useRoundStore = defineStore('round', {
     pollTimer: null as ReturnType<typeof setInterval> | null,
     lastPushed: '',
     syncError: '',
+    starting: false,
   }),
 
   getters: {
@@ -784,6 +786,42 @@ export const useRoundStore = defineStore('round', {
       this.players = players ?? this.players ?? {};
       this.round = normalizeRoundState(round);
       this.persist();
+    },
+
+    async startRound(round: RoundState, players: PlayerMap, groupId: string | null = null): Promise<RoundState> {
+      const localRound = normalizeRoundState({
+        ...round,
+        groupId: groupId ?? round.groupId ?? null,
+        completed: false,
+      });
+      this.starting = true;
+      this.syncError = '';
+      try {
+        if (!groupId || !hasSupabase() || !supabase) {
+          this.setRound(localRound, players);
+          return this.round as RoundState;
+        }
+
+        const state = roundForDb(localRound, players);
+        const { data, error } = await supabase
+          .from('rounds')
+          .insert({ group_id: groupId, code: generateCode(), state, completed: false })
+          .select(ACTIVE_ROUND_COLUMNS)
+          .single();
+
+        if (error || !data) {
+          this.syncError = 'Could not create an online round. Started locally instead.';
+          this.setRound(localRound, players);
+          return this.round as RoundState;
+        }
+
+        const { round: createdRound, players: embeddedPlayers } = normalizeRoundRow(data as RoundRow);
+        this.setRound(createdRound, { ...players, ...embeddedPlayers });
+        this.subscribeToGroup(groupId);
+        return this.round as RoundState;
+      } finally {
+        this.starting = false;
+      }
     },
 
     setPlayers(players: PlayerMap) {

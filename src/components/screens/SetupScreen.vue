@@ -3,10 +3,12 @@ import { computed, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import { cloneDefaultGames, normalizeGames } from '@/domain/games';
 import { ensurePairMatches } from '@/scoring/pairMatch';
+import { useGroupStore } from '@/stores/group';
 import { emptyRound, useRoundStore } from '@/stores/round';
 import type { Course, GameConfig, PairMatch, PlayerMap, RoundState } from '@/types';
 
 const store = useRoundStore();
+const group = useGroupStore();
 const router = useRouter();
 
 const HOLES = Array.from({ length: 18 }, (_, hole) => hole);
@@ -133,10 +135,10 @@ function buildRound(): { round: RoundState; players: PlayerMap } {
   return { round, players };
 }
 
-function startRound() {
+async function startRound() {
   if (!canStart.value) return;
   const { round, players } = buildRound();
-  store.setRound(round, players);
+  await store.startRound(round, players, group.group?.id ?? null);
   void router.push('/scorecard');
 }
 
@@ -350,7 +352,10 @@ function goHome() {
     </ul>
 
     <div class="setup-actions">
-      <button class="btn-primary" type="button" :disabled="!canStart" @click="startRound">Start round →</button>
+      <p v-if="store.syncError" class="sync-error">{{ store.syncError }}</p>
+      <button class="btn-primary" type="button" :disabled="!canStart || store.starting" @click="startRound">
+        {{ store.starting ? 'Starting...' : 'Start round →' }}
+      </button>
     </div>
   </main>
 </template>
@@ -574,7 +579,17 @@ label {
 
 .setup-actions {
   display: flex;
+  align-items: center;
+  gap: 12px;
   justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.sync-error {
+  margin: 0;
+  color: #b4473a;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 .btn-primary,

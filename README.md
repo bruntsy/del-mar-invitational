@@ -586,7 +586,11 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 - "Start round" validates (par present, both teams populated, unique names),
   builds the `RoundState` + player handicap map, generates head-to-head matchups
   by zipping `team1[i]` vs `team2[i]` (as legacy did), writes through
-  `store.setRound`, and routes to the scorecard.
+  `store.startRound`, and routes to the scorecard.
+- When an online Supabase-backed group is active, `store.startRound` inserts a
+  `rounds` row and keeps the returned DB id on the active round so realtime sync
+  can push score edits. Without a remote group id or Supabase credentials, setup
+  keeps the existing local-only behavior.
 - Not yet included: Supabase course search; course par/SI are entered manually.
 
 ### Results Screen (rewrite)
@@ -653,6 +657,10 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 - `src/stores/round.ts` owns the sync lifecycle: local edits still persist to
   `localStorage` immediately, then `scheduleSync()` debounces `pushToSupabase()`
   by about 600ms for active rounds that have a DB id.
+- `startRound(round, players, groupId)` inserts a new `rounds` row when a
+  Supabase-backed group is active, then normalizes the returned row into the
+  active store state. Insert failures fall back to a local round with a visible
+  sync error.
 - `pushToSupabase()` first reads the current `rounds` row, merges any remote
   non-null score/putt/team-score cells, then updates `rounds.state` and
   `rounds.completed`.

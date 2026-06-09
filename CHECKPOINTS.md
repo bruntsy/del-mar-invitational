@@ -1541,22 +1541,69 @@ Verification:
 Next: create remote `rounds` rows from the rewrite setup flow, or continue with
 Supabase course search / all-time Stats depending on priority.
 
-## Current Handoff: Realtime Sync Complete
+## Checkpoint 31: Remote Round Creation
+
+Goal: make rounds started from the rewrite setup flow participate in Checkpoint
+30 realtime sync by inserting a Supabase `rounds` row whenever an online group
+is active.
+
+What changed:
+
+- `src/stores/round.ts`: added `startRound(round, players, groupId)`. It
+  normalizes the draft round, preserves local-only behavior with no group id or
+  no Supabase credentials, and otherwise inserts a `rounds` row with
+  `group_id`, generated `code`, embedded `roundForDb()` state, and
+  `completed=false`.
+- `src/stores/round.ts`: on insert success, the returned row is mapped through
+  `normalizeRoundRow()` and becomes the active round, preserving the returned DB
+  id/group id so later score writes sync. The store also subscribes to the group
+  channel after creation.
+- `src/stores/round.ts`: on insert failure, setup falls back to a local round
+  and records `syncError` rather than blocking the player from starting.
+- `src/components/screens/SetupScreen.vue`: "Start round" now calls
+  `store.startRound(..., group.group?.id)` and shows the non-blocking sync error
+  if online insert fails.
+- `tests/stores/sync.test.ts`: added coverage for online insert success,
+  insert-failure local fallback, and no-group local-only start.
+- `README.md`: updated setup/realtime docs to describe online row creation.
+
+Deliberately out of scope: Supabase course search and group roster persistence.
+Course search is the next priority because searched tee data supplies the
+round-specific rating/slope/par/SI inputs that drive course handicaps and stroke
+allocation on the correct holes.
+
+Verification:
+
+- Targeted: `npm run test:run -- tests/stores/sync.test.ts tests/screens/setup.test.ts tests/stores/round.test.ts` passed, 35 tests.
+- `node scripts/event-format-tests.js`: passed.
+- `npm run test:run`: passed, 26 files, 190 tests (+3 tests over Checkpoint 30).
+- `npm run build`: passed (`vue-tsc` clean).
+- No live Supabase insert/browser QA performed against the shared production
+  project; online creation is covered by the mocked Supabase tests.
+
+Next: Supabase course search in rewrite setup. Use the existing public
+`course-search` Edge Function so selecting a course/tee populates tee rating,
+slope, par, SI/stroke index, yardages, and display metadata; this is required
+for accurate WHS course handicap calculation and net strokes on the right holes.
+
+## Current Handoff: Remote Round Creation Complete
 
 Date: 2026-06-08
 
 Branch:
 
 - `rewrite`
-- Latest commit: pending Checkpoint 30 commit.
-- Worktree status at handoff: dirty until Checkpoint 30 is committed and pushed.
+- Latest commit: Add remote round creation (Checkpoint 31).
+- Worktree status at handoff: clean after pushing Checkpoint 31, except for the
+  pre-existing untracked `.claude/` folder.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
   branch create deployments.
 
 Most recent verification:
 
 - `node scripts/event-format-tests.js`: passed.
-- `npm run test:run`: passed, 26 files, 187 tests.
+- `npm run test:run`: passed, 26 files, 190 tests.
+- Targeted Checkpoint 31 tests: `npm run test:run -- tests/stores/sync.test.ts tests/screens/setup.test.ts tests/stores/round.test.ts` passed, 35 tests.
 - `npm run build`: passed (vue-tsc clean).
 - Browser QA:
   - Checkpoint 22 pair-match browser QA passed.
@@ -1569,6 +1616,8 @@ Most recent verification:
     errors, history section correctly hidden without an active group.
   - Checkpoint 30 did not exercise live DB/browser write flows; realtime and
     push behavior are covered by mocked store/domain tests.
+  - Checkpoint 31 did not exercise live DB/browser insert flows; online round
+    creation is covered by mocked Supabase store tests.
   - Create/Join and history load not exercised against the live DB; covered by
     mocked store/domain tests.
   - All panels are covered by focused store and screen tests.
@@ -1610,17 +1659,21 @@ Current implementation state:
   merges remote rows before updating Supabase, subscribes to group `rounds`
   changes, ignores local echoes, and keeps a 10-second polling fallback;
   `src/stores/group.ts` starts/stops subscriptions on group create/join/leave.
-  The current rewrite setup still creates local-only rounds, so remote sync only
-  runs for active rounds with DB ids.
+- Remote round creation is wired (Checkpoint 31): rewrite setup calls
+  `round.startRound(round, players, groupId)`, which inserts a `rounds` row for
+  online groups, normalizes the returned row into the store so it has a DB id,
+  and falls back to local-only with a visible sync error if the insert fails.
 - The old monolith remains available as the parity oracle at
   `legacy/index.html`.
 
-The next task should likely begin with remote round creation from setup:
+The next task should begin with Supabase course search in rewrite setup:
 
-- Insert `rounds` rows when starting a rewrite round inside an online group, so
-  locally created rewrite rounds can participate in Checkpoint 30 realtime sync.
-- Alternatively, move to Supabase course search or all-time Stats if those are
-  higher priority.
+- Wire the existing public `course-search` Edge Function into
+  `SetupScreen.vue`.
+- Selecting a course/tee should populate club/course/location, tee name,
+  rating, slope, par, SI/stroke index, and yardage arrays.
+- This matters because WHS course handicap uses rating/slope/par, and net
+  strokes must land on the correct stroke-index holes.
 - Keep using `hasSupabase()` guards; fall back gracefully offline.
 - Keep reusing store getters; do not recompute scoring in components.
 - After each step, run:
