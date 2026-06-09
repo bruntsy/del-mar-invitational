@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, reactive } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { courseFromSearchTee, selectableCourseTees, type CourseSearchResult, type CourseSearchTee } from '@/domain/courseSearch';
 import { cloneDefaultGames, normalizeGames } from '@/domain/games';
 import { ensurePairMatches } from '@/scoring/pairMatch';
+import { searchCourses } from '@/services/courseSearch';
 import { useGroupStore } from '@/stores/group';
 import { emptyRound, useRoundStore } from '@/stores/round';
 import type { Course, GameConfig, PairMatch, PlayerMap, RoundState } from '@/types';
@@ -14,6 +16,7 @@ const router = useRouter();
 const HOLES = Array.from({ length: 18 }, (_, hole) => hole);
 const DEFAULT_PAR = [4, 5, 3, 4, 4, 3, 5, 4, 4, 4, 4, 3, 5, 4, 4, 3, 5, 4];
 const DEFAULT_SI = [7, 1, 15, 5, 11, 17, 3, 9, 13, 8, 2, 16, 4, 12, 10, 18, 6, 14];
+const DEFAULT_YDS = Array.from({ length: 18 }, () => 0);
 
 interface PlayerRow {
   name: string;
@@ -22,14 +25,19 @@ interface PlayerRow {
 }
 
 const form = reactive({
+  courseQuery: '',
+  courseId: '',
   clubName: '',
   courseName: '',
   location: '',
   teeName: 'Blue',
+  teeGender: '',
+  teeYards: 0,
   rating: 72,
   slope: 113,
   par: [...DEFAULT_PAR],
   si: [...DEFAULT_SI],
+  yds: [...DEFAULT_YDS],
   teamNames: { team1: 'Team 1', team2: 'Team 2' },
   players: [
     { name: '', handicapIndex: '', team: 'team1' },
@@ -40,6 +48,85 @@ const form = reactive({
   games: cloneDefaultGames() as GameConfig,
   pairMatches: [] as PairMatch[],
 });
+
+const courseResults = ref<CourseSearchResult[]>([]);
+const selectedCourse = ref<CourseSearchResult | null>(null);
+const selectedTeeKey = ref('');
+const courseSearching = ref(false);
+const courseSearchError = ref('');
+
+const canSearchCourses = computed(() => form.courseQuery.trim().length >= 3 && !courseSearching.value);
+
+function courseLabel(course: CourseSearchResult) {
+  return course.clubName || course.courseName || 'Course';
+}
+
+function courseSubLabel(course: CourseSearchResult) {
+  return [course.courseName && course.courseName !== course.clubName ? course.courseName : '', course.location]
+    .filter(Boolean)
+    .join(' - ');
+}
+
+function teeLabel(tee: CourseSearchTee) {
+  return [
+    tee.gender || '',
+    tee.yards ? `${Number(tee.yards).toLocaleString()} yds` : '',
+    tee.rating ? `Rating ${tee.rating}` : '',
+    tee.slope ? `Slope ${tee.slope}` : '',
+  ].filter(Boolean).join(' / ');
+}
+
+function courseTeeKey(tee: CourseSearchTee) {
+  return `${tee.name || 'Tee'}-${tee.gender || ''}-${tee.yards || 0}`;
+}
+
+async function runCourseSearch() {
+  if (form.courseQuery.trim().length < 3) {
+    courseSearchError.value = 'Enter at least 3 characters.';
+    courseResults.value = [];
+    selectedCourse.value = null;
+    return;
+  }
+
+  courseSearching.value = true;
+  courseSearchError.value = '';
+  selectedCourse.value = null;
+  selectedTeeKey.value = '';
+  try {
+    courseResults.value = await searchCourses(form.courseQuery);
+    if (!courseResults.value.length) courseSearchError.value = 'No courses found.';
+  } catch (error) {
+    courseResults.value = [];
+    courseSearchError.value = error instanceof Error ? error.message : 'Course search failed.';
+  } finally {
+    courseSearching.value = false;
+  }
+}
+
+function chooseCourse(course: CourseSearchResult) {
+  selectedCourse.value = course;
+  selectedTeeKey.value = '';
+  courseSearchError.value = selectableCourseTees(course).length ? '' : 'No 18-hole tees returned for this course.';
+}
+
+function applyCourse(course: CourseSearchResult, tee: CourseSearchTee) {
+  const selected = courseFromSearchTee(course, tee);
+  form.courseId = selected.id || '';
+  form.clubName = selected.clubName || '';
+  form.courseName = selected.courseName || '';
+  form.location = selected.location || '';
+  form.teeName = selected.tee.name;
+  form.teeGender = selected.tee.gender || '';
+  form.teeYards = selected.tee.yards || 0;
+  form.rating = selected.tee.rating;
+  form.slope = selected.tee.slope;
+  form.par = [...selected.par];
+  form.si = [...selected.si];
+  form.yds = [...selected.yds];
+  selectedCourse.value = course;
+  selectedTeeKey.value = courseTeeKey(tee);
+  courseSearchError.value = '';
+}
 
 function addPlayer() {
   const team = form.players.filter((p) => p.team === 'team1').length <= form.players.filter((p) => p.team === 'team2').length
@@ -97,18 +184,21 @@ function setPairMatchPlayer(matchIndex: number, side: 'a' | 'b', slot: number, p
 
 function buildRound(): { round: RoundState; players: PlayerMap } {
   const course: Course = {
+    id: form.courseId || undefined,
     clubName: form.clubName.trim() || undefined,
     courseName: form.courseName.trim() || 'Course',
     location: form.location.trim() || undefined,
     tee: {
       name: form.teeName.trim() || 'Tee',
+      gender: form.teeGender || undefined,
       rating: Number(form.rating) || 72,
       slope: Number(form.slope) || 113,
       parTotal: form.par.reduce((a, b) => a + Number(b || 0), 0),
+      yards: Number(form.teeYards) || form.yds.reduce((a, b) => a + Number(b || 0), 0),
     },
     par: form.par.map((value) => Number(value) || 0),
     si: form.si.map((value) => Number(value) || 0),
-    yds: form.par.map(() => 0),
+    yds: form.yds.map((value) => Number(value) || 0),
   };
 
   const players: PlayerMap = {};
@@ -159,6 +249,47 @@ function goHome() {
 
     <section class="setup-card">
       <h2 class="setup-hdr">Course</h2>
+      <div class="course-search">
+        <input
+          v-model="form.courseQuery"
+          class="form-input course-search-input"
+          type="search"
+          placeholder="Search course name"
+          @keydown.enter.prevent="runCourseSearch"
+        />
+        <button class="btn-ghost course-search-btn" type="button" :disabled="!canSearchCourses" @click="runCourseSearch">
+          {{ courseSearching ? 'Searching...' : 'Search' }}
+        </button>
+      </div>
+
+      <div v-if="courseResults.length" class="course-results">
+        <button v-for="course in courseResults" :key="course.id || courseLabel(course)" class="course-result" type="button" @click="chooseCourse(course)">
+          <span>
+            <strong>{{ courseLabel(course) }}</strong>
+            <small>{{ courseSubLabel(course) }}</small>
+          </span>
+          <span class="course-result-meta">{{ selectableCourseTees(course).length }} tees</span>
+        </button>
+      </div>
+
+      <div v-if="selectedCourse" class="tee-results">
+        <button
+          v-for="tee in selectableCourseTees(selectedCourse)"
+          :key="courseTeeKey(tee)"
+          class="tee-result"
+          :class="{ selected: selectedTeeKey === courseTeeKey(tee) }"
+          type="button"
+          @click="applyCourse(selectedCourse, tee)"
+        >
+          <span>
+            <strong>{{ tee.name || 'Tee' }}</strong>
+            <small>{{ teeLabel(tee) }}</small>
+          </span>
+        </button>
+      </div>
+
+      <p v-if="courseSearchError" class="course-search-error">{{ courseSearchError }}</p>
+
       <div class="field-grid">
         <label>Club<input v-model="form.clubName" class="form-input" placeholder="Del Mar Country Club" /></label>
         <label>Course<input v-model="form.courseName" class="form-input" placeholder="Championship" /></label>
@@ -195,6 +326,17 @@ function goHome() {
             type="number"
             min="1"
             max="18"
+          />
+        </div>
+        <div class="hole-grid-row">
+          <span class="hole-grid-label">Yds</span>
+          <input
+            v-for="h in HOLES"
+            :key="`yds-${h}`"
+            v-model.number="form.yds[h]"
+            class="hole-input"
+            type="number"
+            min="0"
           />
         </div>
       </div>
@@ -401,6 +543,73 @@ function goHome() {
   margin: 0 0 14px;
   font-size: 1rem;
   color: #2f5d43;
+}
+
+.course-search {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.course-search-input {
+  flex: 1;
+}
+
+.course-search-btn {
+  min-width: 104px;
+  padding: 7px 14px;
+}
+
+.course-results,
+.tee-results {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.course-result,
+.tee-result {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #d7cebd;
+  border-radius: 6px;
+  background: #fdfbf4;
+  padding: 10px 12px;
+  color: #283b30;
+  text-align: left;
+  cursor: pointer;
+}
+
+.course-result:hover,
+.tee-result:hover,
+.tee-result.selected {
+  border-color: #b88a3b;
+  background: #fff8e8;
+}
+
+.course-result small,
+.tee-result small {
+  display: block;
+  margin-top: 2px;
+  color: #6a7a6f;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.course-result-meta {
+  color: #8a672f;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.course-search-error {
+  margin: 0 0 12px;
+  color: #b4473a;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 .field-grid,
@@ -615,5 +824,20 @@ label {
   border: 1px solid #cdbf9f;
   background: transparent;
   color: #4a5a4f;
+}
+
+.btn-ghost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .course-search {
+    flex-direction: column;
+  }
+
+  .course-search-btn {
+    width: 100%;
+  }
 }
 </style>

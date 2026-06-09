@@ -1666,16 +1666,57 @@ Current implementation state:
 - The old monolith remains available as the parity oracle at
   `legacy/index.html`.
 
-The next task should begin with Supabase course search in rewrite setup:
+## Checkpoint 32: Course Search in Rewrite Setup
 
-- Wire the existing public `course-search` Edge Function into
-  `SetupScreen.vue`.
-- Selecting a course/tee should populate club/course/location, tee name,
-  rating, slope, par, SI/stroke index, and yardage arrays.
-- This matters because WHS course handicap uses rating/slope/par, and net
-  strokes must land on the correct stroke-index holes.
-- Keep using `hasSupabase()` guards; fall back gracefully offline.
-- Keep reusing store getters; do not recompute scoring in components.
+Files changed since Checkpoint 31:
+
+- Added `src/domain/courseSearch.ts`.
+- Added `src/services/courseSearch.ts`.
+- Updated `src/components/screens/SetupScreen.vue`.
+- Added `tests/domain/courseSearch.test.ts`.
+- Updated `tests/screens/setup.test.ts`.
+- Updated `README.md` and this file.
+
+What changed:
+
+- Added a typed frontend course-search service that invokes the existing public
+  Supabase `course-search` Edge Function through `supabase.functions.invoke`.
+  It keeps the same local-first posture as the other Supabase code by returning
+  an explicit unavailable error when Supabase credentials are missing.
+- Added a pure course-search mapper that:
+  - accepts the Edge Function's normalized course/tee payload,
+  - filters to usable 18-hole tees with rating and slope,
+  - collapses duplicate men/women tee sets while preferring the men's duplicate
+    when present, matching legacy behavior,
+  - repairs invalid stroke-index arrays to `1..18`, and
+  - maps a selected tee into the rewrite `Course` shape with course id,
+    club/course/location, tee name/gender/rating/slope/par total/yardage,
+    per-hole par, SI, and yardage.
+- Setup now has course search above the manual course fields. Search results
+  show course metadata and tee counts; selecting a course shows usable tees;
+  selecting a tee fills the manual fields and per-hole grids.
+- Manual course entry still works when course search is unavailable, fails, or
+  returns no results.
+- `buildRound()` now preserves selected course id, tee gender, tee total yards,
+  and per-hole yardages so round-state handicap/stroke getters receive the
+  searched course data.
+
+Verification:
+
+- `npm run test:run -- tests/domain/courseSearch.test.ts tests/screens/setup.test.ts`
+  passed: 2 files, 11 tests.
+- `node scripts/event-format-tests.js` passed.
+- `npm run test:run` passed: 27 files, 195 tests.
+- `npm run build` passed (vue-tsc clean).
+- Live Supabase course-search/browser QA is still pending; mocked tests cover
+  the mapper, UI selection, and offline/error fallback.
+
+Next likely tasks:
+
+- Add a course-handicap preview in setup after player rows are entered, using
+  the round-store/domain handicap helpers instead of duplicating scoring logic.
+- Expand group roster persistence if online group setup should prefill players.
+- Continue toward all-time Stats or event realtime sync depending on priority.
 - After each step, run:
   - `node scripts/event-format-tests.js`
   - `npm run test:run`

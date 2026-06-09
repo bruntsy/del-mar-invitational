@@ -578,11 +578,17 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 
 - `src/components/screens/SetupScreen.vue`, routed at `/setup`, creates a round
   without the demo fixture.
-- Sections: course (club/course/location, tee rating/slope, editable par + SI
-  grid prefilled to a par-72 layout), teams and players (name + handicap index +
-  team per row), and a games config covering skins, best ball, pair match play,
-  4-man scramble, two-ball, aggy, head-to-head, Stableford, three-man Nassau,
-  Wolf, and putt poker.
+- Sections: course search/manual course fields (club/course/location, tee
+  rating/slope, editable par + SI + yardage grids), teams and players (name +
+  handicap index + team per row), and a games config covering skins, best ball,
+  pair match play, 4-man scramble, two-ball, aggy, head-to-head, Stableford,
+  three-man Nassau, Wolf, and putt poker.
+- Course search calls the public `course-search` Edge Function through
+  `src/services/courseSearch.ts`. `src/domain/courseSearch.ts` filters usable
+  18-hole tees, collapses duplicate tee sets, repairs invalid stroke indexes,
+  and maps selected tees into the round `Course` shape. Selecting a tee fills
+  rating, slope, par, SI/stroke index, and yardage before handicap/stroke
+  getters run.
 - "Start round" validates (par present, both teams populated, unique names),
   builds the `RoundState` + player handicap map, generates head-to-head matchups
   by zipping `team1[i]` vs `team2[i]` (as legacy did), writes through
@@ -591,7 +597,8 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   `rounds` row and keeps the returned DB id on the active round so realtime sync
   can push score edits. Without a remote group id or Supabase credentials, setup
   keeps the existing local-only behavior.
-- Not yet included: Supabase course search; course par/SI are entered manually.
+- Manual course entry remains available when Supabase is unconfigured or course
+  search fails.
 
 ### Results Screen (rewrite)
 
