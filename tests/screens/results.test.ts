@@ -75,27 +75,6 @@ describe('ResultsScreen', () => {
     expect(winner.text()).toContain('Winners');
   });
 
-  it('renders pair match play results from store-derived rows', async () => {
-    const store = useRoundStore();
-    const { round, players } = demoRound();
-    round.games.pairMatch.enabled = true;
-    round.games.pairMatch.type = 'gross';
-    round.pairMatches = [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }];
-    store.setRound(round, players);
-    store.setScore('Wes', 0, 4);
-    store.setScore('Aaron', 0, 5);
-    store.setScore('Tito', 0, 6);
-    store.setScore('Q', 0, 6);
-
-    const wrapper = mountResults();
-    await nextTick();
-
-    expect(wrapper.text()).toContain('Pair Match Play');
-    expect(wrapper.text()).toContain('Match 1: Wes & Aaron vs Tito & Q');
-    expect(wrapper.text()).toContain('Total holes');
-    expect(wrapper.find('.pm-table').exists()).toBe(true);
-  });
-
   it('renders wolf standings and Nassau segments', async () => {
     const store = useRoundStore();
     const { round, players } = demoRound();
@@ -118,41 +97,6 @@ describe('ResultsScreen', () => {
     expect(wrapper.find('.wolf-segments').exists()).toBe(true);
     expect(wrapper.find('.wolf-holes').text()).toContain('Wes wins');
     expect(wrapper.find('.wolf-holes').text()).toContain('Wes +2');
-  });
-
-  it('renders the stableford table from store-derived rows', async () => {
-    const store = useRoundStore();
-    const { round, players } = demoRound();
-    round.games.stableford.enabled = true;
-    round.games.stableford.type = 'gross';
-    store.setRound(round, players);
-    fillCard(store, 'Wes', 4);
-    fillCard(store, 'Aaron', 5);
-    fillCard(store, 'Tito', 6);
-    fillCard(store, 'Q', 7);
-
-    const wrapper = mountResults();
-    await nextTick();
-
-    expect(wrapper.text()).toContain('Stableford');
-    const table = wrapper.find('.sf-table');
-    expect(table.exists()).toBe(true);
-    expect(table.findAll('tbody tr')).toHaveLength(4);
-    // best gross (Wes) leads the table and is flagged as the winner
-    expect(table.find('tbody tr .rs-winner').text()).toBe('Wes');
-  });
-
-  it('renders three-man nassau with an invalid note when roster is not 3 players', async () => {
-    const store = useRoundStore();
-    const { round, players } = demoRound(); // 4-player round
-    round.games.threeManNassau.enabled = true;
-    store.setRound(round, players);
-
-    const wrapper = mountResults();
-    await nextTick();
-
-    expect(wrapper.text()).toContain('3-Man Nassau');
-    expect(wrapper.text()).toContain('Requires exactly 3 players');
   });
 
   it('renders the putt poker panel per group with coin holder and pot', async () => {

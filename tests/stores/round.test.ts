@@ -216,49 +216,21 @@ describe('round store', () => {
     expect(results[0].team2).toEqual({ front: 36, back: 36, total: 72 });
   });
 
-  it('builds scorecard team format rows for best ball and 2-ball', () => {
+  it('builds scorecard format rows for best ball', () => {
     const store = useRoundStore();
     store.setRound(roundWithRoster(), players);
     store.setGames({
       ...store.games,
       bestBall: { ...store.games.bestBall, enabled: true, type: 'gross' },
-      twoBall: { ...store.games.twoBall, enabled: true, type: 'gross' },
     });
     for (let hole = 0; hole < 18; hole += 1) {
       store.setScore('A', hole, 4);
       store.setScore('B', hole, 5);
-      store.setScore('C', hole, 6);
-      store.setScore('D', hole, 7);
     }
 
-    const rows = store.scorecardTeamRowsFor('team1');
-    expect(rows.map((row) => row.key)).toEqual(['bestBall', 'twoBall']);
-    expect(rows[0]).toMatchObject({ label: 'Best Ball', holes: Array(18).fill(4), out: 36, in: 36, total: 72 });
-    expect(rows[1]).toMatchObject({ label: '2-Ball', holes: Array(18).fill(9), out: 81, in: 81, total: 162 });
-  });
-
-  it('derives pair match play results from configured pairings', () => {
-    const store = useRoundStore();
-    const round = roundWithRoster();
-    round.pairMatches = [{ a: ['A', 'B'], b: ['C', 'D'] }];
-    store.setRound(round, players);
-    store.setGames({ ...store.games, pairMatch: { enabled: true, pointsPerHole: 1, type: 'gross' } });
-
-    store.setScore('A', 0, 4);
-    store.setScore('B', 0, 5);
-    store.setScore('C', 0, 6);
-    store.setScore('D', 0, 6);
-    store.setScore('A', 1, 6);
-    store.setScore('B', 1, 6);
-    store.setScore('C', 1, 4);
-    store.setScore('D', 1, 5);
-
-    const result = store.pairMatchResult;
-    expect(result.enabled).toBe(true);
-    expect(result.matches).toHaveLength(1);
-    expect(result.team1Holes).toBe(1);
-    expect(result.team2Holes).toBe(1);
-    expect(result.matches[0].front).toMatchObject({ team1: 1, team2: 1, played: 2, label: 'All Square' });
+    const rows = store.scorecardPlayersFormatRows(['A', 'B'], 'Team 1');
+    expect(rows.map((row) => row.key)).toEqual(['bestBall']);
+    expect(rows[0]).toMatchObject({ label: 'Team 1 Best Ball', holes: Array(18).fill(4), out: 36, in: 36, total: 72 });
   });
 
   it('derives and updates wolf results from stored hole configuration', () => {
@@ -282,65 +254,6 @@ describe('round store', () => {
     });
     expect(result.standings[0]).toMatchObject({ player: 'A', points: 2, leader: true });
     expect(result.segments.map((segment) => segment.label)).toEqual(['Front', 'Back', 'Overall']);
-  });
-
-  it('derives stableford rows sorted best-first with a leader flag', () => {
-    const store = useRoundStore();
-    store.setRound(roundWithRoster(), players);
-    store.setGames({ ...store.games, stableford: { ...store.games.stableford, enabled: true, type: 'gross' } });
-
-    // par is 4 on every hole; default points: par 2, birdie 3, bogey 1
-    store.setScore('A', 0, 3); // birdie -> 3
-    store.setScore('B', 0, 4); // par -> 2
-    store.setScore('C', 0, 5); // bogey -> 1
-    // D has no scores -> 0 points, 0 holes
-
-    const result = store.stablefordResult;
-    expect(result.enabled).toBe(true);
-    expect(result.scoreType).toBe('gross');
-    expect(result.rows.map((row) => row.player)).toEqual(['A', 'B', 'C', 'D']);
-    expect(result.rows[0]).toMatchObject({ player: 'A', points: 3, holes: 1, leader: true });
-    expect(result.rows[1]).toMatchObject({ player: 'B', points: 2, holes: 1, leader: false });
-    expect(result.rows.find((row) => row.player === 'D')).toMatchObject({ points: 0, holes: 0, leader: false });
-  });
-
-  it('returns invalid three-man nassau result when roster is not exactly 3 players', () => {
-    const store = useRoundStore();
-    store.setRound(roundWithRoster(), players); // 4-player roster
-    store.setGames({ ...store.games, threeManNassau: { ...store.games.threeManNassau, enabled: true, type: 'gross' } });
-
-    const result = store.threeManNassauResult;
-    expect(result.enabled).toBe(true);
-    expect(result.valid).toBe(false);
-    expect(result.rows).toHaveLength(0);
-  });
-
-  it('derives three-man nassau rows with result labels for a 3-player round', () => {
-    const store = useRoundStore();
-    const threePlayers: PlayerMap = { A: { name: 'A', handicapIndex: 0 }, B: { name: 'B', handicapIndex: 0 }, C: { name: 'C', handicapIndex: 0 } };
-    store.setRound(
-      { ...emptyRound(), course, team1: ['A', 'B'], team2: ['C'] },
-      threePlayers,
-    );
-    store.setGames({ ...store.games, threeManNassau: { enabled: true, amount: 10, type: 'gross' } });
-
-    // par-4 course; A birdies front 9 solo, side best-balls a par
-    for (let hole = 0; hole < 9; hole += 1) {
-      store.setScore('A', hole, 3); // birdie
-      store.setScore('B', hole, 4); // par
-      store.setScore('C', hole, 5); // bogey
-    }
-
-    const result = store.threeManNassauResult;
-    expect(result.valid).toBe(true);
-    expect(result.amount).toBe(10);
-    expect(result.rows).toHaveLength(9); // 3 players × 3 segments
-
-    const aFront = result.rows.find((row) => row.solo === 'A' && row.label === 'Front');
-    expect(aFront).toMatchObject({ soloScore: 27, sideScore: 36, winner: 'solo', resultLabel: 'A wins' });
-
-    const bFront = result.rows.find((row) => row.solo === 'B' && row.label === 'Front');
-    expect(bFront).toMatchObject({ winner: 'side', resultLabel: 'A / C wins' });
   });
 
   it('derives putt poker groups using playing groups or team fallback', () => {

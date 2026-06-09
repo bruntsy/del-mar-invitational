@@ -22,15 +22,7 @@ import {
   type SettlementTransfer,
 } from '@/scoring/settlement';
 import { computePuttPoker, type PuttPokerResult } from '@/scoring/puttPoker';
-import { computeStableford } from '@/scoring/stableford';
-import { threeManNassauResults, type ThreeManNassauRow } from '@/scoring/threeManNassau';
-import { computeTeamHoleStats, computeTeamTotals, type TeamTotals } from '@/scoring/teamGames';
-import {
-  computePairMatchPlay,
-  ensurePairMatches,
-  type PairMatchPlayResult,
-  type PairMatchResultRow,
-} from '@/scoring/pairMatch';
+import { computeTeamHoleStats, computeTeamTotals } from '@/scoring/teamGames';
 import {
   defaultWolfHole,
   wolfHoleResult,
@@ -87,7 +79,7 @@ interface TeamRangeScores {
 
 /** A single team-game's front/back/total breakdown for both teams. */
 export interface TeamGameResult {
-  key: 'bestBall' | 'scramble4' | 'twoBall' | 'aggy';
+  key: 'bestBall' | 'scramble4';
   label: string;
   type: ScoreType;
   team1: TeamRangeScores;
@@ -95,34 +87,13 @@ export interface TeamGameResult {
 }
 
 export interface ScorecardTeamFormatRow {
-  key: 'bestBall' | 'twoBall';
+  key: 'bestBall';
   label: string;
   sublabel: string;
   holes: Array<number | null>;
   out: number | null;
   in: number | null;
   total: number | null;
-}
-
-export interface PairMatchSegment {
-  team1: number;
-  team2: number;
-  tied: number;
-  played: number;
-  label: string;
-}
-
-export interface PairMatchDisplayRow extends PairMatchResultRow {
-  front: PairMatchSegment;
-  back: PairMatchSegment;
-  overall: PairMatchSegment;
-}
-
-export interface PairMatchDisplayResult extends PairMatchPlayResult {
-  matches: PairMatchDisplayRow[];
-  enabled: boolean;
-  scoreType: ScoreType;
-  pointsPerHole: number;
 }
 
 export interface WolfHoleDisplayRow {
@@ -150,32 +121,6 @@ export interface WolfDisplayResult {
   playedHoles: number;
 }
 
-export interface StablefordDisplayRow {
-  player: string;
-  points: number;
-  holes: number;
-  leader: boolean;
-}
-
-export interface StablefordDisplayResult {
-  enabled: boolean;
-  scoreType: ScoreType;
-  buyIn: number;
-  rows: StablefordDisplayRow[];
-}
-
-export interface ThreeManNassauDisplayRow extends ThreeManNassauRow {
-  resultLabel: string;
-}
-
-export interface ThreeManNassauDisplayResult {
-  enabled: boolean;
-  scoreType: ScoreType;
-  amount: number;
-  valid: boolean;
-  rows: ThreeManNassauDisplayRow[];
-}
-
 export interface PuttPokerGroupResult {
   name: string;
   players: string[];
@@ -184,26 +129,6 @@ export interface PuttPokerGroupResult {
 
 function sum(values: number[]): number {
   return values.reduce((total, value) => total + value, 0);
-}
-
-function segmentFor(
-  match: PairMatchResultRow,
-  start: number,
-  end: number,
-  team1Name: string,
-  team2Name: string,
-): PairMatchSegment {
-  const holes = match.holes.slice(start, end);
-  const team1 = holes.filter((hole) => hole.winner === 'a').length;
-  const team2 = holes.filter((hole) => hole.winner === 'b').length;
-  const tied = holes.filter((hole) => hole.winner === 'tie').length;
-  const played = holes.filter((hole) => hole.winner != null).length;
-  let label = '—';
-  if (played > 0) {
-    if (team1 === team2) label = 'All Square';
-    else label = team1 > team2 ? `${team1Name} ${team1 - team2} UP` : `${team2Name} ${team2 - team1} UP`;
-  }
-  return { team1, team2, tied, played, label };
 }
 
 function wolfResultLabel(result: WolfHoleResult): string {
@@ -346,7 +271,6 @@ export const useRoundStore = defineStore('round', {
         team1: state.round.team1 || [],
         team2: state.round.team2 || [],
         players: this.playerNames,
-        matchups: state.round.matchups || [],
         games: this.games,
         wolfHoles: state.round.wolf?.holes as Record<string, WolfHoleConfig | undefined> | undefined,
       });
@@ -409,9 +333,7 @@ export const useRoundStore = defineStore('round', {
       const team2 = state.round.team2 || [];
       const results: TeamGameResult[] = [];
 
-      const pickBest = (t: TeamTotals): TeamRangeScores => ({ front: t.bbOut, back: t.bbIn, total: t.bbTotal });
-      const pickTwo = (t: TeamTotals): TeamRangeScores => ({ front: t.tbOut, back: t.tbIn, total: t.tbTotal });
-      const pickAggy = (t: TeamTotals): TeamRangeScores => ({ front: t.agOut, back: t.agIn, total: t.agTotal });
+      const pickBest = (t: import('@/scoring/teamGames').TeamTotals): TeamRangeScores => ({ front: t.bbOut, back: t.bbIn, total: t.bbTotal });
       const teamRange = (teamKey: 'team1' | 'team2', start: number, end: number): number | null => {
         const matrix = state.round?.teamScores;
         if (!matrix) return null;
@@ -445,61 +367,7 @@ export const useRoundStore = defineStore('round', {
           team2: { front: teamRange('team2', 0, 9), back: teamRange('team2', 9, 18), total: teamRange('team2', 0, 18) },
         });
       }
-      if (g.twoBall.enabled) {
-        results.push({
-          key: 'twoBall',
-          label: '2-Ball',
-          type: g.twoBall.type,
-          team1: pickTwo(computeTeamTotals(context, team1, g.twoBall.type)),
-          team2: pickTwo(computeTeamTotals(context, team2, g.twoBall.type)),
-        });
-      }
-      if (g.aggy.enabled) {
-        results.push({
-          key: 'aggy',
-          label: 'Aggy',
-          type: g.aggy.type,
-          team1: pickAggy(computeTeamTotals(context, team1, g.aggy.type)),
-          team2: pickAggy(computeTeamTotals(context, team2, g.aggy.type)),
-        });
-      }
-
       return results;
-    },
-
-    pairMatchResult(state): PairMatchDisplayResult {
-      const games = this.games;
-      const empty: PairMatchDisplayResult = {
-        enabled: games.pairMatch.enabled,
-        scoreType: games.pairMatch.type,
-        pointsPerHole: Number(games.pairMatch.pointsPerHole || 1),
-        matches: [],
-        team1Points: 0,
-        team2Points: 0,
-        team1Holes: 0,
-        team2Holes: 0,
-        tiedHoles: 0,
-      };
-      const context = this.scoreContext;
-      if (!context || !state.round || !games.pairMatch.enabled) return empty;
-      const team1 = state.round.team1 || [];
-      const team2 = state.round.team2 || [];
-      const result = computePairMatchPlay(context, state.round.pairMatches, team1, team2, {
-        pointsPerHole: games.pairMatch.pointsPerHole,
-        type: games.pairMatch.type,
-      });
-      const team1Name = state.round.teamNames.team1;
-      const team2Name = state.round.teamNames.team2;
-      return {
-        ...empty,
-        ...result,
-        matches: result.matches.map((match) => ({
-          ...match,
-          front: segmentFor(match, 0, 9, team1Name, team2Name),
-          back: segmentFor(match, 9, 18, team1Name, team2Name),
-          overall: segmentFor(match, 0, 18, team1Name, team2Name),
-        })),
-      };
     },
 
     wolfResult(state): WolfDisplayResult {
@@ -544,67 +412,6 @@ export const useRoundStore = defineStore('round', {
           .map(([player, points]) => ({ player, points, leader: leaders.includes(player) }))
           .sort((a, b) => b.points - a.points || a.player.localeCompare(b.player)),
       };
-    },
-
-    /**
-     * Stableford points per player sorted best-first, matching the legacy
-     * `renderStablefordResults()` table. The top scorer with completed holes is
-     * flagged as leader for winner highlighting.
-     */
-    stablefordResult(state): StablefordDisplayResult {
-      const games = this.games;
-      const empty: StablefordDisplayResult = {
-        enabled: games.stableford.enabled,
-        scoreType: games.stableford.type,
-        buyIn: Number(games.stableford.buyIn || 0),
-        rows: [],
-      };
-      const context = this.scoreContext;
-      if (!context || !state.round || !games.stableford.enabled) return empty;
-      const players = this.playerNames;
-      const result = computeStableford(context, players, games.stableford.type, games.stableford.points);
-      const maxPoints = Math.max(...players.map((player) => result[player].points));
-      const rows: StablefordDisplayRow[] = players
-        .map((player) => ({
-          player,
-          points: result[player].points,
-          holes: result[player].holes,
-          leader: result[player].holes > 0 && result[player].points === maxPoints,
-        }))
-        .sort((a, b) => b.points - a.points || a.player.localeCompare(b.player));
-      return { ...empty, rows };
-    },
-
-    /**
-     * Three-man Nassau results per segment, matching the legacy
-     * `renderThreeManNassauResults()` table. Valid only when exactly three
-     * players are in the round; invalid rounds render an explanatory note.
-     */
-    threeManNassauResult(state): ThreeManNassauDisplayResult {
-      const games = this.games;
-      const empty: ThreeManNassauDisplayResult = {
-        enabled: games.threeManNassau.enabled,
-        scoreType: games.threeManNassau.type,
-        amount: Number(games.threeManNassau.amount || 0),
-        valid: false,
-        rows: [],
-      };
-      const context = this.scoreContext;
-      if (!context || !state.round || !games.threeManNassau.enabled) return empty;
-      const players = this.playerNames;
-      const result = threeManNassauResults(context, players, games.threeManNassau.type);
-      const rows: ThreeManNassauDisplayRow[] = result.rows.map((row) => ({
-        ...row,
-        resultLabel:
-          row.winner == null
-            ? 'In progress'
-            : row.winner === 'push'
-              ? 'Push'
-              : row.winner === 'solo'
-                ? `${row.solo} wins`
-                : `${row.side.join(' / ')} wins`,
-      }));
-      return { ...empty, valid: result.valid, rows };
     },
 
     /**
@@ -858,36 +665,6 @@ export const useRoundStore = defineStore('round', {
       this.scheduleSync();
     },
 
-    ensurePairMatches() {
-      if (!this.round) return;
-      this.round.pairMatches = ensurePairMatches(this.round.pairMatches, this.round.team1 || [], this.round.team2 || []);
-      this.persist();
-      this.scheduleSync();
-    },
-
-    addPairMatch() {
-      if (!this.round) return;
-      this.round.pairMatches = [...(this.round.pairMatches || []), { a: [], b: [] }];
-      this.persist();
-      this.scheduleSync();
-    },
-
-    setPairMatchPlayer(matchIndex: number, side: 'a' | 'b', slot: number, player: string) {
-      if (!this.round || matchIndex < 0 || slot < 0 || slot > 1) return;
-      const matches = [...(this.round.pairMatches || [])];
-      const match = matches[matchIndex] ?? { a: [], b: [] };
-      const roster = side === 'a' ? this.round.team1 || [] : this.round.team2 || [];
-      const values = [...(match[side] || [])];
-      values[slot] = roster.includes(player) ? player : '';
-      matches[matchIndex] = {
-        ...match,
-        [side]: values.filter(Boolean).slice(0, 2),
-      };
-      this.round.pairMatches = matches;
-      this.persist();
-      this.scheduleSync();
-    },
-
     setWolfHole(hole: number, key: 'wolf' | 'mode' | 'partner', value: string) {
       if (!this.round || hole < 0 || hole > 17) return;
       const players = this.playerNames;
@@ -1000,62 +777,6 @@ export const useRoundStore = defineStore('round', {
           out: totals.bbOut,
           in: totals.bbIn,
           total: totals.bbTotal,
-        });
-      }
-
-      if (games.twoBall.enabled) {
-        const totals = computeTeamTotals(context, players, games.twoBall.type);
-        rows.push({
-          key: 'twoBall',
-          label: teamName ? `${teamName} 2-Ball` : '2-Ball',
-          sublabel: `sum of 2 low ${games.twoBall.type}`,
-          holes: Array.from({ length: 18 }, (_, hole) =>
-            computeTeamHoleStats(context, players, hole, games.twoBall.type).twoBall,
-          ),
-          out: totals.tbOut,
-          in: totals.tbIn,
-          total: totals.tbTotal,
-        });
-      }
-
-      return rows;
-    },
-
-    scorecardTeamRowsFor(teamKey: 'team1' | 'team2'): ScorecardTeamFormatRow[] {
-      const context = this.scoreContext;
-      const round = this.round;
-      if (!context || !round) return [];
-      const teamPlayers = round[teamKey] || [];
-      const rows: ScorecardTeamFormatRow[] = [];
-      const games = this.games;
-
-      if (games.bestBall.enabled) {
-        const totals = computeTeamTotals(context, teamPlayers, games.bestBall.type);
-        rows.push({
-          key: 'bestBall',
-          label: 'Best Ball',
-          sublabel: `low ${games.bestBall.type} per hole`,
-          holes: Array.from({ length: 18 }, (_, hole) =>
-            computeTeamHoleStats(context, teamPlayers, hole, games.bestBall.type).bestBall,
-          ),
-          out: totals.bbOut,
-          in: totals.bbIn,
-          total: totals.bbTotal,
-        });
-      }
-
-      if (games.twoBall.enabled) {
-        const totals = computeTeamTotals(context, teamPlayers, games.twoBall.type);
-        rows.push({
-          key: 'twoBall',
-          label: '2-Ball',
-          sublabel: `sum of 2 low ${games.twoBall.type}`,
-          holes: Array.from({ length: 18 }, (_, hole) =>
-            computeTeamHoleStats(context, teamPlayers, hole, games.twoBall.type).twoBall,
-          ),
-          out: totals.tbOut,
-          in: totals.tbIn,
-          total: totals.tbTotal,
         });
       }
 

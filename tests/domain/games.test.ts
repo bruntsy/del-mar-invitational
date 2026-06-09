@@ -6,9 +6,9 @@ describe('game config normalization', () => {
     const first = cloneDefaultGames();
     const second = cloneDefaultGames();
 
-    first.stableford.points.eagle = 8;
+    first.skins.pot = 999;
 
-    expect(second.stableford.points.eagle).toBe(DEFAULT_GAMES.stableford.points.eagle);
+    expect(second.skins.pot).toBe(DEFAULT_GAMES.skins.pot);
   });
 
   it('fills missing game configs with defaults', () => {
@@ -18,21 +18,16 @@ describe('game config normalization', () => {
 
     expect(normalized.skins).toEqual({ enabled: true, pot: 20, type: 'net', carry: false });
     expect(normalized.bestBall.balls).toBe(1);
-    expect(normalized.stableford.points.par).toBe(2);
+    expect(normalized.wolf.nassau).toBe(false);
   });
 
-  it('preserves configured nested stableford points', () => {
+  it('preserves configured bestBall settings', () => {
     const normalized = normalizeGames({
-      stableford: {
-        enabled: true,
-        buyIn: 10,
-        type: 'gross',
-        points: { double: -1, bogey: 0, par: 2, birdie: 4, eagle: 6, albatross: 8 },
-      },
+      bestBall: { enabled: true, front: 5, back: 5, total: 10, type: 'gross', balls: 1 },
     });
 
-    expect(normalized.stableford.enabled).toBe(true);
-    expect(normalized.stableford.points.eagle).toBe(6);
+    expect(normalized.bestBall.enabled).toBe(true);
+    expect(normalized.bestBall.front).toBe(5);
   });
 
   it('returns defaults for empty inputs', () => {

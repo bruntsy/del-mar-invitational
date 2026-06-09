@@ -137,27 +137,9 @@ function puttSum(player: string, start: number, end: number): number | null {
 
 const puttPokerEnabled = computed(() => store.games.puttPoker.enabled);
 const scrambleEnabled = computed(() => store.games.scramble4.enabled);
-const pairMatch = computed(() => store.pairMatchResult);
-const pairMatchVisible = computed(() => pairMatch.value.enabled && pairMatch.value.matches.length > 0);
 
-// C1 Part A: per-hole winner across all pair matches ('team1'|'team2'|'tie'|null)
-const holeWinnerByHole = computed((): Array<'team1' | 'team2' | 'tie' | null> => {
-  const matches = pairMatch.value.matches;
-  return HOLES.map((h) => {
-    const winners = matches.map((m) => m.holes[h]?.winner ?? null);
-    if (winners.every((w) => w == null)) return null;
-    const played = winners.filter((w) => w != null);
-    if (played.every((w) => w === 'a')) return 'team1';
-    if (played.every((w) => w === 'b')) return 'team2';
-    if (played.every((w) => w === 'tie')) return 'tie';
-    return null;
-  });
-});
-
-function holeWinnerClass(hole: number): string {
-  const winner = holeWinnerByHole.value[hole];
-  if (!winner || winner === 'tie') return '';
-  return `hole-win-${winner}`;
+function holeWinnerClass(_hole: number): string {
+  return '';
 }
 
 // C1 Part B: which player contributed the best ball score for a team on a hole
@@ -211,21 +193,6 @@ function goHome() {
 
 function goResults() {
   void router.push('/results');
-}
-
-function shortTeamLabel(name: string, fallback: string): string {
-  const clean = name.replace(/[^a-z0-9 ]/gi, ' ').trim();
-  if (!clean) return fallback;
-  if (/^team\s*1$/i.test(clean)) return 'T1';
-  if (/^team\s*2$/i.test(clean)) return 'T2';
-  return clean.split(/\s+/)[0].slice(0, 3).toUpperCase();
-}
-
-function holeClass(winner: 'a' | 'b' | 'tie' | null): string {
-  if (winner === 'a') return 'side-a';
-  if (winner === 'b') return 'side-b';
-  if (winner === 'tie') return 'tie';
-  return 'pending';
 }
 
 function wolfField(row: (typeof wolf.value.rows)[number]): string {
@@ -646,59 +613,6 @@ const mobilePlayers = computed(() => {
           </tbody>
         </table>
       </div><!-- end sc-table-wrap / v-if="!mobileMode" -->
-
-      <section v-if="pairMatchVisible" class="pair-live">
-        <div class="pair-live-title">
-          <span>Pair Match Play</span>
-          <span class="pair-live-total">
-            {{ store.round.teamNames.team1 }} {{ pairMatch.team1Points }} - {{ pairMatch.team2Points }}
-            {{ store.round.teamNames.team2 }}
-            {{ pairMatch.pointsPerHole === 1 ? 'holes' : 'pts' }}
-          </span>
-        </div>
-        <div class="pair-live-grid">
-          <div v-for="match in pairMatch.matches" :key="match.idx" class="pair-live-card">
-            <div class="pair-live-head">
-              <div class="pair-live-side" :class="{ win: match.aPts > match.bPts }">
-                <div class="pair-live-name">{{ match.a.join(' / ') }}</div>
-                <div class="pair-live-meta">{{ store.round.teamNames.team1 }}</div>
-              </div>
-              <div class="pair-live-score">{{ match.aPts }} - {{ match.bPts }}</div>
-              <div class="pair-live-side" :class="{ win: match.bPts > match.aPts }">
-                <div class="pair-live-name">{{ match.b.join(' / ') }}</div>
-                <div class="pair-live-meta">{{ store.round.teamNames.team2 }}</div>
-              </div>
-            </div>
-            <div class="pair-live-holes">
-              <div
-                v-for="hole in match.holes"
-                :key="hole.hole"
-                class="pair-live-hole"
-                :class="holeClass(hole.winner)"
-                :title="`Hole ${hole.hole}: ${hole.a ?? '—'} - ${hole.b ?? '—'}`"
-              >
-                <span class="pair-live-hole-num">{{ hole.hole }}</span>
-                <span class="pair-live-hole-result">
-                  {{
-                    hole.winner === 'a'
-                      ? shortTeamLabel(store.round.teamNames.team1, 'T1')
-                      : hole.winner === 'b'
-                        ? shortTeamLabel(store.round.teamNames.team2, 'T2')
-                        : hole.winner === 'tie'
-                          ? '='
-                          : '-'
-                  }}
-                </span>
-              </div>
-            </div>
-            <div class="pair-live-splits">
-              <span>F: {{ match.front.label }}</span>
-              <span>B: {{ match.back.label }}</span>
-              <span>T: {{ match.overall.label }}</span>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <section v-if="wolfVisible" class="wolf-live">
         <div class="wolf-live-title">

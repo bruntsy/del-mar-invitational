@@ -20,7 +20,7 @@ function setHole(scores: ScoreMatrix, hole: number, values: Record<string, numbe
 }
 
 describe('team game scoring', () => {
-  it('computes best-ball, two-ball, and aggy values for a complete hole', () => {
+  it('computes best-ball value for a complete hole', () => {
     const scores = matrix(['A', 'B', 'C']);
     setHole(scores, 0, { A: 4, B: 5, C: 6 });
 
@@ -28,8 +28,6 @@ describe('team game scoring', () => {
       computeTeamHoleStats({ course, scores, strokes: { A: 0, B: 0, C: 0 } }, ['A', 'B', 'C'], 0),
     ).toEqual({
       bestBall: 4,
-      twoBall: 9,
-      aggy: 15,
     });
   });
 
@@ -41,8 +39,6 @@ describe('team game scoring', () => {
       computeTeamHoleStats({ course, scores, strokes: { A: 0, B: 0 } }, ['A', 'B'], 0),
     ).toEqual({
       bestBall: null,
-      twoBall: null,
-      aggy: null,
     });
   });
 
@@ -54,8 +50,6 @@ describe('team game scoring', () => {
       computeTeamHoleStats({ course, scores, strokes: { A: 0, B: 1 } }, ['A', 'B'], 0, 'net'),
     ).toEqual({
       bestBall: 4,
-      twoBall: 8,
-      aggy: 8,
     });
   });
 
@@ -67,8 +61,6 @@ describe('team game scoring', () => {
       computeTeamHoleStats({ course, scores, strokes: { A: 0, B: 1 } }, ['A', 'B'], 0, 'gross'),
     ).toEqual({
       bestBall: 4,
-      twoBall: 9,
-      aggy: 9,
     });
   });
 
@@ -82,12 +74,6 @@ describe('team game scoring', () => {
       bbOut: 36,
       bbIn: 45,
       bbTotal: 81,
-      tbOut: 81,
-      tbIn: 99,
-      tbTotal: 180,
-      agOut: 81,
-      agIn: 99,
-      agTotal: 180,
     });
   });
 
@@ -102,8 +88,6 @@ describe('team game scoring', () => {
     expect(totals.bbOut).toBe(4);
     expect(totals.bbIn).toBe(5);
     expect(totals.bbTotal).toBe(9);
-    expect(totals.tbOut).toBe(9);
-    expect(totals.agTotal).toBe(20);
   });
 
   it('returns null totals when no complete holes exist', () => {
@@ -113,12 +97,6 @@ describe('team game scoring', () => {
       bbOut: null,
       bbIn: null,
       bbTotal: null,
-      tbOut: null,
-      tbIn: null,
-      tbTotal: null,
-      agOut: null,
-      agIn: null,
-      agTotal: null,
     });
   });
 });

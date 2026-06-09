@@ -1,6 +1,16 @@
-import { DEFAULT_GAMES } from '@/domain/games';
 import { playerHoleScore, type ScoreContext } from '@/scoring/round';
-import type { ScoreType, StablefordPoints } from '@/types';
+import type { ScoreType } from '@/types';
+
+export interface StablefordPoints {
+  double: number;
+  bogey: number;
+  par: number;
+  birdie: number;
+  eagle: number;
+  albatross: number;
+}
+
+const DEFAULT_POINTS: StablefordPoints = { double: 0, bogey: 1, par: 2, birdie: 3, eagle: 4, albatross: 5 };
 
 export interface StablefordPlayerResult {
   points: number;
@@ -24,7 +34,7 @@ export function computeStableford(
   context: ScoreContext,
   players: string[],
   type: ScoreType = 'net',
-  points: StablefordPoints = DEFAULT_GAMES.stableford.points,
+  points: StablefordPoints = DEFAULT_POINTS,
 ): StablefordResult {
   return Object.fromEntries(
     players.map((player) => {

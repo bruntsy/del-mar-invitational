@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { computeStableford, stablefordPointsForScore } from '@/scoring/stableford';
-import type { Course, ScoreMatrix, StablefordPoints } from '@/types';
+import type { Course, ScoreMatrix } from '@/types';
+import type { StablefordPoints } from '@/scoring/stableford';
 
 const course: Course = {
   tee: { name: 'Test', rating: 72, slope: 113, parTotal: 72 },

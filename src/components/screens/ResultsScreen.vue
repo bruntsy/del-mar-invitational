@@ -27,14 +27,8 @@ const teamMembers = computed(() => ({
 const leaderboard = computed(() => store.leaderboard);
 const teamNet = computed(() => store.teamNetTotals);
 const teamGameResults = computed(() => store.teamGameResults);
-const pairMatch = computed(() => store.pairMatchResult);
-const pairMatchVisible = computed(() => pairMatch.value.enabled && pairMatch.value.matches.length > 0);
 const wolf = computed(() => store.wolfResult);
 const wolfVisible = computed(() => wolf.value.enabled && wolf.value.rows.length > 0);
-const stableford = computed(() => store.stablefordResult);
-const stablefordVisible = computed(() => stableford.value.enabled && stableford.value.rows.length > 0);
-const nassau = computed(() => store.threeManNassauResult);
-const nassauVisible = computed(() => nassau.value.enabled);
 const puttPokerEnabled = computed(() => store.games.puttPoker.enabled);
 const puttPokerGroups = computed(() => store.puttPokerGroups);
 const settlement = computed(() => store.settlement);
@@ -196,122 +190,6 @@ function goHome() {
             </div>
           </div>
         </div>
-      </section>
-
-      <section v-if="pairMatchVisible" class="rs-section">
-        <h2 class="rs-section-hdr">Pair Match Play</h2>
-        <div class="team-grid">
-          <div class="team-box" :class="{ winner: pairMatch.team1Points > pairMatch.team2Points }">
-            <div class="tb-label">{{ teamNames.team1 }}</div>
-            <div class="tb-score">{{ pairMatch.team1Holes }}</div>
-            <div class="tb-tag">{{ pairMatch.team1Points > pairMatch.team2Points ? 'Wins' : 'holes won' }}</div>
-          </div>
-          <div class="team-vs">vs</div>
-          <div class="team-box" :class="{ winner: pairMatch.team2Points > pairMatch.team1Points }">
-            <div class="tb-label">{{ teamNames.team2 }}</div>
-            <div class="tb-score">{{ pairMatch.team2Holes }}</div>
-            <div class="tb-tag">{{ pairMatch.team2Points > pairMatch.team1Points ? 'Wins' : 'holes won' }}</div>
-          </div>
-        </div>
-
-        <div v-for="match in pairMatch.matches" :key="match.idx" class="pm-result">
-          <div class="pm-title">
-            Match {{ match.idx }}:
-            {{ match.a.join(' & ') }}
-            vs
-            {{ match.b.join(' & ') }}
-          </div>
-          <table class="rs-table pm-table">
-            <thead>
-              <tr>
-                <th class="col-left">Component</th>
-                <th>{{ teamNames.team1 }}</th>
-                <th>{{ teamNames.team2 }}</th>
-                <th>Tied</th>
-                <th class="col-left">Result</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="col-left">Front 9</td>
-                <td>{{ match.front.team1 }}</td>
-                <td>{{ match.front.team2 }}</td>
-                <td>{{ match.front.tied }}</td>
-                <td class="col-left">{{ match.front.label }}</td>
-              </tr>
-              <tr>
-                <td class="col-left">Back 9</td>
-                <td>{{ match.back.team1 }}</td>
-                <td>{{ match.back.team2 }}</td>
-                <td>{{ match.back.tied }}</td>
-                <td class="col-left">{{ match.back.label }}</td>
-              </tr>
-              <tr>
-                <td class="col-left">Overall</td>
-                <td>{{ match.overall.team1 }}</td>
-                <td>{{ match.overall.team2 }}</td>
-                <td>{{ match.overall.tied }}</td>
-                <td class="col-left">{{ match.overall.label }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p class="pm-total">
-          Total holes — {{ teamNames.team1 }} {{ pairMatch.team1Holes }} · {{ teamNames.team2 }} {{ pairMatch.team2Holes }}
-          <template v-if="pairMatch.tiedHoles"> · {{ pairMatch.tiedHoles }} halved</template>
-        </p>
-      </section>
-
-      <section v-if="stablefordVisible" class="rs-section">
-        <h2 class="rs-section-hdr">Stableford</h2>
-        <div class="rs-table-wrap">
-          <table class="rs-table sf-table">
-            <thead>
-              <tr><th class="col-left">Player</th><th>Points</th><th>Holes</th></tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in stableford.rows" :key="row.player">
-                <td class="col-left"><span :class="{ 'rs-winner': row.leader }">{{ row.player }}</span></td>
-                <td class="rs-net">{{ row.points }}</td>
-                <td>{{ row.holes }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section v-if="nassauVisible" class="rs-section">
-        <h2 class="rs-section-hdr">3-Man Nassau</h2>
-        <p v-if="!nassau.valid" class="rs-empty-note">Requires exactly 3 players.</p>
-        <template v-else>
-          <div class="rs-table-wrap">
-            <table class="rs-table nassau-table">
-              <thead>
-                <tr>
-                  <th class="col-left">Match</th>
-                  <th class="col-left">Nassau</th>
-                  <th>Solo</th>
-                  <th>Best Ball</th>
-                  <th class="col-left">Result</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(row, i) in nassau.rows" :key="i">
-                  <td class="col-left">{{ row.solo }} vs {{ row.side.join(' / ') }}</td>
-                  <td class="col-left">{{ row.label }}</td>
-                  <td>{{ row.soloScore ?? '—' }}</td>
-                  <td>{{ row.sideScore ?? '—' }}</td>
-                  <td class="col-left nassau-result" :class="{ 'rs-net': row.winner === 'solo', 'rs-winner': row.winner === 'solo' }">
-                    {{ row.resultLabel }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <p v-if="nassau.amount" class="nassau-note">
-            ${{ nassau.amount }}/opponent · {{ nassau.scoreType }} scoring · two-man side is best ball
-          </p>
-        </template>
       </section>
 
       <section v-if="wolfVisible" class="rs-section">

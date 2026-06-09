@@ -1,17 +1,16 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { courseFromSearchTee, selectableCourseTees, type CourseSearchResult, type CourseSearchTee } from '@/domain/courseSearch';
 import { cloneDefaultGames, normalizeGames } from '@/domain/games';
 import { sortedGroupPlayers } from '@/domain/players';
-import { autoPlayingGroupsFromPairMatches, normalizePlayingGroups } from '@/domain/playingGroups';
+import { autoPlayingGroupsForTeams, normalizePlayingGroups } from '@/domain/playingGroups';
 import { allocateNetStrokes, computeWHSCourseHcp, getsStroke } from '@/scoring/handicap';
-import { ensurePairMatches } from '@/scoring/pairMatch';
 import { searchCourses } from '@/services/courseSearch';
 import { useGroupStore } from '@/stores/group';
 import { emptyRound, useRoundStore } from '@/stores/round';
 import { useEventStore } from '@/stores/event';
-import type { Course, GameConfig, PairMatch, PlayerMap, RoundState } from '@/types';
+import type { Course, GameConfig, PlayerMap, RoundState } from '@/types';
 
 const store = useRoundStore();
 const group = useGroupStore();
@@ -54,7 +53,6 @@ const form = reactive({
     { name: '', handicapIndex: '', team: 'team2' },
   ] as PlayerRow[],
   games: cloneDefaultGames() as GameConfig,
-  pairMatches: [] as PairMatch[],
   playingGroupNames: [] as string[],
   playingGroupCustom: null as string[][] | null,
   scoringMode: 'strokePlay' as 'strokePlay' | 'matchPlay',
@@ -65,14 +63,6 @@ onMounted(() => {
   prefillPlayersFromGroup();
 });
 
-watch(() => form.scoringMode, (mode) => {
-  if (mode === 'matchPlay') {
-    form.games.pairMatch.enabled = true;
-    syncPairMatches();
-  } else {
-    form.games.pairMatch.enabled = false;
-  }
-});
 
 const courseResults = ref<CourseSearchResult[]>([]);
 const selectedCourse = ref<CourseSearchResult | null>(null);
@@ -109,10 +99,9 @@ function prefillPlayersFromGroup() {
       ...r.team2.map((name) => ({ name, handicapIndex: hcpMap[name] ?? '', team: 'team2' as const })),
     ];
     form.games = structuredClone(r.games) as GameConfig;
-    form.pairMatches = structuredClone(r.pairMatches ?? []);
     form.playingGroupNames = (r.playingGroups ?? []).map((g) => g.name);
     form.playingGroupCustom = (r.playingGroups ?? []).map((g) => [...g.players]);
-    form.scoringMode = r.games.pairMatch?.enabled ? 'matchPlay' : 'strokePlay';
+    form.scoringMode = 'strokePlay';
     return;
   }
 
@@ -131,7 +120,6 @@ function prefillPlayersFromGroup() {
       ...eventConfig.team1.map((name) => ({ name, handicapIndex: hcpMap[name] ?? '', team: 'team1' as const })),
       ...eventConfig.team2.map((name) => ({ name, handicapIndex: hcpMap[name] ?? '', team: 'team2' as const })),
     ];
-    form.pairMatches = structuredClone(roundConfig.pairMatches ?? []);
     form.playingGroupNames = (roundConfig.playingGroups ?? []).map((g) => g.name);
     applyEventGames(roundConfig);
     return;
@@ -150,16 +138,10 @@ function applyEventGames(roundConfig: import('@/types/event').EventRoundConfig) 
   const g = cloneDefaultGames();
   const { format, bestBallBet, scrambleBet, skins: sk, puttPoker: pp } = roundConfig;
 
-  if (format === 'bestBallNassau') {
+  if (format === 'bestBallNassau' || format === 'twoManBestBallAggy') {
     g.bestBall = { enabled: true, front: bestBallBet.front, back: bestBallBet.back, total: bestBallBet.total, balls: 1, type: bestBallBet.type };
-    g.pairMatch = { enabled: true, pointsPerHole: 1, type: 'net' };
-  } else if (format === 'twoManBestBallAggy') {
-    g.bestBall = { enabled: true, front: bestBallBet.front, back: bestBallBet.back, total: bestBallBet.total, balls: 1, type: bestBallBet.type };
-    g.aggy = { enabled: true, front: 0, back: 0, total: 0, type: 'net' };
-    g.pairMatch = { enabled: true, pointsPerHole: 1, type: 'net' };
   } else if (format === 'scramble2v2Nassau') {
     g.scramble4 = { enabled: true, front: scrambleBet.front, back: scrambleBet.back, total: scrambleBet.total, type: scrambleBet.type };
-    g.pairMatch = { enabled: true, pointsPerHole: 1, type: 'gross' };
   } else if (format === 'fourManScramble') {
     g.scramble4 = { enabled: true, front: scrambleBet.front, back: scrambleBet.back, total: scrambleBet.total, type: scrambleBet.type };
   }
@@ -274,15 +256,8 @@ const canStart = computed(() => errors.value.length === 0);
 
 const hasEventContext = computed(() => event.pendingRoundLink != null);
 
-const pairMatches = computed(() => ensurePairMatches(form.pairMatches, team1.value, team2.value));
-
 const previewPlayingGroups = computed(() =>
-  autoPlayingGroupsFromPairMatches(
-    pairMatches.value,
-    [...team1.value, ...team2.value],
-    team1.value,
-    team2.value,
-  ),
+  autoPlayingGroupsForTeams(team1.value, team2.value),
 );
 
 const displayPlayingGroups = computed(() => {
@@ -343,27 +318,6 @@ function strokeHoleSummary(strokes: number) {
   return `Holes ${holes.join(', ')}`;
 }
 
-function syncPairMatches() {
-  form.pairMatches = ensurePairMatches(form.pairMatches, team1.value, team2.value);
-}
-
-function addPairMatch() {
-  syncPairMatches();
-  form.pairMatches.push({ a: [], b: [] });
-}
-
-function setPairMatchPlayer(matchIndex: number, side: 'a' | 'b', slot: number, player: string) {
-  syncPairMatches();
-  const match = form.pairMatches[matchIndex] ?? { a: [], b: [] };
-  const roster = side === 'a' ? team1.value : team2.value;
-  const values = [...(match[side] || [])];
-  values[slot] = roster.includes(player) ? player : '';
-  form.pairMatches[matchIndex] = {
-    ...match,
-    [side]: values.filter(Boolean).slice(0, 2),
-  };
-}
-
 function buildRound(): { round: RoundState; players: PlayerMap } {
   const course: Course = {
     id: form.courseId || undefined,
@@ -408,7 +362,7 @@ function buildRound(): { round: RoundState; players: PlayerMap } {
     team2: team2.value,
     teamNames: { team1: form.teamNames.team1, team2: form.teamNames.team2 },
     matchups,
-    pairMatches: ensurePairMatches(form.pairMatches, team1.value, team2.value),
+    pairMatches: [],
     playingGroups,
     games: normalizeGames(form.games),
   };
@@ -636,89 +590,6 @@ function goHome() {
           <input v-model.number="form.games.scramble4.front" class="form-input sm" type="number" min="0" placeholder="Front $" />
           <input v-model.number="form.games.scramble4.back" class="form-input sm" type="number" min="0" placeholder="Back $" />
           <input v-model.number="form.games.scramble4.total" class="form-input sm" type="number" min="0" placeholder="Total $" />
-        </div>
-
-        <div class="game-row">
-          <label class="game-toggle"><input v-model="form.games.twoBall.enabled" type="checkbox" /> 2-Ball</label>
-          <input v-model.number="form.games.twoBall.front" class="form-input sm" type="number" min="0" placeholder="Front $" />
-          <input v-model.number="form.games.twoBall.back" class="form-input sm" type="number" min="0" placeholder="Back $" />
-          <input v-model.number="form.games.twoBall.total" class="form-input sm" type="number" min="0" placeholder="Total $" />
-          <select v-model="form.games.twoBall.type" class="form-input sm"><option>net</option><option>gross</option></select>
-        </div>
-
-        <div class="game-row">
-          <label class="game-toggle"><input v-model="form.games.aggy.enabled" type="checkbox" /> Aggy</label>
-          <input v-model.number="form.games.aggy.front" class="form-input sm" type="number" min="0" placeholder="Front $" />
-          <input v-model.number="form.games.aggy.back" class="form-input sm" type="number" min="0" placeholder="Back $" />
-          <input v-model.number="form.games.aggy.total" class="form-input sm" type="number" min="0" placeholder="Total $" />
-          <select v-model="form.games.aggy.type" class="form-input sm"><option>net</option><option>gross</option></select>
-        </div>
-
-        <div class="game-row">
-          <label class="game-toggle"><input v-model="form.games.pairMatch.enabled" type="checkbox" @change="syncPairMatches" /> Pair Match Play</label>
-          <input v-model.number="form.games.pairMatch.pointsPerHole" class="form-input sm" type="number" min="1" placeholder="Pts/hole" />
-          <select v-model="form.games.pairMatch.type" class="form-input sm"><option>net</option><option>gross</option></select>
-        </div>
-
-        <div v-if="form.games.pairMatch.enabled" class="pair-match-builder">
-          <div v-for="(match, matchIndex) in pairMatches" :key="matchIndex" class="pair-match-row">
-            <div class="pair-match-side">
-              <select
-                class="form-input pair-select"
-                :value="match.a[0] || ''"
-                @change="setPairMatchPlayer(matchIndex, 'a', 0, ($event.target as HTMLSelectElement).value)"
-              >
-                <option value="">Open</option>
-                <option v-for="player in team1" :key="`a0-${matchIndex}-${player}`" :value="player">{{ player }}</option>
-              </select>
-              <select
-                class="form-input pair-select"
-                :value="match.a[1] || ''"
-                @change="setPairMatchPlayer(matchIndex, 'a', 1, ($event.target as HTMLSelectElement).value)"
-              >
-                <option value="">Open</option>
-                <option v-for="player in team1" :key="`a1-${matchIndex}-${player}`" :value="player">{{ player }}</option>
-              </select>
-            </div>
-            <div class="pair-match-vs">vs</div>
-            <div class="pair-match-side">
-              <select
-                class="form-input pair-select"
-                :value="match.b[0] || ''"
-                @change="setPairMatchPlayer(matchIndex, 'b', 0, ($event.target as HTMLSelectElement).value)"
-              >
-                <option value="">Open</option>
-                <option v-for="player in team2" :key="`b0-${matchIndex}-${player}`" :value="player">{{ player }}</option>
-              </select>
-              <select
-                class="form-input pair-select"
-                :value="match.b[1] || ''"
-                @change="setPairMatchPlayer(matchIndex, 'b', 1, ($event.target as HTMLSelectElement).value)"
-              >
-                <option value="">Open</option>
-                <option v-for="player in team2" :key="`b1-${matchIndex}-${player}`" :value="player">{{ player }}</option>
-              </select>
-            </div>
-          </div>
-          <button class="btn-ghost pair-add" type="button" @click="addPairMatch">+ Add match</button>
-        </div>
-
-        <div class="game-row">
-          <label class="game-toggle"><input v-model="form.games.h2h.enabled" type="checkbox" /> Head-to-Head</label>
-          <input v-model.number="form.games.h2h.perMatchup" class="form-input sm" type="number" min="0" placeholder="$/matchup" />
-          <select v-model="form.games.h2h.type" class="form-input sm"><option>net</option><option>gross</option></select>
-        </div>
-
-        <div class="game-row">
-          <label class="game-toggle"><input v-model="form.games.stableford.enabled" type="checkbox" /> Stableford</label>
-          <input v-model.number="form.games.stableford.buyIn" class="form-input sm" type="number" min="0" placeholder="Buy-in $" />
-          <select v-model="form.games.stableford.type" class="form-input sm"><option>net</option><option>gross</option></select>
-        </div>
-
-        <div class="game-row">
-          <label class="game-toggle"><input v-model="form.games.threeManNassau.enabled" type="checkbox" /> 3-Man Nassau</label>
-          <input v-model.number="form.games.threeManNassau.amount" class="form-input sm" type="number" min="0" placeholder="$/opponent" />
-          <select v-model="form.games.threeManNassau.type" class="form-input sm"><option>net</option><option>gross</option></select>
         </div>
 
         <div class="game-row">

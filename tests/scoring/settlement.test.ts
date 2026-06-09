@@ -40,7 +40,6 @@ function makeInput(
     team1: players.slice(0, half),
     team2: players.slice(half),
     players,
-    matchups: [],
     games,
     ...extra,
   };
@@ -94,56 +93,6 @@ describe('settlement P&L', () => {
     // pot = 20, A wins all -> +20-10 = +10, B -10
     expect(pnl.A).toBeCloseTo(10);
     expect(pnl.B).toBeCloseTo(-10);
-  });
-
-  it('settles head-to-head matchups by total net score', () => {
-    const players = ['A', 'B', 'C', 'D'];
-    const scores = matrix(players);
-    fill(scores, 'A', 4);
-    fill(scores, 'B', 5);
-    fill(scores, 'C', 4);
-    fill(scores, 'D', 4);
-
-    const pnl = computePlayerPnL(
-      makeInput(
-        players,
-        scores,
-        (g) => {
-          g.h2h.enabled = true;
-          g.h2h.type = 'gross';
-          g.h2h.perMatchup = 5;
-        },
-        {
-          matchups: [
-            { t1: 'A', t2: 'B' }, // A lower -> A +5, B -5
-            { t1: 'C', t2: 'D' }, // tie -> no change
-          ],
-        },
-      ),
-    );
-
-    expect(pnl).toEqual({ A: 5, B: -5, C: 0, D: 0 });
-  });
-
-  it('splits the stableford pot among the top scorers and charges the buy-in', () => {
-    const players = ['A', 'B', 'C'];
-    const scores = matrix(players);
-    fill(scores, 'A', 3); // birdies -> most points
-    fill(scores, 'B', 4);
-    fill(scores, 'C', 4);
-
-    const pnl = computePlayerPnL(
-      makeInput(players, scores, (g) => {
-        g.stableford.enabled = true;
-        g.stableford.type = 'gross';
-        g.stableford.buyIn = 6;
-      }),
-    );
-
-    // pot = 18, A wins outright -> -6 + 18 = +12, B and C -6 each
-    expect(pnl.A).toBeCloseTo(12);
-    expect(pnl.B).toBeCloseTo(-6);
-    expect(pnl.C).toBeCloseTo(-6);
   });
 
   it('settles scramble team scores from the team score matrix', () => {

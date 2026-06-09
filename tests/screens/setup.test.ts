@@ -288,25 +288,6 @@ describe('SetupScreen', () => {
     });
   });
 
-  it('configures pair match play and default pairings', async () => {
-    const store = useRoundStore();
-    const wrapper = mountSetup();
-
-    await fillDefaultPlayers(wrapper);
-
-    const pairRow = wrapper.findAll('.game-row').find((row) => row.text().includes('Pair Match Play'));
-    expect(pairRow).toBeDefined();
-    await pairRow!.find('input[type="checkbox"]').setValue(true);
-    await pairRow!.find('input[type="number"]').setValue('2');
-    await pairRow!.find('select').setValue('gross');
-
-    expect(wrapper.find('.pair-match-builder').exists()).toBe(true);
-    await wrapper.find('.btn-primary').trigger('click');
-
-    expect(store.round?.games.pairMatch).toMatchObject({ enabled: true, pointsPerHole: 2, type: 'gross' });
-    expect(store.round?.pairMatches).toEqual([{ a: ['Ann', 'Bea'], b: ['Cal', 'Dan'] }]);
-  });
-
   it('shows playing groups preview after players are entered', async () => {
     const wrapper = mountSetup();
     await fillDefaultPlayers(wrapper);
