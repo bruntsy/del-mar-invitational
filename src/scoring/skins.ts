@@ -1,11 +1,12 @@
 import { scoreAt } from '@/scoring/cells';
 import { playerHoleScore, type ScoreContext } from '@/scoring/round';
+import type { ScoreType } from '@/types';
 
 export interface SkinHoleResult {
   hole: number;
   winner: string | null;
   pot: number;
-  nets: Record<string, number>;
+  effectiveScores: Record<string, number>;
   tied: boolean;
   tiedPlayers?: string[];
 }
@@ -16,7 +17,11 @@ export interface SkinsResult {
   pendingPot: number;
 }
 
-export function computeSkins(context: ScoreContext, players: string[]): SkinsResult {
+export function computeSkins(
+  context: ScoreContext,
+  players: string[],
+  type: ScoreType = 'net',
+): SkinsResult {
   const skinsByPlayer = Object.fromEntries(players.map((player) => [player, 0]));
   const holeResults: SkinHoleResult[] = [];
 
@@ -28,22 +33,22 @@ export function computeSkins(context: ScoreContext, players: string[]): SkinsRes
     const allEntered = players.every((player) => scoreAt(context.scores, player, hole) != null);
     if (!allEntered) break;
 
-    const nets = Object.fromEntries(
-      players.map((player) => [player, playerHoleScore(context, player, hole, 'net') ?? 0]),
+    const effectiveScores = Object.fromEntries(
+      players.map((player) => [player, playerHoleScore(context, player, hole, type) ?? 0]),
     );
-    const min = Math.min(...Object.values(nets));
-    const winners = players.filter((player) => nets[player] === min);
+    const min = Math.min(...Object.values(effectiveScores));
+    const winners = players.filter((player) => effectiveScores[player] === min);
 
     if (winners.length === 1) {
       const [winner] = winners;
       skinsByPlayer[winner] += 1;
-      holeResults.push({ hole: hole + 1, winner, pot: 1, nets, tied: false });
+      holeResults.push({ hole: hole + 1, winner, pot: 1, effectiveScores, tied: false });
     } else {
       holeResults.push({
         hole: hole + 1,
         winner: null,
         pot: 0,
-        nets,
+        effectiveScores,
         tied: true,
         tiedPlayers: winners,
       });

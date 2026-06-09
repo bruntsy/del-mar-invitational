@@ -47,7 +47,7 @@ export function computePlayerPnL(input: SettlementInput): Record<string, number>
   const pnl: Record<string, number> = Object.fromEntries(players.map((player) => [player, 0]));
 
   if (g.skins.enabled && g.skins.pot) {
-    const { skinsByPlayer } = computeSkins(scoreContext, players);
+    const { skinsByPlayer } = computeSkins(scoreContext, players, g.skins.type);
     const totalPot = g.skins.pot * players.length;
     const total = Object.values(skinsByPlayer).reduce((sum, value) => sum + value, 0);
     if (total > 0) {

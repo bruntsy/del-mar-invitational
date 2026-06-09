@@ -231,7 +231,7 @@ export const useRoundStore = defineStore('round', {
     skins(): SkinsResult {
       const context = this.scoreContext;
       if (!context) return { skinsByPlayer: {}, holeResults: [], pendingPot: 0 };
-      return computeSkins(context, this.playerNames);
+      return computeSkins(context, this.playerNames, this.games.skins.type);
     },
 
     /**
