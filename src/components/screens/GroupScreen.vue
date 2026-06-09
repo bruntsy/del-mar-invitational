@@ -11,7 +11,8 @@ import { useRoundStore } from '@/stores/round';
 import { eventFormatLabel } from '@/domain/events';
 import { useEventLeaderboard } from '@/composables/useEventLeaderboard';
 import EventConfigEditor from '@/components/EventConfigEditor.vue';
-import type { EventConfig, EventRoundRow } from '@/types/event';
+import type { EventConfig } from '@/types/event';
+import type { EventRoundRow } from '@/scoring/eventRound';
 
 const store = useGroupStore();
 const history = useHistoryStore();

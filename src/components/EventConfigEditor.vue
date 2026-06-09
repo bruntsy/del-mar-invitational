@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import type { EventRoundFormat } from '@/types/event';
+import type { EventRoundConfig, EventRoundFormat } from '@/types/event';
 import type { Event, EventConfig } from '@/types/event';
 import { eventFormatLabel, normalizeEventConfig } from '@/domain/events';
 import { autoPlayingGroupsFromPairMatches } from '@/domain/playingGroups';
@@ -15,17 +15,49 @@ const emit = defineEmits<{
   cancel: [];
 }>();
 
-const FORMATS: EventRoundFormat[] = [
-  'bestBallNassau',
-  'twoManBestBallAggy',
-  'scramble2v2Nassau',
-  'fourManScramble',
-  'custom',
-];
-
 const draft = ref<EventConfig>(JSON.parse(JSON.stringify(props.event.config)));
 const draftName = ref(props.event.name);
 const openRound = ref<number | null>(0);
+
+type BaseFormat = 'bestBall' | 'scramble' | 'custom';
+
+function roundBase(round: EventRoundConfig): BaseFormat {
+  if (round.format === 'bestBallNassau' || round.format === 'twoManBestBallAggy') return 'bestBall';
+  if (round.format === 'scramble2v2Nassau' || round.format === 'fourManScramble') return 'scramble';
+  return 'custom';
+}
+
+function roundNassau(round: EventRoundConfig): boolean {
+  return round.format === 'bestBallNassau' || round.format === 'scramble2v2Nassau';
+}
+
+function roundAggy(round: EventRoundConfig): boolean {
+  return round.format === 'twoManBestBallAggy';
+}
+
+function deriveFormat(base: BaseFormat, nassau: boolean, aggy: boolean): EventRoundFormat {
+  if (base === 'bestBall') return aggy ? 'twoManBestBallAggy' : 'bestBallNassau';
+  if (base === 'scramble') return nassau ? 'scramble2v2Nassau' : 'fourManScramble';
+  return 'custom';
+}
+
+function setRoundBase(ri: number, base: BaseFormat) {
+  const round = draft.value.rounds[ri];
+  const nassau = roundNassau(round);
+  const aggy = base === 'bestBall' ? roundAggy(round) : false;
+  round.format = deriveFormat(base, nassau, aggy);
+  recomputePlayingGroups(ri);
+}
+
+function setRoundNassau(ri: number, nassau: boolean) {
+  const round = draft.value.rounds[ri];
+  round.format = deriveFormat(roundBase(round), nassau, roundAggy(round));
+}
+
+function setRoundAggy(ri: number, aggy: boolean) {
+  const round = draft.value.rounds[ri];
+  round.format = deriveFormat(roundBase(round), roundNassau(round), aggy);
+}
 
 function recomputePlayingGroups(roundIndex: number) {
   const round = draft.value.rounds[roundIndex];
@@ -81,10 +113,6 @@ function removeMatch(roundIndex: number, matchIndex: number) {
   draft.value.rounds[roundIndex].pairMatches = draft.value.rounds[roundIndex].pairMatches.filter(
     (_, i) => i !== matchIndex,
   );
-  recomputePlayingGroups(roundIndex);
-}
-
-function onFormatChange(roundIndex: number) {
   recomputePlayingGroups(roundIndex);
 }
 
@@ -164,10 +192,29 @@ function save() {
 
           <!-- Format -->
           <div class="ece-field">
-            <label class="ece-sublabel">Format</label>
-            <select v-model="round.format" class="form-input" @change="onFormatChange(ri)">
-              <option v-for="f in FORMATS" :key="f" :value="f">{{ eventFormatLabel(f) }}</option>
-            </select>
+            <label class="ece-sublabel">Base format</label>
+            <div class="ece-seg">
+              <button class="ece-seg-btn" :class="{ active: roundBase(round) === 'bestBall' }" type="button" @click="setRoundBase(ri, 'bestBall')">Best Ball</button>
+              <button class="ece-seg-btn" :class="{ active: roundBase(round) === 'scramble' }" type="button" @click="setRoundBase(ri, 'scramble')">Scramble</button>
+              <button class="ece-seg-btn" :class="{ active: roundBase(round) === 'custom' }" type="button" @click="setRoundBase(ri, 'custom')">Custom</button>
+            </div>
+          </div>
+
+          <!-- Nassau / Full Round (non-custom) -->
+          <div v-if="roundBase(round) !== 'custom' && !roundAggy(round)" class="ece-field">
+            <label class="ece-sublabel">Scoring structure</label>
+            <div class="ece-seg">
+              <button class="ece-seg-btn" :class="{ active: roundNassau(round) }" type="button" @click="setRoundNassau(ri, true)">Nassau</button>
+              <button class="ece-seg-btn" :class="{ active: !roundNassau(round) }" type="button" @click="setRoundNassau(ri, false)">Full Round</button>
+            </div>
+          </div>
+
+          <!-- Aggy (Best Ball only) -->
+          <div v-if="roundBase(round) === 'bestBall'" class="ece-field ece-inline-field">
+            <label class="ece-sublabel">
+              <input type="checkbox" :checked="roundAggy(round)" @change="setRoundAggy(ri, ($event.target as HTMLInputElement).checked)" />
+              Aggy
+            </label>
           </div>
 
           <!-- Scoring Mode -->
@@ -189,17 +236,19 @@ function save() {
             </div>
           </div>
 
-          <!-- Best Ball Bet (bestBallNassau, twoManBestBallAggy) -->
-          <template v-if="round.format === 'bestBallNassau' || round.format === 'twoManBestBallAggy'">
+          <!-- Best Ball Bet (bestBall base) -->
+          <template v-if="roundBase(round) === 'bestBall'">
             <div class="ece-field">
               <label class="ece-sublabel">Best Ball Bet</label>
               <div class="ece-row ece-points-row">
-                <label class="ece-pts-label">Front
-                  <input v-model.number="round.bestBallBet.front" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
-                </label>
-                <label class="ece-pts-label">Back
-                  <input v-model.number="round.bestBallBet.back" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
-                </label>
+                <template v-if="roundNassau(round)">
+                  <label class="ece-pts-label">Front
+                    <input v-model.number="round.bestBallBet.front" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
+                  </label>
+                  <label class="ece-pts-label">Back
+                    <input v-model.number="round.bestBallBet.back" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
+                  </label>
+                </template>
                 <label class="ece-pts-label">Total
                   <input v-model.number="round.bestBallBet.total" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
                 </label>
@@ -211,17 +260,19 @@ function save() {
             </div>
           </template>
 
-          <!-- Scramble Bet (scramble2v2Nassau) -->
-          <template v-if="round.format === 'scramble2v2Nassau'">
+          <!-- Scramble Bet (scramble base) -->
+          <template v-if="roundBase(round) === 'scramble'">
             <div class="ece-field">
               <label class="ece-sublabel">Scramble Bet</label>
               <div class="ece-row ece-points-row">
-                <label class="ece-pts-label">Front
-                  <input v-model.number="round.scrambleBet.front" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
-                </label>
-                <label class="ece-pts-label">Back
-                  <input v-model.number="round.scrambleBet.back" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
-                </label>
+                <template v-if="roundNassau(round)">
+                  <label class="ece-pts-label">Front
+                    <input v-model.number="round.scrambleBet.front" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
+                  </label>
+                  <label class="ece-pts-label">Back
+                    <input v-model.number="round.scrambleBet.back" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
+                  </label>
+                </template>
                 <label class="ece-pts-label">Total
                   <input v-model.number="round.scrambleBet.total" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
                 </label>
@@ -229,8 +280,8 @@ function save() {
             </div>
           </template>
 
-          <!-- Points (not shown for twoManBestBallAggy which uses fixed 36-pt model) -->
-          <div v-if="round.format !== 'twoManBestBallAggy'" class="ece-field">
+          <!-- Points (not shown for Aggy which uses fixed 36-pt model) -->
+          <div v-if="!roundAggy(round)" class="ece-field">
             <label class="ece-sublabel">Points</label>
             <div class="ece-row ece-points-row">
               <label class="ece-pts-label">Front
@@ -245,8 +296,8 @@ function save() {
             </div>
           </div>
 
-          <!-- Pair matches (not used for fourManScramble) -->
-          <template v-if="round.format !== 'fourManScramble'">
+          <!-- Pair matches (not used for full-round scramble) -->
+          <template v-if="!(roundBase(round) === 'scramble' && !roundNassau(round))">
             <div class="ece-field">
               <label class="ece-sublabel">Pair matches</label>
               <div v-for="(match, mi) in round.pairMatches" :key="mi" class="ece-match">
