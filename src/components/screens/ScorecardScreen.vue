@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { getsStroke } from '@/scoring/handicap';
 import { puttPenaltyNote } from '@/scoring/puttPoker';
@@ -10,6 +10,7 @@ const router = useRouter();
 
 onMounted(() => {
   if (!store.round) store.load();
+  loadMobileHole();
 });
 
 const HOLES = Array.from({ length: 18 }, (_, hole) => hole);
@@ -190,6 +191,68 @@ function holeClass(winner: 'a' | 'b' | 'tie' | null): string {
 function wolfField(row: (typeof wolf.value.rows)[number]): string {
   return row.result.sideB.join(' + ') || '—';
 }
+
+// ── Playing group filter ──────────────────────────────────────────────────────
+
+const playingGroups = computed(() => {
+  const r = store.round;
+  if (!r) return [];
+  const defined = (r.playingGroups || []).filter((g) => g.players.length > 0);
+  if (defined.length) return defined;
+  return teamRows.value.map((t) => ({ name: t.label, players: t.players }));
+});
+
+const selectedGroupIndex = ref(-1); // -1 = show all
+
+const activeGroupPlayers = computed<Set<string>>(() => {
+  if (selectedGroupIndex.value < 0) return new Set(store.playerNames);
+  return new Set(playingGroups.value[selectedGroupIndex.value]?.players ?? []);
+});
+
+const filteredTeamRows = computed(() =>
+  teamRows.value
+    .map((team) => ({ ...team, players: team.players.filter((p) => activeGroupPlayers.value.has(p)) }))
+    .filter((team) => team.players.length > 0),
+);
+
+// ── Mobile hole-by-hole mode ──────────────────────────────────────────────────
+
+const mobileHoleKey = computed(() => `dmi_mobile_hole_${store.round?.id ?? 'local'}`);
+const mobileMode = ref(false);
+const mobileHole = ref(0);
+
+function loadMobileHole() {
+  try {
+    const saved = localStorage.getItem(mobileHoleKey.value);
+    if (saved != null) mobileHole.value = Math.min(17, Math.max(0, Number(saved)));
+  } catch { /* ignore */ }
+}
+
+watch(mobileHole, (hole) => {
+  try { localStorage.setItem(mobileHoleKey.value, String(hole)); } catch { /* ignore */ }
+});
+
+function prevHole() { if (mobileHole.value > 0) mobileHole.value -= 1; }
+function nextHole() { if (mobileHole.value < 17) mobileHole.value += 1; }
+
+function adjustScore(player: string, delta: number) {
+  const current = store.readScore(player, mobileHole.value) ?? 0;
+  const next = Math.max(1, current + delta);
+  store.setScore(player, mobileHole.value, next);
+}
+
+function adjustPutt(player: string, delta: number) {
+  const current = store.readPutt(player, mobileHole.value) ?? 0;
+  const next = Math.max(0, current + delta);
+  store.setPutt(player, mobileHole.value, next);
+}
+
+const mobilePlayers = computed(() => {
+  if (selectedGroupIndex.value >= 0) {
+    return playingGroups.value[selectedGroupIndex.value]?.players ?? store.playerNames;
+  }
+  return store.playerNames;
+});
 </script>
 
 <template>
@@ -201,12 +264,104 @@ function wolfField(row: (typeof wolf.value.rows)[number]): string {
           <p class="sc-sub">{{ courseSub }}</p>
         </div>
         <div class="sc-topbar-actions">
+          <button class="btn-ghost" :class="{ 'btn-ghost-active': mobileMode }" type="button" @click="mobileMode = !mobileMode">
+            {{ mobileMode ? 'Full card' : 'Mobile' }}
+          </button>
           <button class="btn-ghost" type="button" @click="goResults">Results →</button>
           <button class="btn-ghost" type="button" @click="goHome">← Home</button>
         </div>
       </header>
 
-      <div class="sc-table-wrap">
+      <!-- Group filter (shown when more than one playing group exists) -->
+      <div v-if="playingGroups.length > 1" class="group-filter">
+        <button
+          class="gf-btn"
+          :class="{ active: selectedGroupIndex === -1 }"
+          type="button"
+          @click="selectedGroupIndex = -1"
+        >All</button>
+        <button
+          v-for="(group, gi) in playingGroups"
+          :key="group.name"
+          class="gf-btn"
+          :class="{ active: selectedGroupIndex === gi }"
+          type="button"
+          @click="selectedGroupIndex = gi"
+        >{{ group.name }}</button>
+      </div>
+
+      <!-- Mobile hole-by-hole card -->
+      <div v-if="mobileMode" class="mobile-card">
+        <div class="mobile-hole-nav">
+          <button class="btn-ghost" type="button" :disabled="mobileHole === 0" @click="prevHole">←</button>
+          <div class="mobile-hole-info">
+            <span class="mobile-hole-num">Hole {{ mobileHole + 1 }}</span>
+            <span class="mobile-hole-par">Par {{ par[mobileHole] }}</span>
+            <span class="mobile-hole-si">SI {{ si[mobileHole] }}</span>
+          </div>
+          <button class="btn-ghost" type="button" :disabled="mobileHole === 17" @click="nextHole">→</button>
+        </div>
+
+        <div class="mobile-players">
+          <div v-for="player in mobilePlayers" :key="player" class="mobile-player-row">
+            <div class="mobile-player-meta">
+              <div class="mobile-player-name">{{ player }}</div>
+              <div class="mobile-player-hcp">
+                Hcp {{ store.courseHandicaps[player] }}
+                <span v-if="getsStrokeHere(player, mobileHole)" class="mobile-stroke-dot">●</span>
+              </div>
+            </div>
+            <div class="mobile-score-block">
+              <div class="mobile-field-label">Score</div>
+              <div class="mobile-stepper" :class="scoreColorClass(store.readScore(player, mobileHole), par[mobileHole])">
+                <button class="stepper-btn" type="button" @click="adjustScore(player, -1)">−</button>
+                <input
+                  type="number"
+                  inputmode="numeric"
+                  min="1"
+                  max="20"
+                  class="mobile-score-input"
+                  :value="store.readScore(player, mobileHole) ?? ''"
+                  @input="onScoreInput(player, mobileHole, ($event.target as HTMLInputElement).value)"
+                  @focus="($event.target as HTMLInputElement).select()"
+                />
+                <button class="stepper-btn" type="button" @click="adjustScore(player, 1)">+</button>
+              </div>
+            </div>
+            <div v-if="puttPokerEnabled" class="mobile-score-block">
+              <div class="mobile-field-label">Putts</div>
+              <div class="mobile-stepper" :class="puttColorClass(store.readPutt(player, mobileHole))">
+                <button class="stepper-btn" type="button" @click="adjustPutt(player, -1)">−</button>
+                <input
+                  type="number"
+                  inputmode="numeric"
+                  min="0"
+                  max="9"
+                  class="mobile-score-input"
+                  :value="store.readPutt(player, mobileHole) ?? ''"
+                  @input="onPuttInput(player, mobileHole, ($event.target as HTMLInputElement).value)"
+                  @focus="($event.target as HTMLInputElement).select()"
+                />
+                <button class="stepper-btn" type="button" @click="adjustPutt(player, 1)">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hole strip for quick navigation -->
+        <div class="mobile-hole-strip">
+          <button
+            v-for="h in HOLES"
+            :key="`strip-${h}`"
+            class="strip-btn"
+            :class="{ active: mobileHole === h, filled: mobilePlayers.some(p => store.readScore(p, h) != null) }"
+            type="button"
+            @click="mobileHole = h"
+          >{{ h + 1 }}</button>
+        </div>
+      </div>
+
+      <div v-if="!mobileMode" class="sc-table-wrap">
         <table class="sc-table">
           <thead>
             <tr class="row-holes">
@@ -238,7 +393,7 @@ function wolfField(row: (typeof wolf.value.rows)[number]): string {
             </tr>
           </thead>
           <tbody>
-            <template v-for="team in teamRows" :key="team.key">
+            <template v-for="team in filteredTeamRows" :key="team.key">
               <tr class="row-team-divider">
                 <td :colspan="24">{{ team.label }} — {{ team.players.join(' · ') }}</td>
               </tr>
@@ -395,7 +550,7 @@ function wolfField(row: (typeof wolf.value.rows)[number]): string {
             </template>
           </tbody>
         </table>
-      </div>
+      </div><!-- end sc-table-wrap / v-if="!mobileMode" -->
 
       <section v-if="pairMatchVisible" class="pair-live">
         <div class="pair-live-title">
@@ -1116,6 +1271,205 @@ function wolfField(row: (typeof wolf.value.rows)[number]): string {
 .settle-arrow { color: #9aa49a; font-size: 0.78rem; }
 .settle-amount { font-weight: 700; color: #2f5d43; }
 .settle-square { color: #6a7a6f; }
+
+/* Group filter bar */
+.group-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.gf-btn {
+  border: 1px solid #cdbf9f;
+  border-radius: 20px;
+  background: transparent;
+  color: #4a5a4f;
+  padding: 5px 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gf-btn.active {
+  background: #2f5d43;
+  border-color: #2f5d43;
+  color: #f3efe2;
+}
+
+.btn-ghost-active {
+  background: #ece8da;
+  border-color: #b8a97a;
+}
+
+/* Mobile hole card */
+.mobile-card {
+  border: 1px solid #d7cebd;
+  border-radius: 10px;
+  background: #f8f4ea;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.mobile-hole-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.mobile-hole-info {
+  text-align: center;
+}
+
+.mobile-hole-num {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #24362c;
+  line-height: 1;
+}
+
+.mobile-hole-par,
+.mobile-hole-si {
+  display: inline-block;
+  font-size: 0.8rem;
+  color: #6a7a6f;
+  margin: 4px 6px 0;
+  font-weight: 600;
+}
+
+.mobile-players {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.mobile-player-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 10px 12px;
+}
+
+.mobile-player-meta {
+  flex: 1;
+  min-width: 80px;
+}
+
+.mobile-player-name {
+  font-weight: 800;
+  color: #283b30;
+  font-size: 1rem;
+}
+
+.mobile-player-hcp {
+  font-size: 0.72rem;
+  color: #8a9489;
+  margin-top: 2px;
+}
+
+.mobile-stroke-dot {
+  color: #b1462f;
+  font-size: 0.55rem;
+  margin-left: 3px;
+  vertical-align: middle;
+}
+
+.mobile-score-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.mobile-field-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8a9489;
+}
+
+.mobile-stepper {
+  display: flex;
+  align-items: center;
+  border: 1px solid #cdbf9f;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fdfbf4;
+}
+
+.stepper-btn {
+  border: none;
+  background: transparent;
+  color: #2f5d43;
+  font-size: 1.2rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.stepper-btn:active {
+  background: #e8f0e8;
+}
+
+.mobile-score-input {
+  width: 44px;
+  border: none;
+  background: transparent;
+  text-align: center;
+  font-size: 1.3rem;
+  font-weight: 900;
+  color: inherit;
+  padding: 4px 0;
+}
+
+.mobile-score-input:focus {
+  outline: 2px solid #2f8f58;
+  outline-offset: -2px;
+}
+
+/* Inherit score color classes on stepper */
+.score-eagle .mobile-score-input { color: #8a672f; }
+.score-birdie .mobile-stepper { background: #cdeccd; }
+.score-bogey .mobile-stepper { background: #f3dede; }
+.score-double .mobile-stepper { background: #e6c4c4; }
+
+.mobile-hole-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+}
+
+.strip-btn {
+  border: 1px solid #cdbf9f;
+  border-radius: 6px;
+  background: transparent;
+  color: #6a7a6f;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 6px;
+  min-width: 30px;
+  cursor: pointer;
+}
+
+.strip-btn.active {
+  background: #2f5d43;
+  border-color: #2f5d43;
+  color: #f3efe2;
+}
+
+.strip-btn.filled {
+  border-color: #8a9489;
+  color: #283b30;
+}
 
 .sc-empty {
   margin: 48px auto 0;

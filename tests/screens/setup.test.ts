@@ -307,6 +307,45 @@ describe('SetupScreen', () => {
     expect(store.round?.pairMatches).toEqual([{ a: ['Ann', 'Bea'], b: ['Cal', 'Dan'] }]);
   });
 
+  it('shows playing groups preview after players are entered', async () => {
+    const wrapper = mountSetup();
+    await fillDefaultPlayers(wrapper);
+
+    const pg = wrapper.find('.pg-list');
+    expect(pg.exists()).toBe(true);
+    // 4 players, auto-split into 1 group of 4 (or 2 of 2 depending on pair match)
+    const chips = pg.findAll('.pg-player-chip');
+    expect(chips).toHaveLength(4);
+    expect(pg.text()).toContain('Ann');
+    expect(pg.text()).toContain('Dan');
+  });
+
+  it('includes playingGroups in the created round', async () => {
+    const store = useRoundStore();
+    const wrapper = mountSetup();
+    await fillDefaultPlayers(wrapper);
+    await wrapper.find('.btn-primary').trigger('click');
+
+    expect(store.round?.playingGroups).toBeDefined();
+    expect(store.round!.playingGroups.length).toBeGreaterThan(0);
+    const allPlayers = store.round!.playingGroups.flatMap((g) => g.players);
+    expect(allPlayers).toContain('Ann');
+    expect(allPlayers).toContain('Dan');
+  });
+
+  it('allows renaming a playing group before starting the round', async () => {
+    const store = useRoundStore();
+    const wrapper = mountSetup();
+    await fillDefaultPlayers(wrapper);
+
+    const nameInput = wrapper.find('.pg-name-input');
+    await nameInput.setValue('Bay Boys');
+
+    await wrapper.find('.btn-primary').trigger('click');
+
+    expect(store.round?.playingGroups[0].name).toBe('Bay Boys');
+  });
+
   it('adds and removes player rows', async () => {
     const wrapper = mountSetup();
     expect(wrapper.findAll('.player-row')).toHaveLength(4);

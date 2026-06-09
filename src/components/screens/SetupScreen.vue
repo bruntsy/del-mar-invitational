@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { courseFromSearchTee, selectableCourseTees, type CourseSearchResult, type CourseSearchTee } from '@/domain/courseSearch';
 import { cloneDefaultGames, normalizeGames } from '@/domain/games';
 import { sortedGroupPlayers } from '@/domain/players';
+import { autoPlayingGroupsFromPairMatches, normalizePlayingGroups } from '@/domain/playingGroups';
 import { allocateNetStrokes, computeWHSCourseHcp, getsStroke } from '@/scoring/handicap';
 import { ensurePairMatches } from '@/scoring/pairMatch';
 import { searchCourses } from '@/services/courseSearch';
@@ -49,6 +50,7 @@ const form = reactive({
   ] as PlayerRow[],
   games: cloneDefaultGames() as GameConfig,
   pairMatches: [] as PairMatch[],
+  playingGroupNames: [] as string[],
 });
 
 onMounted(() => {
@@ -179,6 +181,15 @@ const canStart = computed(() => errors.value.length === 0);
 
 const pairMatches = computed(() => ensurePairMatches(form.pairMatches, team1.value, team2.value));
 
+const previewPlayingGroups = computed(() =>
+  autoPlayingGroupsFromPairMatches(
+    pairMatches.value,
+    [...team1.value, ...team2.value],
+    team1.value,
+    team2.value,
+  ),
+);
+
 const courseParTotal = computed(() => form.par.reduce((total, value) => total + Number(value || 0), 0));
 
 const previewCourseHandicaps = computed(() => Object.fromEntries(
@@ -265,6 +276,14 @@ function buildRound(): { round: RoundState; players: PlayerMap } {
     .map((t1, index) => ({ t1, t2: team2.value[index] }))
     .filter((m) => m.t1 && m.t2);
 
+  const playingGroups = normalizePlayingGroups(
+    previewPlayingGroups.value.map((g, i) => ({
+      name: form.playingGroupNames[i] || g.name,
+      players: g.players,
+    })),
+    [...team1.value, ...team2.value],
+  );
+
   const round: RoundState = {
     ...emptyRound(),
     course,
@@ -273,6 +292,7 @@ function buildRound(): { round: RoundState; players: PlayerMap } {
     teamNames: { team1: form.teamNames.team1, team2: form.teamNames.team2 },
     matchups,
     pairMatches: ensurePairMatches(form.pairMatches, team1.value, team2.value),
+    playingGroups,
     games: normalizeGames(form.games),
   };
 
@@ -555,6 +575,24 @@ function goHome() {
         <div class="game-row">
           <label class="game-toggle"><input v-model="form.games.puttPoker.enabled" type="checkbox" /> Putt Poker</label>
           <input v-model.number="form.games.puttPoker.pot" class="form-input sm" type="number" min="0" placeholder="$/person" />
+        </div>
+      </div>
+    </section>
+
+    <section v-if="namedPlayers.length >= 2" class="setup-card">
+      <h2 class="setup-hdr">Playing Groups</h2>
+      <p class="pg-hint">Auto-assigned from pair matches or team order. Rename groups if needed.</p>
+      <div class="pg-list">
+        <div v-for="(group, gi) in previewPlayingGroups" :key="gi" class="pg-group">
+          <input
+            class="form-input pg-name-input"
+            :placeholder="group.name"
+            :value="form.playingGroupNames[gi] || ''"
+            @input="form.playingGroupNames[gi] = ($event.target as HTMLInputElement).value"
+          />
+          <div class="pg-players">
+            <span v-for="player in group.players" :key="player" class="pg-player-chip">{{ player }}</span>
+          </div>
         </div>
       </div>
     </section>
@@ -895,6 +933,45 @@ label {
 .pair-add {
   justify-self: start;
   padding: 7px 12px;
+}
+
+.pg-hint {
+  margin: 0 0 12px;
+  color: #6a7a6f;
+  font-size: 0.78rem;
+}
+
+.pg-list {
+  display: grid;
+  gap: 10px;
+}
+
+.pg-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pg-name-input {
+  max-width: 160px;
+  flex-shrink: 0;
+}
+
+.pg-players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pg-player-chip {
+  background: #e8f0e8;
+  border: 1px solid #b8d4c0;
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #2f5d43;
 }
 
 .setup-errors {

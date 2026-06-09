@@ -186,6 +186,142 @@ describe('ScorecardScreen', () => {
     expect(wrapper.find('.pp-card-count').text()).toContain('2');
   });
 
+  it('shows group filter buttons when playing groups are defined', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.playingGroups = [
+      { name: 'Group 1', players: ['Wes', 'Tito'] },
+      { name: 'Group 2', players: ['Aaron', 'Q'] },
+    ];
+    store.setRound(round, players);
+
+    const wrapper = mountScorecard();
+    const filter = wrapper.find('.group-filter');
+    expect(filter.exists()).toBe(true);
+    // All + 2 group buttons
+    expect(filter.findAll('.gf-btn')).toHaveLength(3);
+    expect(filter.text()).toContain('Group 1');
+    expect(filter.text()).toContain('Group 2');
+  });
+
+  it('group filter hides players not in the selected group', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.playingGroups = [
+      { name: 'Group 1', players: ['Wes', 'Tito'] },
+      { name: 'Group 2', players: ['Aaron', 'Q'] },
+    ];
+    store.setRound(round, players);
+
+    const wrapper = mountScorecard();
+    // click "Group 1" button
+    const g1btn = wrapper.findAll('.gf-btn').find((b) => b.text() === 'Group 1');
+    await g1btn!.trigger('click');
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.text()).toContain('Wes');
+    expect(wrapper.text()).toContain('Tito');
+    expect(wrapper.findAll('.row-player').find((r) => r.text().includes('Aaron'))).toBeUndefined();
+    expect(wrapper.findAll('.row-player').find((r) => r.text().includes('Q'))).toBeUndefined();
+  });
+
+  it('group filter "All" restores all players', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.playingGroups = [
+      { name: 'Group 1', players: ['Wes', 'Tito'] },
+      { name: 'Group 2', players: ['Aaron', 'Q'] },
+    ];
+    store.setRound(round, players);
+
+    const wrapper = mountScorecard();
+    await wrapper.findAll('.gf-btn')[1].trigger('click'); // Group 1
+    await wrapper.findAll('.gf-btn')[0].trigger('click'); // All
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.findAll('.row-player')).toHaveLength(4);
+  });
+
+  it('mobile mode toggle hides the table and shows the hole card', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    store.setRound(round, players);
+
+    const wrapper = mountScorecard();
+    expect(wrapper.find('.mobile-card').exists()).toBe(false);
+    expect(wrapper.find('.sc-table-wrap').exists()).toBe(true);
+
+    await wrapper.find('button.btn-ghost').trigger('click'); // Mobile button is first
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.find('.mobile-card').exists()).toBe(true);
+    expect(wrapper.find('.sc-table-wrap').exists()).toBe(false);
+  });
+
+  it('mobile hole card shows players, score steppers, and hole navigation', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    store.setRound(round, players);
+
+    const wrapper = mountScorecard();
+    // toggle to mobile mode
+    await wrapper.find('button.btn-ghost').trigger('click');
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.find('.mobile-hole-num').text()).toBe('Hole 1');
+    expect(wrapper.findAll('.mobile-player-row')).toHaveLength(4);
+
+    // navigate to hole 2
+    const navBtns = wrapper.find('.mobile-hole-nav').findAll('button');
+    await navBtns[1].trigger('click'); // → next
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.find('.mobile-hole-num').text()).toBe('Hole 2');
+  });
+
+  it('mobile score stepper increments the score via the store', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    store.setRound(round, players);
+
+    const wrapper = mountScorecard();
+    await wrapper.find('button.btn-ghost').trigger('click');
+    await wrapper.vm.$nextTick();
+
+    // The first player is Wes (Bay Cats team1[0])
+    const firstRow = wrapper.find('.mobile-player-row');
+    const plusBtn = firstRow.findAll('.stepper-btn')[1]; // + button
+    await plusBtn.trigger('click');
+    await plusBtn.trigger('click');
+    await plusBtn.trigger('click');
+    await wrapper.vm.$nextTick();
+
+    // base 0 + 3 increments → max(1, 3) = 3
+    expect(store.readScore('Wes', 0)).toBe(3);
+  });
+
+  it('mobile hole strip marks filled holes and allows quick navigation', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    store.setRound(round, players);
+    store.setScore('Wes', 4, 5); // hole 5 has a score
+
+    const wrapper = mountScorecard();
+    await wrapper.find('button.btn-ghost').trigger('click');
+    await wrapper.vm.$nextTick();
+
+    const strip = wrapper.find('.mobile-hole-strip');
+    expect(strip.exists()).toBe(true);
+
+    // click hole 5 (index 4 = 5th button)
+    await strip.findAll('.strip-btn')[4].trigger('click');
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.find('.mobile-hole-num').text()).toBe('Hole 5');
+    expect(strip.findAll('.strip-btn')[4].classes()).toContain('active');
+    expect(strip.findAll('.strip-btn')[4].classes()).toContain('filled');
+  });
+
   it('toggles a putt row and records putts that drive the coin and pot', async () => {
     const store = useRoundStore();
     const { round, players } = demoRound();

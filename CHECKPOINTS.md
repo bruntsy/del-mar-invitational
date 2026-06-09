@@ -1860,3 +1860,61 @@ Next likely tasks:
   - Scorecard playing-group filter.
   - Mobile hole-by-hole score + putt entry mode.
   - Persist selected mobile hole using `dmi_mobile_hole_*` key.
+
+## Checkpoint 36: Playing Groups + Mobile Scoring UX
+
+Files changed since Checkpoint 35:
+
+- Updated `src/components/screens/SetupScreen.vue`.
+- Updated `src/components/screens/ScorecardScreen.vue`.
+- Updated `tests/screens/setup.test.ts`.
+- Updated `tests/screens/scorecard.test.ts`.
+- Updated `README.md` and this file.
+
+What changed:
+
+**Setup — Playing Groups section:**
+- Imported `autoPlayingGroupsFromPairMatches` and `normalizePlayingGroups` from
+  `src/domain/playingGroups.ts`.
+- Added `form.playingGroupNames` to hold user-supplied group name overrides.
+- Added `previewPlayingGroups` computed: auto-derives groups from current pair
+  matches, falling back to interleaved team order when no matches are configured.
+- Added a "Playing Groups" section to the setup card (shown when ≥2 players are
+  named): displays each auto-group's roster as chips and provides a text input
+  for renaming.
+- `buildRound()` now calls `normalizePlayingGroups` with the user name overrides
+  and writes `playingGroups` into the new `RoundState`.
+
+**Scorecard — Group filter:**
+- Added `playingGroups` computed: uses defined groups from round state, falling
+  back to team rows when none are set.
+- Added `selectedGroupIndex` ref (−1 = all) driven by a `.group-filter` button
+  row (visible only when >1 playing group exists).
+- Added `filteredTeamRows` computed: filters player rows to only those in the
+  selected group; team divider/scramble rows are only shown when the team has at
+  least one visible player.
+- The main table uses `filteredTeamRows` instead of `teamRows`.
+
+**Scorecard — Mobile hole-by-hole mode:**
+- Added `mobileMode` toggle button in the topbar ("Mobile" / "Full card").
+- Mobile mode hides the wide table and shows a `.mobile-card` with:
+  - Hole header (number, par, SI) with ← → navigation buttons.
+  - Per-player row: name, course handicap, stroke dot, score stepper (− input +),
+    and optional putt stepper when Putt Poker is enabled.
+  - Hole strip: 18 numbered buttons for quick hole-jumping; filled holes are
+    visually distinguished.
+- `mobileHole` persists to `localStorage` under key
+  `dmi_mobile_hole_<roundId|'local'>` and reloads on mount.
+- `mobilePlayers` respects the active group filter.
+- Score/putt steppers clamp at min 1 (scores) and 0 (putts).
+
+Verification:
+
+- `node scripts/event-format-tests.js` passed.
+- `npm run test:run` passed: 29 files, 227 tests.
+- `npm run build` passed (vue-tsc clean).
+
+Next likely tasks:
+
+- All-time Stats: derive per-player metrics from completed round snapshots.
+- Event/tournament core: event store, group hub UI, event builder, round launch.
