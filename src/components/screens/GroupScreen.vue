@@ -11,7 +11,7 @@ import { useRoundStore } from '@/stores/round';
 import { eventFormatLabel } from '@/domain/events';
 import { useEventLeaderboard } from '@/composables/useEventLeaderboard';
 import EventConfigEditor from '@/components/EventConfigEditor.vue';
-import type { EventConfig } from '@/types/event';
+import type { EventConfig, EventRoundRow } from '@/types/event';
 
 const store = useGroupStore();
 const history = useHistoryStore();
@@ -168,6 +168,18 @@ function launchEventRound(roundIndex: number) {
 function goHome() {
   void router.push('/');
 }
+
+function overallWinner(row: EventRoundRow): string {
+  return row.components.at(-1)?.winner ?? 'open';
+}
+
+function matchResultLabel(row: EventRoundRow): string {
+  const comp = row.components.at(-1);
+  if (!comp || comp.winner === 'open') return '—';
+  if (comp.winner === 'tie') return 'Tie';
+  const pts = comp.winner === 'team1' ? comp.team1 : comp.team2;
+  return `${pts} pts`;
+}
 </script>
 
 <template>
@@ -322,36 +334,15 @@ function goHome() {
 
                   <!-- Match rows when data is present -->
                   <template v-if="r.hasData && r.result.rows.length">
-                    <table class="event-match-table">
-                      <thead>
-                        <tr>
-                          <th>Match</th>
-                          <th>{{ leaderboard.team1Name }}</th>
-                          <th>{{ leaderboard.team2Name }}</th>
-                          <th v-for="comp in r.result.rows[0].components" :key="comp.label">{{ comp.label }}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-for="row in r.result.rows" :key="row.label">
-                          <td>{{ row.label }}</td>
-                          <td>{{ row.aPlayers.join(', ') }}</td>
-                          <td>{{ row.bPlayers.join(', ') }}</td>
-                          <td
-                            v-for="comp in row.components"
-                            :key="comp.label"
-                            :class="{
-                              'winner-a': comp.winner === 'team1',
-                              'winner-b': comp.winner === 'team2',
-                              'winner-tie': comp.winner === 'tie',
-                            }"
-                          >
-                            <template v-if="comp.winner === 'open'">—</template>
-                            <template v-else-if="comp.winner === 'tie'">Tie</template>
-                            <template v-else>{{ comp.winner === 'team1' ? leaderboard.team1Name : leaderboard.team2Name }}</template>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
+                    <div class="match-summary-list">
+                      <div v-for="row in r.result.rows" :key="row.label" class="match-summary-row">
+                        <span class="match-label">{{ row.label }}</span>
+                        <span class="match-players" :class="{ 'match-winner': overallWinner(row) === 'team1' }">{{ row.aPlayers.join(' / ') }}</span>
+                        <span class="match-vs">vs</span>
+                        <span class="match-players" :class="{ 'match-winner': overallWinner(row) === 'team2' }">{{ row.bPlayers.join(' / ') }}</span>
+                        <span class="match-result">{{ matchResultLabel(row) }}</span>
+                      </div>
+                    </div>
                   </template>
                   <p v-else-if="!r.hasData" class="hint">No scores yet.</p>
                 </div>
@@ -830,30 +821,48 @@ function goHome() {
   font-style: italic;
 }
 
-.event-match-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.78rem;
+.match-summary-list {
+  display: grid;
+  gap: 6px;
   margin-top: 8px;
 }
 
-.event-match-table th,
-.event-match-table td {
-  text-align: left;
-  padding: 4px 6px;
-  border-bottom: 1px solid #efe9da;
+.match-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  flex-wrap: wrap;
 }
 
-.event-match-table th {
+.match-label {
   color: #7a8a7f;
+  font-size: 0.72rem;
   font-weight: 600;
   text-transform: uppercase;
-  font-size: 0.68rem;
+  min-width: 46px;
 }
 
-.winner-a { color: #2f5d43; font-weight: 700; }
-.winner-b { color: #7a3030; font-weight: 700; }
-.winner-tie { color: #7a8a7f; }
+.match-players {
+  color: #283b30;
+}
+
+.match-winner {
+  font-weight: 700;
+  color: #2f5d43;
+}
+
+.match-vs {
+  color: #aab8b0;
+  font-size: 0.75rem;
+}
+
+.match-result {
+  margin-left: auto;
+  font-weight: 600;
+  color: #4a6050;
+  font-size: 0.82rem;
+}
 
 .stats {
   margin-top: 28px;

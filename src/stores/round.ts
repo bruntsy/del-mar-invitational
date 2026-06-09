@@ -824,6 +824,27 @@ export const useRoundStore = defineStore('round', {
       }
     },
 
+    async updateRound(round: RoundState, players: PlayerMap): Promise<void> {
+      if (!this.round?.id) return;
+      const merged: RoundState = {
+        ...this.round,
+        course: round.course,
+        team1: round.team1,
+        team2: round.team2,
+        teamNames: round.teamNames,
+        matchups: round.matchups,
+        pairMatches: round.pairMatches,
+        playingGroups: round.playingGroups,
+        games: round.games,
+      };
+      this.setPlayers({ ...this.players, ...players });
+      this.setRound(merged, this.players);
+      if (hasSupabase() && supabase && merged.groupId) {
+        const state = roundForDb(merged, this.players);
+        await supabase.from('rounds').update({ state }).eq('id', merged.id);
+      }
+    },
+
     setPlayers(players: PlayerMap) {
       this.players = players || {};
       this.persist();

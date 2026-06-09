@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { courseFromSearchTee, selectableCourseTees, type CourseSearchResult, type CourseSearchTee } from '@/domain/courseSearch';
 import { cloneDefaultGames, normalizeGames } from '@/domain/games';
 import { sortedGroupPlayers } from '@/domain/players';
@@ -17,6 +17,9 @@ const store = useRoundStore();
 const group = useGroupStore();
 const event = useEventStore();
 const router = useRouter();
+const route = useRoute();
+
+const editMode = computed(() => route.query.edit === '1');
 
 const HOLES = Array.from({ length: 18 }, (_, hole) => hole);
 const DEFAULT_PAR = [4, 5, 3, 4, 4, 3, 5, 4, 4, 4, 4, 3, 5, 4, 4, 3, 5, 4];
@@ -80,6 +83,35 @@ const canSearchCourses = computed(() => form.courseQuery.trim().length >= 3 && !
 
 function prefillPlayersFromGroup() {
   const players = sortedGroupPlayers(group.group?.players);
+
+  // Edit mode: prefill from live round state, preserving all setup fields.
+  if (editMode.value && store.round?.course) {
+    const r = store.round;
+    const hcpMap = Object.fromEntries(players.map((p) => [p.name, p.handicapIndex]));
+    form.courseId = r.course.id ?? '';
+    form.clubName = r.course.clubName ?? '';
+    form.courseName = r.course.courseName ?? '';
+    form.location = typeof r.course.location === 'string' ? r.course.location : '';
+    form.teeName = r.course.tee.name;
+    form.teeGender = r.course.tee.gender ?? '';
+    form.teeYards = r.course.tee.yards ?? 0;
+    form.rating = r.course.tee.rating;
+    form.slope = r.course.tee.slope;
+    form.par = [...r.course.par];
+    form.si = [...r.course.si];
+    form.yds = [...r.course.yds];
+    form.teamNames = { ...r.teamNames };
+    form.players = [
+      ...r.team1.map((name) => ({ name, handicapIndex: hcpMap[name] ?? '', team: 'team1' as const })),
+      ...r.team2.map((name) => ({ name, handicapIndex: hcpMap[name] ?? '', team: 'team2' as const })),
+    ];
+    form.games = structuredClone(r.games) as GameConfig;
+    form.pairMatches = structuredClone(r.pairMatches ?? []);
+    form.playingGroupNames = (r.playingGroups ?? []).map((g) => g.name);
+    form.scoringMode = r.games.pairMatch?.enabled ? 'matchPlay' : 'strokePlay';
+    return;
+  }
+
   if (!players.length) return;
 
   // When launched from an event round, use the event's team assignments.
@@ -361,6 +393,11 @@ function buildRound(): { round: RoundState; players: PlayerMap } {
 async function startRound() {
   if (!canStart.value) return;
   const { round, players } = buildRound();
+  if (editMode.value && store.round?.id) {
+    await store.updateRound(round, players);
+    void router.push('/scorecard');
+    return;
+  }
   const created = await store.startRound(round, players, group.group?.id ?? null);
   if (event.pendingRoundLink != null && created.id) {
     const { roundIndex } = event.pendingRoundLink;
@@ -383,7 +420,7 @@ function goHome() {
   <main class="setup-shell">
     <header class="setup-topbar">
       <div>
-        <p class="eyebrow">New Round</p>
+        <p class="eyebrow">{{ editMode ? 'Edit Round' : 'New Round' }}</p>
         <h1 class="setup-title">Round Setup</h1>
       </div>
       <button class="btn-ghost" type="button" @click="goHome">← Home</button>
@@ -680,7 +717,7 @@ function goHome() {
     <div class="setup-actions">
       <p v-if="store.syncError" class="sync-error">{{ store.syncError }}</p>
       <button class="btn-primary" type="button" :disabled="!canStart || store.starting" @click="startRound">
-        {{ store.starting ? 'Starting...' : 'Start round →' }}
+        {{ store.starting ? (editMode ? 'Saving...' : 'Starting...') : (editMode ? 'Save changes →' : 'Start round →') }}
       </button>
     </div>
   </main>

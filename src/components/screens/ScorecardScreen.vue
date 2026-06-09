@@ -352,6 +352,7 @@ const mobilePlayers = computed(() => {
             {{ mobileMode ? 'Full card' : 'Mobile' }}
           </button>
           <button class="btn-ghost" type="button" @click="goResults">Results →</button>
+          <button class="btn-ghost" type="button" @click="router.push('/setup?edit=1')">Edit Round</button>
           <button class="btn-ghost" type="button" @click="goHome">← Home</button>
         </div>
       </header>
