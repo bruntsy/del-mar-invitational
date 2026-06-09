@@ -961,6 +961,45 @@ export const useRoundStore = defineStore('round', {
       return scoreAt(this.round.teamScores || {}, teamKey, hole);
     },
 
+    scorecardPlayersFormatRows(players: string[], teamName = ''): ScorecardTeamFormatRow[] {
+      const context = this.scoreContext;
+      if (!context || !players.length) return [];
+      const rows: ScorecardTeamFormatRow[] = [];
+      const games = this.games;
+
+      if (games.bestBall.enabled) {
+        const totals = computeTeamTotals(context, players, games.bestBall.type);
+        rows.push({
+          key: 'bestBall',
+          label: teamName ? `${teamName} Best Ball` : 'Best Ball',
+          sublabel: `low ${games.bestBall.type} per hole`,
+          holes: Array.from({ length: 18 }, (_, hole) =>
+            computeTeamHoleStats(context, players, hole, games.bestBall.type).bestBall,
+          ),
+          out: totals.bbOut,
+          in: totals.bbIn,
+          total: totals.bbTotal,
+        });
+      }
+
+      if (games.twoBall.enabled) {
+        const totals = computeTeamTotals(context, players, games.twoBall.type);
+        rows.push({
+          key: 'twoBall',
+          label: teamName ? `${teamName} 2-Ball` : '2-Ball',
+          sublabel: `sum of 2 low ${games.twoBall.type}`,
+          holes: Array.from({ length: 18 }, (_, hole) =>
+            computeTeamHoleStats(context, players, hole, games.twoBall.type).twoBall,
+          ),
+          out: totals.tbOut,
+          in: totals.tbIn,
+          total: totals.tbTotal,
+        });
+      }
+
+      return rows;
+    },
+
     scorecardTeamRowsFor(teamKey: 'team1' | 'team2'): ScorecardTeamFormatRow[] {
       const context = this.scoreContext;
       const round = this.round;

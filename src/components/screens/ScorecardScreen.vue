@@ -215,6 +215,50 @@ const filteredTeamRows = computed(() =>
     .filter((team) => team.players.length > 0),
 );
 
+// Group mode: when playing groups exist, render by group instead of by team.
+const groupModeActive = computed(() => playingGroups.value.length > 1);
+
+interface DisplaySection {
+  key: string;
+  type: 'groupHeader' | 'teamSection';
+  name: string;
+  teamKey: 'team1' | 'team2' | null;
+  players: string[];
+}
+
+const displaySections = computed<DisplaySection[]>(() => {
+  const round = store.round;
+  if (!round) return [];
+
+  if (!groupModeActive.value) {
+    return filteredTeamRows.value.map((team) => ({
+      key: team.key,
+      type: 'teamSection' as const,
+      name: team.label,
+      teamKey: team.key,
+      players: team.players,
+    }));
+  }
+
+  const visibleGroups = selectedGroupIndex.value < 0
+    ? playingGroups.value
+    : [playingGroups.value[selectedGroupIndex.value]].filter(Boolean);
+
+  const team1Set = new Set(round.team1 || []);
+  const team2Set = new Set(round.team2 || []);
+  const sections: DisplaySection[] = [];
+
+  for (const [gi, group] of visibleGroups.entries()) {
+    sections.push({ key: `gh-${gi}`, type: 'groupHeader', name: group.name, teamKey: null, players: [] });
+    const t1 = group.players.filter((p) => team1Set.has(p));
+    const t2 = group.players.filter((p) => team2Set.has(p));
+    if (t1.length) sections.push({ key: `gs-${gi}-t1`, type: 'teamSection', name: round.teamNames.team1, teamKey: 'team1', players: t1 });
+    if (t2.length) sections.push({ key: `gs-${gi}-t2`, type: 'teamSection', name: round.teamNames.team2, teamKey: 'team2', players: t2 });
+  }
+
+  return sections;
+});
+
 // ── Mobile hole-by-hole mode ──────────────────────────────────────────────────
 
 const mobileHoleKey = computed(() => `dmi_mobile_hole_${store.round?.id ?? 'local'}`);
@@ -393,52 +437,59 @@ const mobilePlayers = computed(() => {
             </tr>
           </thead>
           <tbody>
-            <template v-for="team in filteredTeamRows" :key="team.key">
-              <tr class="row-team-divider">
-                <td :colspan="24">{{ team.label }} — {{ team.players.join(' · ') }}</td>
+            <template v-for="section in displaySections" :key="section.key">
+              <!-- Group header (group mode only) -->
+              <tr v-if="section.type === 'groupHeader'" class="row-group-divider">
+                <td :colspan="24">{{ section.name }}</td>
               </tr>
-              <tr v-if="scrambleEnabled" class="row-format">
+
+              <!-- Team section: players + format rows -->
+              <template v-if="section.type === 'teamSection'">
+              <tr class="row-team-divider" :class="{ 'row-team-divider-sub': groupModeActive }">
+                <td :colspan="24">{{ section.name }} — {{ section.players.join(' · ') }}</td>
+              </tr>
+              <tr v-if="scrambleEnabled && section.teamKey" class="row-format">
                 <td class="name-cell">
-                  <div class="fmt-row-label">{{ team.label }}</div>
+                  <div class="fmt-row-label">{{ section.name }}</div>
                   <div class="fmt-row-sub">4-man scramble</div>
                 </td>
-                <template v-for="h in FRONT" :key="`scrf-${team.key}-${h}`">
-                  <td class="score-cell" :class="scoreColorClass(store.readTeamScore(team.key, h), par[h])">
+                <template v-for="h in FRONT" :key="`scrf-${section.teamKey}-${h}`">
+                  <td class="score-cell" :class="scoreColorClass(store.readTeamScore(section.teamKey!, h), par[h])">
                     <div class="sc-cell-inner">
                       <input
                         type="number"
                         inputmode="numeric"
                         min="1"
                         max="20"
-                        :value="store.readTeamScore(team.key, h) ?? ''"
-                        @input="onTeamScoreInput(team.key, h, ($event.target as HTMLInputElement).value)"
+                        :value="store.readTeamScore(section.teamKey!, h) ?? ''"
+                        @input="onTeamScoreInput(section.teamKey!, h, ($event.target as HTMLInputElement).value)"
                         @focus="($event.target as HTMLInputElement).select()"
                       />
                     </div>
                   </td>
                 </template>
-                <td class="sum-cell out-col">{{ dash(teamScoreSum(team.key, 0, 9)) }}</td>
-                <template v-for="h in BACK" :key="`scrb-${team.key}-${h}`">
-                  <td class="score-cell" :class="scoreColorClass(store.readTeamScore(team.key, h), par[h])">
+                <td class="sum-cell out-col">{{ dash(teamScoreSum(section.teamKey!, 0, 9)) }}</td>
+                <template v-for="h in BACK" :key="`scrb-${section.teamKey}-${h}`">
+                  <td class="score-cell" :class="scoreColorClass(store.readTeamScore(section.teamKey!, h), par[h])">
                     <div class="sc-cell-inner">
                       <input
                         type="number"
                         inputmode="numeric"
                         min="1"
                         max="20"
-                        :value="store.readTeamScore(team.key, h) ?? ''"
-                        @input="onTeamScoreInput(team.key, h, ($event.target as HTMLInputElement).value)"
+                        :value="store.readTeamScore(section.teamKey!, h) ?? ''"
+                        @input="onTeamScoreInput(section.teamKey!, h, ($event.target as HTMLInputElement).value)"
                         @focus="($event.target as HTMLInputElement).select()"
                       />
                     </div>
                   </td>
                 </template>
-                <td class="sum-cell in-col">{{ dash(teamScoreSum(team.key, 9, 18)) }}</td>
-                <td class="sum-cell total-col">{{ dash(teamScoreSum(team.key, 0, 18)) }}</td>
+                <td class="sum-cell in-col">{{ dash(teamScoreSum(section.teamKey!, 9, 18)) }}</td>
+                <td class="sum-cell total-col">{{ dash(teamScoreSum(section.teamKey!, 0, 18)) }}</td>
                 <td class="sum-cell net-col">—</td>
                 <td class="sum-cell skins-col">—</td>
               </tr>
-              <template v-for="player in team.players" :key="player">
+              <template v-for="player in section.players" :key="player">
               <tr class="row-player">
                 <td class="name-cell">
                   <div class="name-head">
@@ -530,16 +581,16 @@ const mobilePlayers = computed(() => {
                 <td class="sum-cell"></td>
               </tr>
               </template>
-              <tr v-for="format in store.scorecardTeamRowsFor(team.key)" :key="`${team.key}-${format.key}`" class="row-format">
+              <tr v-for="format in store.scorecardPlayersFormatRows(section.players, section.name)" :key="`${section.key}-${format.key}`" class="row-format">
                 <td class="name-cell">
                   <div class="fmt-row-label">{{ format.label }}</div>
                   <div class="fmt-row-sub">{{ format.sublabel }}</div>
                 </td>
-                <td v-for="h in FRONT" :key="`${team.key}-${format.key}-fh-${h}`" class="fmt-cell">
+                <td v-for="h in FRONT" :key="`${section.key}-${format.key}-fh-${h}`" class="fmt-cell">
                   {{ dash(format.holes[h]) }}
                 </td>
                 <td class="sum-cell out-col">{{ dash(format.out) }}</td>
-                <td v-for="h in BACK" :key="`${team.key}-${format.key}-bh-${h}`" class="fmt-cell">
+                <td v-for="h in BACK" :key="`${section.key}-${format.key}-bh-${h}`" class="fmt-cell">
                   {{ dash(format.holes[h]) }}
                 </td>
                 <td class="sum-cell in-col">{{ dash(format.in) }}</td>
@@ -547,7 +598,8 @@ const mobilePlayers = computed(() => {
                 <td class="sum-cell net-col">—</td>
                 <td class="sum-cell skins-col">—</td>
               </tr>
-            </template>
+              </template><!-- end teamSection -->
+            </template><!-- end displaySections loop -->
           </tbody>
         </table>
       </div><!-- end sc-table-wrap / v-if="!mobileMode" -->
@@ -811,6 +863,16 @@ const mobilePlayers = computed(() => {
   text-align: left;
 }
 
+.row-group-divider td {
+  background: #1e3d2b;
+  color: #f3efe2;
+  text-align: left;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+}
+
 .row-team-divider td {
   background: #2f5d43;
   color: #f3efe2;
@@ -818,6 +880,11 @@ const mobilePlayers = computed(() => {
   font-weight: 700;
   letter-spacing: 0.04em;
   font-size: 0.78rem;
+}
+
+.row-team-divider-sub td {
+  background: #4a7c5f;
+  font-size: 0.74rem;
 }
 
 .row-format td {
