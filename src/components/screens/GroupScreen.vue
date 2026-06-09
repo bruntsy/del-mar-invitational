@@ -7,13 +7,23 @@ import { useGroupStore } from '@/stores/group';
 import { useHistoryStore } from '@/stores/history';
 import { useStatsStore } from '@/stores/stats';
 import { useEventStore } from '@/stores/event';
+import { useRoundStore } from '@/stores/round';
 import { eventFormatLabel } from '@/domain/events';
+import { useEventLeaderboard } from '@/composables/useEventLeaderboard';
 
 const store = useGroupStore();
 const history = useHistoryStore();
 const stats = useStatsStore();
 const eventStore = useEventStore();
+const roundStore = useRoundStore();
 const router = useRouter();
+
+const { leaderboard } = useEventLeaderboard(
+  () => eventStore.event?.config,
+  () => eventStore.cachedRounds,
+  () => roundStore.round,
+  () => roundStore.players,
+);
 
 const newName = ref('');
 const joinCode = ref('');
@@ -28,26 +38,23 @@ const editHandicapIndex = ref<number | string>('');
 
 const rosterPlayers = computed(() => sortedGroupPlayers(store.group?.players));
 
+async function loadGroupData(groupId: string) {
+  void history.loadHistory(groupId);
+  void stats.loadStats(groupId);
+  await eventStore.loadEvent(groupId);
+  void eventStore.loadLinkedRounds();
+  eventStore.subscribeToEvent(groupId);
+}
+
 onMounted(() => {
   store.load();
   renameValue.value = store.group?.name ?? '';
-  if (store.group?.id) {
-    void history.loadHistory(store.group.id);
-    void stats.loadStats(store.group.id);
-    void eventStore.loadEvent(store.group.id);
-  }
+  if (store.group?.id) void loadGroupData(store.group.id);
 });
 
 function refreshHistory() {
-  if (store.group?.id) {
-    void history.loadHistory(store.group.id);
-    void stats.loadStats(store.group.id);
-    void eventStore.loadEvent(store.group.id);
-  } else {
-    history.clear();
-    stats.clear();
-    eventStore.clear();
-  }
+  if (store.group?.id) void loadGroupData(store.group.id);
+  else { history.clear(); stats.clear(); eventStore.clear(); }
 }
 
 async function create() {
@@ -224,47 +231,93 @@ function goHome() {
               <button class="btn-ghost sm danger" type="button" @click="archiveEvent">Archive</button>
             </div>
 
+            <!-- Team rosters -->
             <div class="event-teams">
               <div class="event-team">
-                <div class="event-team-name">{{ eventStore.event.config.teamNames.team1 }}</div>
+                <div class="event-team-name">{{ leaderboard.team1Name }}</div>
                 <div class="event-team-players">{{ eventStore.event.config.team1.join(', ') || '—' }}</div>
               </div>
               <div class="event-vs">vs</div>
               <div class="event-team">
-                <div class="event-team-name">{{ eventStore.event.config.teamNames.team2 }}</div>
+                <div class="event-team-name">{{ leaderboard.team2Name }}</div>
                 <div class="event-team-players">{{ eventStore.event.config.team2.join(', ') || '—' }}</div>
               </div>
             </div>
 
+            <!-- Live standings -->
             <div class="event-standings">
-              <span class="event-score">{{ eventStore.standings.team1 }}</span>
+              <span class="event-score" :class="{ leading: leaderboard.team1Total > leaderboard.team2Total }">
+                {{ leaderboard.team1Total }}
+              </span>
               <span class="event-score-sep">–</span>
-              <span class="event-score">{{ eventStore.standings.team2 }}</span>
-              <span class="event-score-label">({{ eventStore.event.config.winPoints }} to win)</span>
+              <span class="event-score" :class="{ leading: leaderboard.team2Total > leaderboard.team1Total }">
+                {{ leaderboard.team2Total }}
+              </span>
+              <span class="event-score-label">({{ leaderboard.winPoints }} to win)</span>
             </div>
 
+            <!-- Per-round breakdown -->
             <div class="event-rounds">
               <div
-                v-for="r in eventStore.roundsWithStatus"
-                :key="r.index"
-                class="event-round-row"
+                v-for="r in leaderboard.rounds"
+                :key="r.roundIndex"
+                class="event-round-card"
               >
-                <div>
-                  <div class="event-round-name">{{ r.name }}</div>
-                  <div class="event-round-meta">{{ eventFormatLabel(r.format) }}</div>
-                  <div v-if="r.pointsResult.team1 != null" class="event-round-result">
-                    {{ r.pointsResult.team1 }} – {{ r.pointsResult.team2 }} pts
+                <div class="event-round-hdr">
+                  <div>
+                    <div class="event-round-name">{{ r.result.round.name }}</div>
+                    <div class="event-round-meta">{{ eventFormatLabel(r.result.round.format) }}</div>
+                  </div>
+                  <div class="event-round-actions">
+                    <div v-if="r.hasData" class="event-round-pts">
+                      {{ r.result.team1 }} – {{ r.result.team2 }} pts
+                    </div>
+                    <button
+                      v-if="!eventStore.roundsWithStatus[r.roundIndex]?.linked"
+                      class="btn-ghost sm"
+                      type="button"
+                      @click="launchEventRound(r.roundIndex)"
+                    >
+                      Launch
+                    </button>
+                    <span v-else-if="!r.hasData" class="event-round-linked">Linked</span>
                   </div>
                 </div>
-                <button
-                  v-if="!r.linked"
-                  class="btn-ghost sm"
-                  type="button"
-                  @click="launchEventRound(r.index)"
-                >
-                  Launch
-                </button>
-                <span v-else class="event-round-linked">Round linked</span>
+
+                <!-- Match rows when data is present -->
+                <template v-if="r.hasData && r.result.rows.length">
+                  <table class="event-match-table">
+                    <thead>
+                      <tr>
+                        <th>Match</th>
+                        <th>{{ leaderboard.team1Name }}</th>
+                        <th>{{ leaderboard.team2Name }}</th>
+                        <th v-for="comp in r.result.rows[0].components" :key="comp.label">{{ comp.label }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="row in r.result.rows" :key="row.label">
+                        <td>{{ row.label }}</td>
+                        <td>{{ row.aPlayers.join(', ') }}</td>
+                        <td>{{ row.bPlayers.join(', ') }}</td>
+                        <td
+                          v-for="comp in row.components"
+                          :key="comp.label"
+                          :class="{
+                            'winner-a': comp.winner === 'team1',
+                            'winner-b': comp.winner === 'team2',
+                            'winner-tie': comp.winner === 'tie',
+                          }"
+                        >
+                          <template v-if="comp.winner === 'open'">—</template>
+                          <template v-else-if="comp.winner === 'tie'">Tie</template>
+                          <template v-else>{{ comp.winner === 'team1' ? leaderboard.team1Name : leaderboard.team2Name }}</template>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </template>
+                <p v-else-if="!r.hasData" class="hint">No scores yet.</p>
               </div>
             </div>
 
@@ -680,21 +733,35 @@ function goHome() {
   margin-left: 4px;
 }
 
+.event-score.leading {
+  color: #2f5d43;
+}
+
 .event-rounds {
   margin-top: 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
-.event-round-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.event-round-card {
   border: 1px solid #e0d7c4;
   border-radius: 6px;
   padding: 10px 12px;
+}
+
+.event-round-hdr {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.event-round-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .event-round-name {
@@ -708,11 +775,10 @@ function goHome() {
   font-size: 0.78rem;
 }
 
-.event-round-result {
+.event-round-pts {
   color: #2f5d43;
   font-size: 0.85rem;
-  font-weight: 600;
-  margin-top: 2px;
+  font-weight: 700;
 }
 
 .event-round-linked {
@@ -720,6 +786,31 @@ function goHome() {
   font-size: 0.8rem;
   font-style: italic;
 }
+
+.event-match-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  margin-top: 8px;
+}
+
+.event-match-table th,
+.event-match-table td {
+  text-align: left;
+  padding: 4px 6px;
+  border-bottom: 1px solid #efe9da;
+}
+
+.event-match-table th {
+  color: #7a8a7f;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+}
+
+.winner-a { color: #2f5d43; font-weight: 700; }
+.winner-b { color: #7a3030; font-weight: 700; }
+.winner-tie { color: #7a8a7f; }
 
 .stats {
   margin-top: 28px;

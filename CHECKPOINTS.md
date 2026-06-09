@@ -2003,3 +2003,61 @@ Next likely tasks:
   live from linked rounds as scores change.
 - Event config editor: edit team assignments, round formats, points, pair matches.
 - Production hardening / cutover.
+
+---
+
+## Checkpoint 39 — Event Leaderboard + Realtime
+
+### What changed
+
+- **`src/stores/event.ts`** — Extended with:
+  - `cachedRounds: Record<string, CachedRound>` — stores `{ round, players }`
+    keyed by round ID for all linked rounds.
+  - `loadLinkedRounds()` — queries `rounds` where id IN (linked IDs) and
+    populates `cachedRounds`. Safe to call repeatedly.
+  - `subscribeToEvent(groupId)` — subscribes to Postgres changes on the
+    `events` table filtered by `group_id`. On UPDATE: refreshes the local
+    event config and calls `loadLinkedRounds`. On archived status: clears the
+    event. Uses the same realtime pattern as the round store.
+  - `stopEventSubscription()` — removes the channel; called by `clear()`.
+  - `roundsWithStatus` getter gains a `cached: boolean` flag.
+  - `linkedRoundIds` getter returns all non-null roundIds from config.
+
+- **`src/composables/useEventLeaderboard.ts`** — New reactive composable.
+  Accepts lazy getters for `EventConfig`, `cachedRounds`, the active round
+  store state, and the active players map. Returns a `leaderboard` computed
+  with `rounds[]`, `team1Total`, `team2Total`, `team1Name`, `team2Name`, and
+  `winPoints`. Per-round: uses the live round store context when the linked
+  round ID matches the active round (live updates as scores are entered),
+  falls back to cached round state for completed rounds, and emits an empty
+  placeholder for rounds with no data yet. For totals: prefers stored
+  `pointsResult` when present (persisted across reloads), falls back to the
+  live computed result.
+
+- **`src/components/screens/GroupScreen.vue`** — `loadGroupData` helper now
+  calls `loadLinkedRounds` and `subscribeToEvent` after loading the event.
+  The event panel now renders the full leaderboard: live standings with a
+  `leading` class on the ahead team, and per-round breakdown cards with a
+  match-result table (Front/Back/Overall per pair, winner-highlighted cells).
+  Launch button only shows on unlinked rounds.
+
+- **`tests/composables/useEventLeaderboard.test.ts`** — 8 new composable
+  tests covering: null config, no-data rounds, live round context, cached
+  round context, stored-pointsResult override, multi-round totals, team
+  names/winPoints, and reactivity to config changes.
+
+- **`tests/stores/event.test.ts`** — 8 new subscription/cache tests covering:
+  channel creation, remote event update applied, archived status clears event,
+  stopEventSubscription removes channel, loadLinkedRounds populates cache,
+  no-op when no linked IDs, and clear resets cachedRounds.
+
+### Verification
+
+- `node scripts/event-format-tests.js` passed.
+- `npm run test:run` passed: 32 files, 267 tests.
+- `npm run build` passed (vue-tsc clean).
+
+### Next likely tasks
+
+- Production hardening / cutover.
+- Event config editor: team reassignment, round format/points/pair-match editing.

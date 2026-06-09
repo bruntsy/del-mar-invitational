@@ -224,6 +224,95 @@ describe('event store', () => {
     });
   });
 
+  describe('subscribeToEvent', () => {
+    it('subscribes to the events channel for the group', async () => {
+      goOnline('events', { data: makeEventRow(), error: null });
+      const store = useEventStore();
+      await store.loadEvent('g1');
+      store.subscribeToEvent('g1');
+      expect(mockDb.hasChannel('event-g1')).toBe(true);
+    });
+
+    it('applies a remote event update when a payload arrives', async () => {
+      goOnline('events', { data: makeEventRow(), error: null });
+      const store = useEventStore();
+      await store.loadEvent('g1');
+      store.subscribeToEvent('g1');
+
+      // Simulate a remote event update arriving via realtime.
+      const updatedRow = makeEventRow('e1', { name: 'Updated Event' });
+      mockDb.set('rounds', { data: [], error: null }); // for loadLinkedRounds
+      mockDb.emit('event-g1', { eventType: 'UPDATE', new: updatedRow });
+
+      expect(store.event?.name).toBe('Updated Event');
+    });
+
+    it('clears the event when an archived payload arrives for the active event', async () => {
+      goOnline('events', { data: makeEventRow(), error: null });
+      const store = useEventStore();
+      await store.loadEvent('g1');
+      store.subscribeToEvent('g1');
+
+      mockDb.emit('event-g1', { eventType: 'UPDATE', new: { ...makeEventRow('e1'), status: 'archived' } });
+
+      expect(store.event).toBeNull();
+    });
+
+    it('stopEventSubscription removes the channel', async () => {
+      goOnline('events', { data: makeEventRow(), error: null });
+      const store = useEventStore();
+      await store.loadEvent('g1');
+      store.subscribeToEvent('g1');
+      store.stopEventSubscription();
+      expect(mockDb.hasChannel('event-g1')).toBe(false);
+    });
+  });
+
+  describe('loadLinkedRounds', () => {
+    it('populates cachedRounds for linked round IDs', async () => {
+      const eventRow = makeEventRow('e1', {
+        config: {
+          ...makeEventRow().config,
+          rounds: [{ ...makeEventRow().config.rounds[0], roundId: 'r1' }],
+        },
+      });
+      goOnline('events', { data: eventRow, error: null });
+      const store = useEventStore();
+      await store.loadEvent('g1');
+
+      mockDb.set('rounds', {
+        data: [{
+          id: 'r1',
+          group_id: 'g1',
+          completed: true,
+          completed_at: null,
+          state: {
+            id: 'r1',
+            groupId: 'g1',
+            team1: ['Ann'],
+            team2: ['Cal'],
+            scores: {},
+            putts: {},
+            teamScores: {},
+            players: {},
+          },
+        }],
+        error: null,
+      });
+      await store.loadLinkedRounds();
+
+      expect(store.cachedRounds['r1']).toBeDefined();
+    });
+
+    it('is a no-op when there are no linked round IDs', async () => {
+      goOnline('events', { data: makeEventRow(), error: null });
+      const store = useEventStore();
+      await store.loadEvent('g1');
+      await store.loadLinkedRounds(); // round 1 has roundId: null
+      expect(Object.keys(store.cachedRounds)).toHaveLength(0);
+    });
+  });
+
   describe('clear', () => {
     it('resets all state', async () => {
       goOnline('events', { data: makeEventRow(), error: null });
@@ -234,6 +323,7 @@ describe('event store', () => {
       expect(store.event).toBeNull();
       expect(store.loadedGroupId).toBeNull();
       expect(store.pendingRoundLink).toBeNull();
+      expect(store.cachedRounds).toEqual({});
     });
   });
 });

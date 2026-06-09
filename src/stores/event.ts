@@ -1,11 +1,29 @@
 import { defineStore } from 'pinia';
 import { defaultEventConfig, eventWinPoints, normalizeEventConfig } from '@/domain/events';
+import { normalizeRoundRow } from '@/domain/round';
 import { hasSupabase, supabase } from '@/services/supabase';
-import type { EventRow } from '@/types/db';
-import type { Event } from '@/types/event';
-import type { EventConfig } from '@/types/event';
+import type { EventRow, RoundRow } from '@/types/db';
+import type { Event, EventConfig } from '@/types/event';
+import type { PlayerMap, RoundState } from '@/types';
 
 const EVENT_COLUMNS = 'id,group_id,name,status,config,created_at,updated_at';
+const LINKED_ROUND_COLUMNS = 'id,group_id,state,completed,completed_at';
+
+type RealtimeClient = {
+  channel: (name: string) => {
+    on: (
+      type: 'postgres_changes',
+      filter: { event: string; schema: string; table: string; filter: string },
+      callback: (payload: { eventType?: string; new?: EventRow }) => void,
+    ) => { subscribe: () => unknown };
+  };
+  removeChannel: (channel: unknown) => unknown;
+};
+
+export interface CachedRound {
+  round: RoundState;
+  players: PlayerMap;
+}
 
 function normalizeEventRow(row: EventRow): Event {
   return {
@@ -19,9 +37,14 @@ function normalizeEventRow(row: EventRow): Event {
 
 /**
  * Active-event store for a group. One event can be active at a time per group.
+ *
  * Round launch flow: call `setPendingRoundLink(roundIndex)` before navigating
  * to /setup; call `linkRound(roundId)` after the round is created to write the
  * ID back into `config.rounds[N].roundId`.
+ *
+ * Leaderboard flow: call `loadLinkedRounds()` after loading the event to
+ * populate `cachedRounds` with the state of each linked round. Call
+ * `subscribeToEvent(groupId)` to stay current with remote config changes.
  */
 export const useEventStore = defineStore('event', {
   state: () => ({
@@ -30,6 +53,9 @@ export const useEventStore = defineStore('event', {
     error: '',
     loadedGroupId: null as string | null,
     pendingRoundLink: null as { roundIndex: number } | null,
+    /** Round state cache keyed by round ID — populated by loadLinkedRounds. */
+    cachedRounds: {} as Record<string, CachedRound>,
+    eventChannel: null as unknown,
   }),
 
   getters: {
@@ -51,16 +77,26 @@ export const useEventStore = defineStore('event', {
         ...r,
         index: i,
         linked: r.roundId != null,
+        cached: r.roundId != null && r.roundId in state.cachedRounds,
       }));
+    },
+
+    /** Round IDs referenced by the active event config. */
+    linkedRoundIds(state): string[] {
+      return (state.event?.config.rounds ?? [])
+        .map((r) => r.roundId)
+        .filter((id): id is string => id != null);
     },
   },
 
   actions: {
     clear() {
+      this.stopEventSubscription();
       this.event = null;
       this.error = '';
       this.loadedGroupId = null;
       this.pendingRoundLink = null;
+      this.cachedRounds = {};
     },
 
     async loadEvent(groupId: string | null): Promise<Event | null> {
@@ -89,6 +125,64 @@ export const useEventStore = defineStore('event', {
       } finally {
         this.loading = false;
       }
+    },
+
+    /**
+     * Fetch round states for all linked round IDs and store them in
+     * `cachedRounds`. Safe to call repeatedly — re-fetches all linked rounds.
+     */
+    async loadLinkedRounds(): Promise<void> {
+      const ids = this.linkedRoundIds;
+      if (!ids.length || !hasSupabase() || !supabase) return;
+      const { data } = await supabase
+        .from('rounds')
+        .select(LINKED_ROUND_COLUMNS)
+        .in('id', ids);
+      if (!data) return;
+      const next: Record<string, CachedRound> = { ...this.cachedRounds };
+      for (const row of data) {
+        const { round, players } = normalizeRoundRow(row as RoundRow);
+        if (round.id) next[round.id] = { round, players };
+      }
+      this.cachedRounds = next;
+    },
+
+    /**
+     * Subscribe to `events` table changes for the group. When the event config
+     * is updated remotely (e.g. another device links a round or records a result),
+     * the local event is refreshed.
+     */
+    subscribeToEvent(groupId: string | null) {
+      this.stopEventSubscription();
+      if (!groupId || !hasSupabase() || !supabase) return;
+      const realtime = supabase as unknown as RealtimeClient;
+      this.eventChannel = realtime
+        .channel(`event-${groupId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'events', filter: `group_id=eq.${groupId}` },
+          (payload: { eventType?: string; new?: EventRow }) => {
+            const row = payload.new;
+            if (!row) return;
+            if (row.status === 'archived') {
+              if (this.event?.id === row.id) this.event = null;
+              return;
+            }
+            const incoming = normalizeEventRow(row);
+            if (!this.event || this.event.id === incoming.id) {
+              this.event = incoming;
+              void this.loadLinkedRounds();
+            }
+          },
+        )
+        .subscribe();
+    },
+
+    stopEventSubscription() {
+      if (this.eventChannel && hasSupabase() && supabase) {
+        (supabase as unknown as RealtimeClient).removeChannel(this.eventChannel);
+      }
+      this.eventChannel = null;
     },
 
     async createEvent(groupId: string, name: string, playerNames: string[]): Promise<Event | null> {
@@ -148,13 +242,13 @@ export const useEventStore = defineStore('event', {
           return false;
         }
         this.event = null;
+        this.cachedRounds = {};
         return true;
       } catch {
         return false;
       }
     },
 
-    /** Mark which round index is about to be launched; call before navigating to /setup. */
     setPendingRoundLink(roundIndex: number) {
       this.pendingRoundLink = { roundIndex };
     },
@@ -163,7 +257,6 @@ export const useEventStore = defineStore('event', {
       this.pendingRoundLink = null;
     },
 
-    /** Write a newly-created round ID into the pending event round slot, then save. */
     async linkRound(roundId: string): Promise<boolean> {
       if (!this.event || this.pendingRoundLink == null) return false;
       const { roundIndex } = this.pendingRoundLink;
@@ -175,7 +268,6 @@ export const useEventStore = defineStore('event', {
       return this.saveEvent();
     },
 
-    /** Update round points result and save (called after a round is scored). */
     async updateRoundResult(roundIndex: number, team1: number, team2: number): Promise<boolean> {
       if (!this.event) return false;
       const rounds = [...this.event.config.rounds];

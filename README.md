@@ -685,10 +685,17 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   row for a group (`loadEvent`), creates events with `defaultEventConfig`
   (`createEvent`), saves/archives, and owns the round-launch link flow:
   `setPendingRoundLink(index)` before navigating to /setup; `linkRound(roundId)`
-  after `startRound` to write the new round ID into `config.rounds[N].roundId`.
-  `updateRoundResult` writes scored points back; the `standings` getter sums
-  `pointsResult` across rounds. `GroupScreen.vue` renders the event panel (teams,
-  standings, round list with Launch/linked status) above history.
+  after `startRound` writes the new round ID into `config.rounds[N].roundId`.
+  `loadLinkedRounds()` fetches round states for all linked IDs into `cachedRounds`.
+  `subscribeToEvent(groupId)` subscribes to Postgres `events` changes and refreshes
+  the local config + cache on any remote update. `standings` getter sums
+  `pointsResult` across rounds.
+- `src/composables/useEventLeaderboard.ts` is a reactive composable that computes
+  per-round `EventRoundResult` values from live round store context (when the active
+  round ID matches a linked round) or from `cachedRounds` (for completed rounds).
+  Totals prefer stored `pointsResult` when set. `GroupScreen.vue` renders the full
+  leaderboard: live standings with leading-team highlight, per-round breakdown cards
+  with Front/Back/Overall match tables, and Launch buttons for unlinked rounds.
 
 ## Realtime Sync
 
