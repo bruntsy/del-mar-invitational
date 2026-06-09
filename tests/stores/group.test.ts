@@ -67,6 +67,32 @@ describe('group store — offline (no Supabase)', () => {
     expect(ok).toBe(false);
     expect(store.statusError).toBe(true);
   });
+
+  it('adds, updates, and removes roster players locally', async () => {
+    const store = useGroupStore();
+    await store.createGroup('Roster');
+
+    expect(await store.addPlayer('Ann', '10.2')).toBe(true);
+    expect(store.group?.players.Ann).toEqual({ name: 'Ann', handicapIndex: 10.2 });
+    expect(localStorage.getItem('dmi_group')).toContain('Ann');
+
+    expect(await store.updatePlayer('Ann', 'Annie', '9.4')).toBe(true);
+    expect(store.group?.players.Ann).toBeUndefined();
+    expect(store.group?.players.Annie).toEqual({ name: 'Annie', handicapIndex: 9.4 });
+
+    expect(await store.removePlayer('Annie')).toBe(true);
+    expect(store.group?.players.Annie).toBeUndefined();
+  });
+
+  it('prevents duplicate roster player names', async () => {
+    const store = useGroupStore();
+    await store.createGroup('Roster');
+    await store.addPlayer('Ann', '10');
+
+    expect(await store.addPlayer('Ann', '12')).toBe(false);
+    expect(store.statusError).toBe(true);
+    expect(Object.keys(store.group?.players || {})).toEqual(['Ann']);
+  });
 });
 
 describe('group store — online (mocked Supabase)', () => {
@@ -114,6 +140,21 @@ describe('group store — online (mocked Supabase)', () => {
     expect(round.round?.id).toBe('r1');
     expect(round.round?.groupId).toBe('g3');
     expect(round.playerNames).toEqual(['Amy', 'Bo']);
+  });
+
+  it('syncs roster edits to Supabase when online', async () => {
+    goOnline({ data: { id: 'g4', room_code: 'ROST', name: 'Roster', players: {} }, error: null });
+    const store = useGroupStore();
+    await store.createGroup('Roster');
+
+    expect(await store.addPlayer('Ann', '10')).toBe(true);
+
+    const update = mockDb.operations.find((op) => op.table === 'groups' && op.method === 'update');
+    expect(update?.args[0]).toMatchObject({
+      room_code: 'ROST',
+      name: 'Roster',
+      players: { Ann: { name: 'Ann', handicapIndex: 10 } },
+    });
   });
 });
 

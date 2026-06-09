@@ -13,11 +13,28 @@ vi.mock('vue-router', () => ({
 vi.mock('@/services/courseSearch', () => ({
   searchCourses: mockSearchCourses,
 }));
+vi.mock('@/services/supabase', () => ({
+  supabase: null,
+  hasSupabase: () => false,
+}));
 
 let pinia: ReturnType<typeof createPinia>;
 
 function mountSetup() {
   return mount(SetupScreen, { global: { plugins: [pinia] } });
+}
+
+function persistGroup(players: Record<string, { name: string; handicapIndex: number }>) {
+  localStorage.setItem('dmi_group', JSON.stringify({
+    id: 'g1',
+    roomCode: 'TEST',
+    name: 'Test Group',
+    players,
+  }));
+}
+
+function inputValue(input: ReturnType<ReturnType<typeof mountSetup>['find']>) {
+  return (input.element as HTMLInputElement).value;
 }
 
 async function fillDefaultPlayers(wrapper: ReturnType<typeof mountSetup>) {
@@ -58,6 +75,49 @@ describe('SetupScreen', () => {
     await names[3].setValue('Sam'); // second row's name field (index 3 = 4th input pair start)
 
     expect(wrapper.text()).toContain('unique');
+  });
+
+  it('prefills players from the active group roster', async () => {
+    persistGroup({
+      Cal: { name: 'Cal', handicapIndex: 6 },
+      Ann: { name: 'Ann', handicapIndex: 10 },
+      Bea: { name: 'Bea', handicapIndex: 12 },
+      Dan: { name: 'Dan', handicapIndex: 20 },
+    });
+    const wrapper = mountSetup();
+
+    await flushPromises();
+
+    const rows = wrapper.findAll('.player-row');
+    expect(rows).toHaveLength(4);
+    expect(inputValue(rows[0].findAll('input')[0])).toBe('Ann');
+    expect(inputValue(rows[1].findAll('input')[0])).toBe('Bea');
+    expect(inputValue(rows[2].findAll('input')[0])).toBe('Cal');
+    expect(inputValue(rows[3].findAll('input')[0])).toBe('Dan');
+    expect((wrapper.findAll('.team-select')[0].element as HTMLSelectElement).value).toBe('team1');
+    expect((wrapper.findAll('.team-select')[2].element as HTMLSelectElement).value).toBe('team2');
+  });
+
+  it('allows round-local roster edits after group prefill', async () => {
+    persistGroup({
+      Ann: { name: 'Ann', handicapIndex: 10 },
+      Bea: { name: 'Bea', handicapIndex: 12 },
+      Cal: { name: 'Cal', handicapIndex: 6 },
+      Dan: { name: 'Dan', handicapIndex: 20 },
+    });
+    const store = useRoundStore();
+    const wrapper = mountSetup();
+    await flushPromises();
+
+    const firstRow = wrapper.findAll('.player-row')[0];
+    await firstRow.findAll('input')[0].setValue('Avery');
+    await firstRow.findAll('input')[1].setValue('8.5');
+    await wrapper.find('.setup-actions .btn-primary').trigger('click');
+    await flushPromises();
+
+    expect(store.round?.team1).toEqual(['Avery', 'Bea']);
+    expect(store.players.Avery).toEqual({ name: 'Avery', handicapIndex: 8.5 });
+    expect(store.players.Ann).toBeUndefined();
   });
 
   it('builds a round from the form and routes to the scorecard', async () => {

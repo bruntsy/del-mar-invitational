@@ -1760,3 +1760,54 @@ Next likely tasks:
 - Consider live course-search browser QA against the deployed Edge Function if
   safe to exercise.
 - Continue toward all-time Stats or event realtime sync depending on priority.
+
+## Checkpoint 34: Group Roster Source of Truth
+
+Files changed since Checkpoint 33:
+
+- Updated `src/stores/group.ts`.
+- Updated `src/components/screens/GroupScreen.vue`.
+- Updated `src/components/screens/SetupScreen.vue`.
+- Added `tests/screens/group.test.ts`.
+- Updated `tests/stores/group.test.ts`.
+- Updated `tests/screens/setup.test.ts`.
+- Updated `README.md` and this file.
+
+What changed:
+
+- Added group-store roster actions:
+  - `saveGroup()`
+  - `addPlayer(name, handicapIndex)`
+  - `updatePlayer(originalName, name, handicapIndex)`
+  - `removePlayer(name)`
+- Roster changes normalize player objects, prevent duplicate names, persist to
+  localStorage, remember the group, and update `groups.players` through
+  `groupForDb()` when Supabase is configured and the group has a DB id.
+- Group hub now renders a roster editor for active groups:
+  - add player name + handicap index,
+  - edit player name/index inline,
+  - remove players,
+  - keep the existing group name, new round, leave, and history sections.
+- Setup now loads the active group on mount and pre-fills player rows from the
+  group roster when one exists. Players are sorted by name and split evenly
+  across Team 1 / Team 2.
+- Setup roster edits remain round-local after prefill; changing a player in
+  setup affects the new round's embedded player map but does not mutate the
+  group roster.
+
+Verification:
+
+- `npm run test:run -- tests/stores/group.test.ts tests/screens/group.test.ts tests/screens/setup.test.ts`
+  passed: 3 files, 26 tests.
+- `node scripts/event-format-tests.js` passed.
+- `npm run test:run` passed: 28 files, 203 tests.
+- `npm run build` passed (vue-tsc clean).
+- Browser/Playwright QA skipped by choice for this checkpoint; use automated
+  tests/build as the reliable verification path.
+
+Next likely tasks:
+
+- Live Flow Reliability: add deterministic coverage around online create group,
+  roster save, course selection, remote round start, scoring, results, and
+  two-client merge behavior without relying on Playwright.
+- Playing Groups + Mobile Scoring UX.

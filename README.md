@@ -593,6 +593,9 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   handicap, relative strokes, and SI-based stroke-hole list using the shared
   handicap helpers. The preview updates immediately when course rating, slope,
   par, SI, player indexes, or a searched tee changes.
+- When an active group has roster players, setup pre-fills player rows from
+  that roster, split evenly across the two teams. The setup roster remains
+  round-local after prefill, so one-off edits do not mutate the group roster.
 - "Start round" validates (par present, both teams populated, unique names),
   builds the `RoundState` + player handicap map, generates head-to-head matchups
   by zipping `team1[i]` vs `team2[i]` (as legacy did), writes through
@@ -635,11 +638,15 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   `hasSupabase()`: when Supabase is unconfigured, `createGroup` makes an offline
   group (null DB id) and `joinGroup` reports that remote join is unavailable
   instead of throwing. With credentials, create inserts a `groups` row (retrying
-  on code collision), join selects by `room_code`, and rename syncs the name.
+  on code collision), join selects by `room_code`, and group saves sync the
+  name plus roster.
+- The group store exposes roster actions to add, update, and remove players.
+  Roster changes persist locally and update `groups.players` when the active
+  group has a Supabase id.
 - `src/components/screens/GroupScreen.vue`, routed at `/group` and linked from
   the home screen, renders create / join-by-code / recent-groups when there is
-  no active group, and the group code, an editable name, Leave, and a "Past
-  rounds" history section when there is one.
+  no active group, and the group code, editable name, roster editor, Leave, and
+  a "Past rounds" history section when there is one.
 
 ### Round History (rewrite)
 

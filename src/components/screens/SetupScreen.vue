@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { courseFromSearchTee, selectableCourseTees, type CourseSearchResult, type CourseSearchTee } from '@/domain/courseSearch';
 import { cloneDefaultGames, normalizeGames } from '@/domain/games';
+import { sortedGroupPlayers } from '@/domain/players';
 import { allocateNetStrokes, computeWHSCourseHcp, getsStroke } from '@/scoring/handicap';
 import { ensurePairMatches } from '@/scoring/pairMatch';
 import { searchCourses } from '@/services/courseSearch';
@@ -50,6 +51,11 @@ const form = reactive({
   pairMatches: [] as PairMatch[],
 });
 
+onMounted(() => {
+  group.load();
+  prefillPlayersFromGroup();
+});
+
 const courseResults = ref<CourseSearchResult[]>([]);
 const selectedCourse = ref<CourseSearchResult | null>(null);
 const selectedTeeKey = ref('');
@@ -57,6 +63,17 @@ const courseSearching = ref(false);
 const courseSearchError = ref('');
 
 const canSearchCourses = computed(() => form.courseQuery.trim().length >= 3 && !courseSearching.value);
+
+function prefillPlayersFromGroup() {
+  const players = sortedGroupPlayers(group.group?.players);
+  if (!players.length) return;
+  const split = Math.ceil(players.length / 2);
+  form.players = players.map((player, index) => ({
+    name: player.name,
+    handicapIndex: player.handicapIndex,
+    team: index < split ? 'team1' : 'team2',
+  }));
+}
 
 function courseLabel(course: CourseSearchResult) {
   return course.clubName || course.courseName || 'Course';

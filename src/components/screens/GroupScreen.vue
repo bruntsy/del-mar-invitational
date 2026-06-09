@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { sortedGroupPlayers } from '@/domain/players';
 import { hasSupabase } from '@/services/supabase';
 import { useGroupStore } from '@/stores/group';
 import { useHistoryStore } from '@/stores/history';
@@ -13,6 +14,13 @@ const newName = ref('');
 const joinCode = ref('');
 const renameValue = ref('');
 const online = hasSupabase();
+const rosterName = ref('');
+const rosterHandicapIndex = ref<number | string>('');
+const editingPlayer = ref('');
+const editName = ref('');
+const editHandicapIndex = ref<number | string>('');
+
+const rosterPlayers = computed(() => sortedGroupPlayers(store.group?.players));
 
 onMounted(() => {
   store.load();
@@ -60,6 +68,37 @@ async function rename() {
   await store.renameGroup(renameValue.value);
 }
 
+async function addRosterPlayer() {
+  if (await store.addPlayer(rosterName.value, rosterHandicapIndex.value)) {
+    rosterName.value = '';
+    rosterHandicapIndex.value = '';
+  }
+}
+
+function startEditPlayer(name: string, handicapIndex: number) {
+  editingPlayer.value = name;
+  editName.value = name;
+  editHandicapIndex.value = handicapIndex;
+}
+
+function cancelEditPlayer() {
+  editingPlayer.value = '';
+  editName.value = '';
+  editHandicapIndex.value = '';
+}
+
+async function saveEditPlayer() {
+  if (!editingPlayer.value) return;
+  if (await store.updatePlayer(editingPlayer.value, editName.value, editHandicapIndex.value)) {
+    cancelEditPlayer();
+  }
+}
+
+async function removeRosterPlayer(name: string) {
+  if (editingPlayer.value === name) cancelEditPlayer();
+  await store.removePlayer(name);
+}
+
 function leave() {
   store.leaveGroup();
   renameValue.value = '';
@@ -100,6 +139,44 @@ function goHome() {
           <button class="btn-ghost" type="button" @click="goHome">Home</button>
           <button class="btn-ghost danger" type="button" @click="leave">Leave group</button>
         </div>
+
+        <section class="roster">
+          <span class="field-label">Roster</span>
+          <div class="roster-add">
+            <input v-model="rosterName" class="form-input" type="text" placeholder="Player name" @keyup.enter="addRosterPlayer" />
+            <input
+              v-model="rosterHandicapIndex"
+              class="form-input idx-input"
+              type="number"
+              step="0.1"
+              placeholder="Index"
+              @keyup.enter="addRosterPlayer"
+            />
+            <button class="btn-primary" type="button" :disabled="store.busy" @click="addRosterPlayer">Add</button>
+          </div>
+
+          <p v-if="!rosterPlayers.length" class="hint">No players yet.</p>
+          <div v-for="player in rosterPlayers" :key="player.name" class="roster-row">
+            <template v-if="editingPlayer === player.name">
+              <input v-model="editName" class="form-input" type="text" />
+              <input v-model="editHandicapIndex" class="form-input idx-input" type="number" step="0.1" />
+              <div class="roster-actions">
+                <button class="btn-ghost sm" type="button" :disabled="store.busy" @click="saveEditPlayer">Save</button>
+                <button class="btn-ghost sm" type="button" @click="cancelEditPlayer">Cancel</button>
+              </div>
+            </template>
+            <template v-else>
+              <div>
+                <div class="roster-name">{{ player.name }}</div>
+                <div class="roster-meta">Idx {{ Number(player.handicapIndex || 0).toFixed(1).replace('.0', '') }}</div>
+              </div>
+              <div class="roster-actions">
+                <button class="btn-ghost sm" type="button" @click="startEditPlayer(player.name, player.handicapIndex)">Edit</button>
+                <button class="btn-ghost sm danger" type="button" :disabled="store.busy" @click="removeRosterPlayer(player.name)">Remove</button>
+              </div>
+            </template>
+          </div>
+        </section>
 
         <!-- Past rounds (online only) -->
         <section v-if="online" class="history">
@@ -220,7 +297,7 @@ function goHome() {
   color: #4a5a4f;
   font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -276,6 +353,11 @@ function goHome() {
   color: #c0392b;
 }
 
+.btn-ghost.sm.danger {
+  border-color: #d8c4c4;
+  color: #b1462f;
+}
+
 .btn-primary:disabled,
 .btn-ghost:disabled {
   opacity: 0.5;
@@ -286,7 +368,8 @@ function goHome() {
   margin-top: 24px;
 }
 
-.recent-row {
+.recent-row,
+.roster-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -297,20 +380,37 @@ function goHome() {
   margin-top: 8px;
 }
 
-.recent-name {
+.roster {
+  margin-top: 28px;
+}
+
+.roster-add {
+  display: flex;
+  gap: 8px;
+}
+
+.idx-input {
+  max-width: 110px;
+}
+
+.recent-name,
+.roster-name {
   font-weight: 700;
   color: #24362c;
 }
 
-.recent-meta {
+.recent-meta,
+.roster-meta {
   color: #7a8a7f;
   font-size: 0.8rem;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
 }
 
-.recent-actions {
+.recent-actions,
+.roster-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .hint {
@@ -366,7 +466,7 @@ function goHome() {
   font-weight: 600;
   text-transform: uppercase;
   font-size: 0.7rem;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
 }
 
 .status {
@@ -377,5 +477,18 @@ function goHome() {
 
 .status.error {
   color: #c0392b;
+}
+
+@media (max-width: 640px) {
+  .field-row,
+  .roster-add,
+  .roster-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .idx-input {
+    max-width: none;
+  }
 }
 </style>

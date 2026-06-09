@@ -3,12 +3,15 @@ import {
   DEFAULT_GROUP_NAME,
   GROUP_COLUMNS,
   generateCode,
+  groupForDb,
   normalizeGroup,
 } from '@/domain/group';
+import { normalizePlayer } from '@/domain/players';
 import { hasSupabase, supabase } from '@/services/supabase';
 import { useRoundStore } from '@/stores/round';
 import type { GroupRow } from '@/types/db';
 import type { Group } from '@/types/group';
+import type { PlayerMap } from '@/types/player';
 
 const GROUP_KEY = 'dmi_group';
 const RECENT_GROUPS_KEY = 'dmi_recent_groups';
@@ -246,5 +249,89 @@ export const useGroupStore = defineStore('group', {
         this.busy = false;
       }
     },
+
+    async saveGroup(): Promise<boolean> {
+      if (!this.group) return false;
+      this.busy = true;
+      this.setStatus('Saving...');
+      try {
+        if (hasSupabase() && supabase && this.group.id) {
+          const { error } = await supabase
+            .from('groups')
+            .update(groupForDb(this.group))
+            .eq('id', this.group.id);
+          if (error) {
+            this.setStatus('Error: ' + error.message, true);
+            return false;
+          }
+        }
+        this.persist();
+        this.rememberGroup();
+        this.setStatus('');
+        return true;
+      } finally {
+        this.busy = false;
+      }
+    },
+
+    async addPlayer(rawName: string, rawHandicapIndex: number | string): Promise<boolean> {
+      if (!this.group) return false;
+      const player = normalizePlayer(rawName, { name: rawName, handicapIndex: Number(rawHandicapIndex || 0) });
+      if (!player) {
+        this.setStatus('Enter a player name.', true);
+        return false;
+      }
+      if (normalizePlayerMap(this.group.players)[player.name]) {
+        this.setStatus('Player already exists.', true);
+        return false;
+      }
+      this.group.players = {
+        ...normalizePlayerMap(this.group.players),
+        [player.name]: player,
+      };
+      return this.saveGroup();
+    },
+
+    async updatePlayer(originalName: string, rawName: string, rawHandicapIndex: number | string): Promise<boolean> {
+      if (!this.group) return false;
+      const player = normalizePlayer(rawName, { name: rawName, handicapIndex: Number(rawHandicapIndex || 0) });
+      if (!player) {
+        this.setStatus('Enter a player name.', true);
+        return false;
+      }
+
+      const players = normalizePlayerMap(this.group.players);
+      if (!players[originalName]) {
+        this.setStatus('Player not found.', true);
+        return false;
+      }
+      if (player.name !== originalName && players[player.name]) {
+        this.setStatus('Player already exists.', true);
+        return false;
+      }
+
+      delete players[originalName];
+      players[player.name] = player;
+      this.group.players = players;
+      return this.saveGroup();
+    },
+
+    async removePlayer(name: string): Promise<boolean> {
+      if (!this.group) return false;
+      const players = normalizePlayerMap(this.group.players);
+      if (!players[name]) return true;
+      delete players[name];
+      this.group.players = players;
+      return this.saveGroup();
+    },
   },
 });
+
+function normalizePlayerMap(players: PlayerMap): PlayerMap {
+  return Object.fromEntries(
+    Object.entries(players || {})
+      .map(([name, player]) => normalizePlayer(name, player))
+      .filter((player): player is NonNullable<ReturnType<typeof normalizePlayer>> => player !== null)
+      .map((player) => [player.name, player]),
+  );
+}
