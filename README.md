@@ -768,6 +768,78 @@ Set/update GolfCourseAPI key:
 supabase secrets set GOLF_COURSE_API_KEY=...
 ```
 
+## Production / Event Day
+
+### Hosting
+
+The rewrite is deployed to Vercel. The production URL is the same domain as the
+Vercel project linked to the `rewrite` branch. Push the branch to trigger a new
+deployment:
+
+```bash
+git push origin rewrite
+```
+
+`vercel.json` contains an SPA rewrite rule so all client-side routes
+(`/group`, `/setup`, `/scorecard`, `/results`) respond with `index.html`
+when hit directly or refreshed.
+
+The legacy static app remains live at https://bruntsy.github.io/del-mar-invitational/
+served from the `main` branch via GitHub Pages. Once the rewrite is confirmed
+primary, redirect or remove the legacy URL.
+
+### Schema Migration (fresh Supabase project)
+
+Run these SQL statements in the Supabase SQL editor in order:
+
+1. Create the tables and enable RLS (copy the full schema from the **Database Schema** section above).
+2. Add the realtime publication:
+
+```sql
+alter publication supabase_realtime add table rounds;
+alter publication supabase_realtime add table events;
+```
+
+3. Deploy the course-search edge function:
+
+```bash
+supabase functions deploy course-search --no-verify-jwt
+supabase secrets set GOLF_COURSE_API_KEY=<key>
+```
+
+4. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` and
+   `VITE_SUPABASE_ANON_KEY` with the new project's values.
+
+### Security Notes
+
+All four tables use broad anonymous RLS (`using (true) with check (true)`).
+This is intentional for a closed invite-style event — group codes provide
+lightweight access control. Do **not** store sensitive personal data in group
+or round state. If the app expands beyond a private event group, tighten RLS
+by adding authentication and scoping policies to authenticated users.
+
+The one meaningful risk on the current model: any anonymous client can DELETE
+any row (groups, rounds, or events). For the Del Mar event this is acceptable
+because the player list is small and known. If you want to reduce the blast
+radius, replace the `for all` policies with separate `SELECT/INSERT/UPDATE`
+policies (omitting DELETE).
+
+### Event Day Flow
+
+1. **Before the event**: create the group, add the full roster, and create the
+   event (set team names and assign players to teams).
+2. **Round launch**: from the group hub, click **Launch** next to a round slot.
+   The setup screen pre-fills the event roster split across the two teams.
+   Select the course, configure games, and start the round. The new round ID
+   is automatically linked back into the event.
+3. **Live scoring**: all players join the same group code on their devices.
+   Scores sync in realtime; the event leaderboard in the group hub updates
+   as each round completes.
+4. **After each round**: mark the round complete from the results screen.
+   Recorded event points flow into the leaderboard standings.
+5. **End of event**: archive the event from the group hub to close it out.
+   Completed rounds remain in group history and all-time stats.
+
 ## Testing Checklist
 
 ### Smoke Test

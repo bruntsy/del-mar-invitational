@@ -2061,3 +2061,48 @@ Next likely tasks:
 
 - Production hardening / cutover.
 - Event config editor: team reassignment, round format/points/pair-match editing.
+
+---
+
+## Checkpoint 40 — Production hardening / cutover (2026-06-09)
+
+### Summary
+
+Completed the production hardening milestone. The rewrite is ready to be the
+primary app for event day.
+
+### Changes
+
+- **`vercel.json`** — Added SPA rewrite rule: all routes fall back to
+  `index.html` so `/group`, `/setup`, `/scorecard`, and `/results` work when
+  hit directly or refreshed on Vercel.
+
+- **`README.md`** — Added **Production / Event Day** section covering:
+  - Hosting: Vercel rewrite branch, GitHub Pages legacy URL, push-to-deploy.
+  - Schema migration steps for a fresh Supabase project.
+  - Security notes on the broad anon RLS policies and the acceptable risk
+    for a closed invite-style event. Notes the DELETE exposure and the
+    mitigation if needed.
+  - Event day flow (roster → round launch → live scoring → mark complete →
+    archive).
+
+- **Legacy references in `src/`** — Audited. All occurrences are inline
+  comments documenting that a function or shape is a port of the
+  corresponding `legacy/index.html` helper. No functional coupling to the
+  legacy app exists in rewrite source. No changes required.
+
+- **`vite.config.ts` base path** — Confirmed correct. The rewrite deploys to
+  Vercel at the root path (`/`); no `base` override is needed.
+
+### Verification
+
+- `node scripts/event-format-tests.js` passed.
+- `npm run test:run` passed: 32 files, 267 tests.
+- `npm run build` passed (vue-tsc clean).
+
+### Next likely tasks
+
+- Event config editor: team reassignment, team name edits, round format /
+  points / pair-match editing per round.
+- Legacy cleanup: once the rewrite is confirmed primary on event day, archive
+  or redirect `legacy/index.html` and the GitHub Pages main-branch URL.
