@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { courseFromSearchTee, selectableCourseTees, type CourseSearchResult, type CourseSearchTee } from '@/domain/courseSearch';
 import { cloneDefaultGames, normalizeGames } from '@/domain/games';
@@ -53,11 +53,21 @@ const form = reactive({
   games: cloneDefaultGames() as GameConfig,
   pairMatches: [] as PairMatch[],
   playingGroupNames: [] as string[],
+  scoringMode: 'strokePlay' as 'strokePlay' | 'matchPlay',
 });
 
 onMounted(() => {
   group.load();
   prefillPlayersFromGroup();
+});
+
+watch(() => form.scoringMode, (mode) => {
+  if (mode === 'matchPlay') {
+    form.games.pairMatch.enabled = true;
+    syncPairMatches();
+  } else {
+    form.games.pairMatch.enabled = false;
+  }
 });
 
 const courseResults = ref<CourseSearchResult[]>([]);
@@ -520,6 +530,14 @@ function goHome() {
       <h2 class="setup-hdr">Games</h2>
       <div class="games-list">
         <div class="game-row">
+          <span class="game-toggle" style="min-width:auto; font-weight:700;">Scoring Mode</span>
+          <div class="seg-ctrl">
+            <button class="seg-btn" :class="{ active: form.scoringMode === 'strokePlay' }" type="button" @click="form.scoringMode = 'strokePlay'">Stroke Play</button>
+            <button class="seg-btn" :class="{ active: form.scoringMode === 'matchPlay' }" type="button" @click="form.scoringMode = 'matchPlay'">Match Play</button>
+          </div>
+        </div>
+
+        <div class="game-row">
           <label class="game-toggle"><input v-model="form.games.skins.enabled" type="checkbox" /> Skins</label>
           <input v-model.number="form.games.skins.pot" class="form-input sm" type="number" min="0" placeholder="$/player" />
           <select v-model="form.games.skins.type" class="form-input sm"><option>net</option><option>gross</option></select>
@@ -952,6 +970,33 @@ label {
 .game-toggle.sm {
   min-width: auto;
   font-weight: 600;
+}
+
+.seg-ctrl {
+  display: flex;
+  border: 1px solid #c8d8c8;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.seg-btn {
+  padding: 5px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: #f5f8f5;
+  border: none;
+  cursor: pointer;
+  color: #4a6050;
+  transition: background 0.15s, color 0.15s;
+}
+
+.seg-btn + .seg-btn {
+  border-left: 1px solid #c8d8c8;
+}
+
+.seg-btn.active {
+  background: #2f5d43;
+  color: #fff;
 }
 
 .form-input.sm {
