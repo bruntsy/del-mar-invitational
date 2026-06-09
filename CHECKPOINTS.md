@@ -1918,3 +1918,38 @@ Next likely tasks:
 
 - All-time Stats: derive per-player metrics from completed round snapshots.
 - Event/tournament core: event store, group hub UI, event builder, round launch.
+
+---
+
+## Checkpoint 37 — All-time Stats
+
+### What changed
+
+- **`src/stores/stats.ts`** — New Pinia store. Queries all completed `rounds`
+  rows for a group (same DB query as history), derives per-player metrics from
+  `rounds.state.players` snapshots (not the current group roster), and exposes
+  a sorted `PlayerStats[]` array.
+  - Metrics: rounds played, avg gross score (1 dp), avg net score (1 dp),
+    total skins won.
+  - Rounds with no `course` in state are skipped gracefully.
+  - `clear()` resets store; `loadedGroupId` tracks which group was last loaded.
+
+- **`src/components/screens/GroupScreen.vue`** — Stats panel added below the
+  history section (online-only, hidden when no data). `loadStats` is called
+  alongside `loadHistory` on mount, group switch, and leave. Panel renders an
+  `<table>` matching the history card style.
+
+- **`tests/stores/stats.test.ts`** — 8 new tests covering: offline no-op, null
+  groupId, DB error, single-round computation, multi-round accumulation, missing
+  course skip, loadedGroupId tracking, and clear().
+
+### Verification
+
+- `node scripts/event-format-tests.js` passed.
+- `npm run test:run` passed: 30 files, 235 tests.
+- `npm run build` passed (vue-tsc clean).
+
+### Next likely tasks
+
+- Event/tournament core: event store, group hub UI, event builder, round launch.
+- Event leaderboard + realtime standings.

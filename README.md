@@ -676,6 +676,11 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 - `GroupScreen.vue` loads history on mount and after join/switch, and renders a
   per-round card (course name, completed date, player net/skins table) when a
   group is active and Supabase is configured.
+- `src/stores/stats.ts` is the Pinia all-time stats store: `loadStats(groupId)`
+  queries the same completed rounds as history and aggregates per-player metrics
+  (rounds played, avg gross, avg net, total skins) from `rounds.state.players`
+  snapshots — stable even if the live roster changes. `GroupScreen.vue` renders
+  the stats panel below history when Supabase is configured and data exists.
 
 ## Realtime Sync
 

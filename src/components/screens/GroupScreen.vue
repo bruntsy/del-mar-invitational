@@ -5,9 +5,11 @@ import { sortedGroupPlayers } from '@/domain/players';
 import { hasSupabase } from '@/services/supabase';
 import { useGroupStore } from '@/stores/group';
 import { useHistoryStore } from '@/stores/history';
+import { useStatsStore } from '@/stores/stats';
 
 const store = useGroupStore();
 const history = useHistoryStore();
+const stats = useStatsStore();
 const router = useRouter();
 
 const newName = ref('');
@@ -25,12 +27,20 @@ const rosterPlayers = computed(() => sortedGroupPlayers(store.group?.players));
 onMounted(() => {
   store.load();
   renameValue.value = store.group?.name ?? '';
-  if (store.group?.id) void history.loadHistory(store.group.id);
+  if (store.group?.id) {
+    void history.loadHistory(store.group.id);
+    void stats.loadStats(store.group.id);
+  }
 });
 
 function refreshHistory() {
-  if (store.group?.id) void history.loadHistory(store.group.id);
-  else history.clear();
+  if (store.group?.id) {
+    void history.loadHistory(store.group.id);
+    void stats.loadStats(store.group.id);
+  } else {
+    history.clear();
+    stats.clear();
+  }
 }
 
 async function create() {
@@ -103,6 +113,7 @@ function leave() {
   store.leaveGroup();
   renameValue.value = '';
   history.clear();
+  stats.clear();
 }
 
 function goSetup() {
@@ -203,6 +214,34 @@ function goHome() {
               </tbody>
             </table>
           </div>
+        </section>
+
+        <!-- All-time stats (online only) -->
+        <section v-if="online && (stats.stats.length || stats.loading)" class="stats">
+          <span class="field-label">All-time stats</span>
+          <p v-if="stats.loading" class="hint">Loading…</p>
+          <template v-else>
+            <table class="stats-table">
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th>Rnds</th>
+                  <th>Avg Gross</th>
+                  <th>Avg Net</th>
+                  <th>Skins</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="p in stats.stats" :key="p.name">
+                  <td><strong>{{ p.name }}</strong></td>
+                  <td>{{ p.rounds }}</td>
+                  <td>{{ p.avgGross ?? '—' }}</td>
+                  <td>{{ p.avgNet ?? '—' }}</td>
+                  <td>{{ p.totalSkins > 0 ? p.totalSkins : '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </template>
         </section>
       </template>
 
@@ -467,6 +506,30 @@ function goHome() {
   text-transform: uppercase;
   font-size: 0.7rem;
   letter-spacing: 0;
+}
+
+.stats {
+  margin-top: 28px;
+}
+
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.stats-table th,
+.stats-table td {
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid #efe9da;
+}
+
+.stats-table th {
+  color: #7a8a7f;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.7rem;
 }
 
 .status {
