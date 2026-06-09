@@ -309,7 +309,14 @@ function goHome() {
                       >
                         Launch
                       </button>
-                      <span v-else-if="!r.hasData" class="event-round-linked">Linked</span>
+                      <button
+                        v-else
+                        class="btn-ghost sm"
+                        type="button"
+                        @click="router.push('/scorecard')"
+                      >
+                        Open
+                      </button>
                     </div>
                   </div>
 
