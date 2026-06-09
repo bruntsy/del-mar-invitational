@@ -489,6 +489,7 @@ const mobilePlayers = computed(() => {
                 <td class="sum-cell net-col">—</td>
                 <td class="sum-cell skins-col">—</td>
               </tr>
+              <template v-if="!scrambleEnabled">
               <template v-for="player in section.players" :key="player">
               <tr class="row-player">
                 <td class="name-cell">
@@ -581,6 +582,7 @@ const mobilePlayers = computed(() => {
                 <td class="sum-cell"></td>
               </tr>
               </template>
+              </template><!-- end v-if="!scrambleEnabled" -->
               <tr v-for="format in store.scorecardPlayersFormatRows(section.players, section.name)" :key="`${section.key}-${format.key}`" class="row-format">
                 <td class="name-cell">
                   <div class="fmt-row-label">{{ format.label }}</div>
