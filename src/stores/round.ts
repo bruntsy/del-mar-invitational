@@ -1,7 +1,13 @@
 import { defineStore } from 'pinia';
 import { cloneDefaultGames, normalizeGames } from '@/domain/games';
 import { groupPlayerByName } from '@/domain/players';
-import { ACTIVE_ROUND_COLUMNS, normalizeRoundRow, normalizeRoundState } from '@/domain/round';
+import {
+  ACTIVE_ROUND_COLUMNS,
+  mergeRoundData,
+  normalizeRoundRow,
+  normalizeRoundState,
+  roundForDb,
+} from '@/domain/round';
 import { hasSupabase, supabase } from '@/services/supabase';
 import type { RoundRow } from '@/types/db';
 import { scoreAt, writeCell } from '@/scoring/cells';
@@ -37,6 +43,17 @@ import {
 import type { PlayerMap, RoundState, ScoreMatrix, ScoreType } from '@/types';
 
 const STORAGE_KEY = 'dmi_round';
+
+type RealtimeClient = {
+  channel: (name: string) => {
+    on: (
+      type: 'postgres_changes',
+      filter: { event: string; schema: string; table: string; filter: string },
+      callback: (payload: { eventType?: string; new?: RoundRow }) => void,
+    ) => { subscribe: () => unknown };
+  };
+  removeChannel: (channel: unknown) => unknown;
+};
 
 interface PersistedRound {
   round: RoundState | null;
@@ -233,6 +250,11 @@ export const useRoundStore = defineStore('round', {
   state: () => ({
     round: null as RoundState | null,
     players: {} as PlayerMap,
+    groupChannel: null as unknown,
+    syncTimer: null as ReturnType<typeof setTimeout> | null,
+    pollTimer: null as ReturnType<typeof setInterval> | null,
+    lastPushed: '',
+    syncError: '',
   }),
 
   getters: {
@@ -644,6 +666,110 @@ export const useRoundStore = defineStore('round', {
       return round;
     },
 
+    scheduleSync(delay = 600) {
+      if (!this.round?.id || !hasSupabase() || !supabase) return;
+      if (this.syncTimer) clearTimeout(this.syncTimer);
+      this.syncTimer = setTimeout(() => {
+        this.syncTimer = null;
+        void this.pushToSupabase();
+      }, delay);
+    },
+
+    async pushToSupabase() {
+      if (!this.round?.id || !hasSupabase() || !supabase) return;
+      const { data } = await supabase
+        .from('rounds')
+        .select(ACTIVE_ROUND_COLUMNS)
+        .eq('id', this.round.id)
+        .single();
+      if (data && this.round) {
+        const { round: remote, players } = normalizeRoundRow(data as RoundRow);
+        this.players = { ...players, ...this.players };
+        this.round = mergeRoundData(this.round, remote, false);
+        this.persist();
+      }
+      if (!this.round?.id) return;
+      const state = roundForDb(this.round, this.players);
+      this.lastPushed = JSON.stringify(state);
+      const { error } = await supabase
+        .from('rounds')
+        .update({ state, completed: this.round.completed || false })
+        .eq('id', this.round.id);
+      this.syncError = error ? String(error.message || 'Sync failed') : '';
+    },
+
+    applyRemoteRound(remote: RoundState) {
+      const before = JSON.stringify({ scores: this.round?.scores || {}, putts: this.round?.putts || {} });
+      this.round = this.round ? mergeRoundData(this.round, remote, true) : normalizeRoundState(remote);
+      const afterRemote = JSON.stringify({ scores: remote.scores || {}, putts: remote.putts || {} });
+      const localHadExtra =
+        before !== afterRemote &&
+        JSON.stringify({ scores: this.round?.scores || {}, putts: this.round?.putts || {} }) !== afterRemote;
+      this.persist();
+      if (localHadExtra) this.scheduleSync();
+    },
+
+    subscribeToGroup(groupId: string | null) {
+      this.stopGroupSubscription();
+      if (!groupId || !hasSupabase() || !supabase) return;
+      const realtime = supabase as unknown as RealtimeClient;
+      this.groupChannel = realtime
+        .channel(`group-${groupId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'rounds', filter: `group_id=eq.${groupId}` },
+          (payload: { eventType?: string; new?: RoundRow }) => {
+            const row = payload.new;
+            if (!row?.state) return;
+            const incoming = typeof row.state === 'string' ? row.state : JSON.stringify(row.state);
+            if (incoming === this.lastPushed) return;
+            const { round, players } = normalizeRoundRow(row);
+            this.players = { ...players, ...this.players };
+            if (payload.eventType === 'INSERT' && !round.completed) {
+              this.setRound(round, this.players);
+              return;
+            }
+            if (this.round?.id && row.id === this.round.id) this.applyRemoteRound(round);
+          },
+        )
+        .subscribe();
+      this.startPolling();
+    },
+
+    stopGroupSubscription() {
+      if (this.syncTimer) {
+        clearTimeout(this.syncTimer);
+        this.syncTimer = null;
+      }
+      if (this.pollTimer) {
+        clearInterval(this.pollTimer);
+        this.pollTimer = null;
+      }
+      if (this.groupChannel && hasSupabase() && supabase) {
+        (supabase as unknown as RealtimeClient).removeChannel(this.groupChannel);
+      }
+      this.groupChannel = null;
+      this.lastPushed = '';
+    },
+
+    startPolling() {
+      if (this.pollTimer) clearInterval(this.pollTimer);
+      this.pollTimer = setInterval(async () => {
+        if (!this.round?.id || !hasSupabase() || !supabase) return;
+        const { data } = await supabase
+          .from('rounds')
+          .select(ACTIVE_ROUND_COLUMNS)
+          .eq('id', this.round.id)
+          .single();
+        if (data) {
+          const { round, players } = normalizeRoundRow(data as RoundRow);
+          this.players = { ...players, ...this.players };
+          this.applyRemoteRound(round);
+        }
+      }, 10000);
+      (this.pollTimer as { unref?: () => void } | null)?.unref?.();
+    },
+
     persist() {
       if (!hasLocalStorage()) return;
       if (this.round) {
@@ -663,24 +789,28 @@ export const useRoundStore = defineStore('round', {
     setPlayers(players: PlayerMap) {
       this.players = players || {};
       this.persist();
+      this.scheduleSync();
     },
 
     setGames(games: RoundState['games']) {
       if (!this.round) return;
       this.round.games = normalizeGames(games);
       this.persist();
+      this.scheduleSync();
     },
 
     ensurePairMatches() {
       if (!this.round) return;
       this.round.pairMatches = ensurePairMatches(this.round.pairMatches, this.round.team1 || [], this.round.team2 || []);
       this.persist();
+      this.scheduleSync();
     },
 
     addPairMatch() {
       if (!this.round) return;
       this.round.pairMatches = [...(this.round.pairMatches || []), { a: [], b: [] }];
       this.persist();
+      this.scheduleSync();
     },
 
     setPairMatchPlayer(matchIndex: number, side: 'a' | 'b', slot: number, player: string) {
@@ -696,6 +826,7 @@ export const useRoundStore = defineStore('round', {
       };
       this.round.pairMatches = matches;
       this.persist();
+      this.scheduleSync();
     },
 
     setWolfHole(hole: number, key: 'wolf' | 'mode' | 'partner', value: string) {
@@ -724,6 +855,7 @@ export const useRoundStore = defineStore('round', {
       };
       this.round.wolf = { holes };
       this.persist();
+      this.scheduleSync();
     },
 
     /** Writes a timestamped score cell, growing the player row to 18 holes. */
@@ -753,6 +885,7 @@ export const useRoundStore = defineStore('round', {
       matrix[row][hole] = writeCell(value);
       this.round[key] = matrix;
       this.persist();
+      this.scheduleSync();
     },
 
     /** Putt poker results for a playing group, matching legacy `computePuttPoker()`. */
@@ -766,9 +899,11 @@ export const useRoundStore = defineStore('round', {
       if (!this.round) return;
       this.round.completed = value;
       this.persist();
+      this.scheduleSync();
     },
 
     reset() {
+      this.stopGroupSubscription();
       this.round = null;
       this.persist();
     },

@@ -1488,22 +1488,75 @@ Verification:
 Next: Checkpoint 30 — realtime sync. Push round/group writes to Supabase and
 subscribe to live updates (legacy `subscribeToGroup` / `scheduleSync`).
 
-## Current Handoff: Round History Complete
+## Checkpoint 30: Realtime Sync
+
+Goal: push active-round writes to Supabase and subscribe to group round changes
+so score entries on one device appear on another without a manual refresh.
+Fourth of four steps (27 foundation → 28 group membership → 29 round history →
+30 realtime sync), still guarded by `hasSupabase()` for offline/local-only use.
+
+What changed:
+
+- `src/domain/round.ts`: added `roundForDb(round, players)` (legacy
+  `roundForDb`) and `mergeRoundData(local, remote, preferRemote)` with the
+  legacy cell-level merge semantics. Remote non-null score/putt/team-score cells
+  reconcile into local state, and remote nulls do not wipe local non-null cells
+  unless the caller explicitly prefers the remote payload. Wolf data,
+  pair-match config, games, and playing groups follow the same legacy merge
+  precedence.
+- `src/stores/round.ts`: added the realtime/sync lifecycle in the round store:
+  `scheduleSync()` debounces pushes by ~600ms; `pushToSupabase()` reads the
+  current remote row, merges, then updates `rounds.state` + `rounds.completed`;
+  `subscribeToGroup(groupId)` opens a Supabase Realtime channel filtered by
+  `group_id`; `applyRemoteRound()` merges remote updates into the active round;
+  `startPolling()` keeps the 10-second active-round fallback; and
+  `stopGroupSubscription()` clears channel/timers/last-pushed state.
+- `src/stores/round.ts`: score, putt, team-score, game, pair-match, Wolf,
+  players, and completed-state mutations now persist locally and then schedule a
+  remote sync when the active round has a DB id. Offline/no-credentials and
+  local-only rounds remain no-ops.
+- `src/stores/group.ts`: successful online create/join now subscribes to the
+  group channel; leave stops the subscription. `joinGroup` still loads the
+  latest active round before subscribing.
+- `tests/helpers/mockSupabase.ts`: extended the mock client with query
+  operation recording plus Realtime `channel` / `removeChannel` / emit support.
+- Tests: `tests/domain/round.test.ts` now covers `roundForDb` and the
+  non-null-preserving merge rule; `tests/stores/sync.test.ts` (new) covers
+  debounced Supabase updates, realtime merge application, and channel cleanup.
+
+Deliberately out of scope: creating a remote `rounds` row from the rewrite setup
+flow (the current local setup still produces local-only rounds), all-time Stats,
+Supabase course search, and event realtime sync. This checkpoint syncs rounds
+that already have a DB id, such as rounds loaded through group join/history
+paths.
+
+Verification:
+
+- `npm run test:run`: passed, 26 files, 187 tests (+5 tests over Checkpoint 29).
+- `npm run build`: passed (`vue-tsc` clean).
+- `node scripts/event-format-tests.js`: passed.
+- No live DB browser write-flow QA was performed to avoid touching the shared
+  Supabase project; realtime/push paths are covered by mocked store/domain tests.
+
+Next: create remote `rounds` rows from the rewrite setup flow, or continue with
+Supabase course search / all-time Stats depending on priority.
+
+## Current Handoff: Realtime Sync Complete
 
 Date: 2026-06-08
 
 Branch:
 
 - `rewrite`
-- Latest commit: Add round history store and domain mappers (Checkpoint 29).
-- Worktree status at handoff: clean after pushing Checkpoint 29.
+- Latest commit: pending Checkpoint 30 commit.
+- Worktree status at handoff: dirty until Checkpoint 30 is committed and pushed.
 - Vercel production branch tracking is set to `rewrite`, so pushes to this
   branch create deployments.
 
 Most recent verification:
 
 - `node scripts/event-format-tests.js`: passed.
-- `npm run test:run`: passed, 25 files, 182 tests.
+- `npm run test:run`: passed, 26 files, 187 tests.
 - `npm run build`: passed (vue-tsc clean).
 - Browser QA:
   - Checkpoint 22 pair-match browser QA passed.
@@ -1514,6 +1567,8 @@ Most recent verification:
     nav, create/join/recent UI renders, no console errors).
   - Checkpoint 29 verified via dev-server preview: `/group` renders without
     errors, history section correctly hidden without an active group.
+  - Checkpoint 30 did not exercise live DB/browser write flows; realtime and
+    push behavior are covered by mocked store/domain tests.
   - Create/Join and history load not exercised against the live DB; covered by
     mocked store/domain tests.
   - All panels are covered by focused store and screen tests.
@@ -1549,16 +1604,23 @@ Current implementation state:
   round store has `loadActiveRound(groupId)` which fires on every `joinGroup`;
   `src/stores/history.ts` fetches and reduces all completed rounds for a group;
   `GroupScreen.vue` renders history cards (course, date, player net/skins table)
-  online once a group is active. Still missing: realtime sync and Supabase
-  course search.
+  online once a group is active.
+- Realtime sync is wired (Checkpoint 30): `roundForDb` + `mergeRoundData` live
+  in `src/domain/round.ts`; `src/stores/round.ts` debounces active-round pushes,
+  merges remote rows before updating Supabase, subscribes to group `rounds`
+  changes, ignores local echoes, and keeps a 10-second polling fallback;
+  `src/stores/group.ts` starts/stops subscriptions on group create/join/leave.
+  The current rewrite setup still creates local-only rounds, so remote sync only
+  runs for active rounds with DB ids.
 - The old monolith remains available as the parity oracle at
   `legacy/index.html`.
 
-The next task should begin with Checkpoint 30 — realtime sync:
+The next task should likely begin with remote round creation from setup:
 
-- Wire `subscribeToGroup` / `scheduleSync` so score writes on one device appear
-  on others without a manual refresh. Reference legacy `subscribeToGroup` and
-  the realtime channel pattern (`legacy/index.html` ~2280+).
+- Insert `rounds` rows when starting a rewrite round inside an online group, so
+  locally created rewrite rounds can participate in Checkpoint 30 realtime sync.
+- Alternatively, move to Supabase course search or all-time Stats if those are
+  higher priority.
 - Keep using `hasSupabase()` guards; fall back gracefully offline.
 - Keep reusing store getters; do not recompute scoring in components.
 - After each step, run:

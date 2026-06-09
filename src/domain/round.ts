@@ -28,6 +28,11 @@ export interface NormalizedRound {
   players: PlayerMap;
 }
 
+/** Round JSON persisted in the `rounds.state` column (legacy `roundForDb`). */
+export function roundForDb(round: RoundState, players: PlayerMap = {}): RoundStatePayload {
+  return { ...round, id: round.id, groupId: round.groupId, players: { ...(players || {}) } };
+}
+
 /**
  * Repairs a round loaded from storage/db the way legacy `loadState()` and
  * `normalizeRound()` do: normalize games, backfill missing structures, and
@@ -75,6 +80,76 @@ export function normalizeRoundRow(row: RoundRow): NormalizedRound {
   };
 
   return { round: normalizeRoundState(merged), players: state.players ?? {} };
+}
+
+function mergeCellMatrix(
+  base: RoundState['scores'] = {},
+  incoming: RoundState['scores'] = {},
+  preferIncoming = false,
+): RoundState['scores'] {
+  const merged = { ...base };
+  Object.keys(incoming || {}).forEach((player) => {
+    const baseRow = Array.isArray(merged[player]) ? [...merged[player]] : new Array(18).fill(null);
+    const incomingRow = Array.isArray(incoming[player]) ? incoming[player] : [];
+    for (let hole = 0; hole < 18; hole += 1) {
+      if (incomingRow[hole] == null) continue;
+      if (baseRow[hole] == null || preferIncoming) baseRow[hole] = incomingRow[hole];
+    }
+    merged[player] = baseRow;
+  });
+  return merged;
+}
+
+function mergeWolfData(
+  base: RoundState['wolf'] = { holes: {} },
+  incoming: RoundState['wolf'] = { holes: {} },
+  preferIncoming = false,
+): RoundState['wolf'] {
+  const baseHoles = { ...(base.holes || {}) };
+  const incomingHoles = { ...(incoming.holes || {}) };
+  return { holes: preferIncoming ? { ...baseHoles, ...incomingHoles } : { ...incomingHoles, ...baseHoles } };
+}
+
+function mergePairMatches(
+  localRound: Partial<RoundState> = {},
+  remoteRound: Partial<RoundState> = {},
+  preferRemote = false,
+): RoundState['pairMatches'] {
+  const local = Array.isArray(localRound.pairMatches) ? localRound.pairMatches : null;
+  const remote = Array.isArray(remoteRound.pairMatches) ? remoteRound.pairMatches : null;
+  if (preferRemote) return remote || local || [];
+  return local || remote || [];
+}
+
+/**
+ * Merge a remote round into a local round using legacy realtime semantics:
+ * score/putt cells reconcile per-cell, and remote nulls do not erase local
+ * non-null values unless the caller explicitly prefers the remote round.
+ */
+export function mergeRoundData(
+  localRound: RoundState,
+  remoteRound: RoundState | null,
+  preferRemote = false,
+): RoundState {
+  if (!remoteRound) return normalizeRoundState(localRound);
+  const merged = { ...remoteRound, ...localRound };
+  merged.scores = mergeCellMatrix(remoteRound.scores || {}, localRound.scores || {}, !preferRemote);
+  merged.putts = mergeCellMatrix(remoteRound.putts || {}, localRound.putts || {}, !preferRemote);
+  merged.teamScores = mergeCellMatrix(remoteRound.teamScores || {}, localRound.teamScores || {}, !preferRemote);
+  merged.games = normalizeGames(preferRemote ? (remoteRound.games || localRound.games) : (localRound.games || remoteRound.games));
+  merged.playingGroups = normalizePlayingGroups(
+    preferRemote ? (remoteRound.playingGroups || localRound.playingGroups) : (localRound.playingGroups || remoteRound.playingGroups),
+    [...(merged.team1 || []), ...(merged.team2 || [])],
+  );
+  merged.wolf = mergeWolfData(remoteRound.wolf || { holes: {} }, localRound.wolf || { holes: {} }, !preferRemote);
+  merged.pairMatches = mergePairMatches(localRound, remoteRound, preferRemote);
+  if (preferRemote) {
+    merged.scores = mergeCellMatrix(merged.scores, remoteRound.scores || {}, true);
+    merged.putts = mergeCellMatrix(merged.putts, remoteRound.putts || {}, true);
+    merged.teamScores = mergeCellMatrix(merged.teamScores || {}, remoteRound.teamScores || {}, true);
+    merged.wolf = mergeWolfData(merged.wolf || { holes: {} }, remoteRound.wolf || { holes: {} }, true);
+  }
+  return normalizeRoundState(merged);
 }
 
 /** Best-effort display name for a round's course, matching the scorecard header. */

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   courseDisplayName,
+  mergeRoundData,
   normalizeRoundRow,
+  roundForDb,
   summarizeRound,
 } from '@/domain/round';
 import type { RoundRow } from '@/types/db';
@@ -66,6 +68,44 @@ describe('normalizeRoundRow', () => {
     const { round, players } = normalizeRoundRow(row);
     expect(round.id).toBe('r3');
     expect(players).toEqual({});
+  });
+});
+
+describe('roundForDb and mergeRoundData', () => {
+  it('embeds the active player map in the persisted state payload', () => {
+    const { round } = normalizeRoundRow({
+      id: 'r-db',
+      group_id: 'g-db',
+      completed: false,
+      state: { team1: ['Amy'], team2: [] },
+    } as unknown as RoundRow);
+
+    expect(roundForDb(round, { Amy: { name: 'Amy', handicapIndex: 7 } })).toMatchObject({
+      id: 'r-db',
+      groupId: 'g-db',
+      players: { Amy: { name: 'Amy', handicapIndex: 7 } },
+    });
+  });
+
+  it('merges score cells without letting remote nulls wipe local values', () => {
+    const local = normalizeRoundRow({
+      id: 'r1',
+      group_id: 'g1',
+      completed: false,
+      state: { team1: ['Amy'], team2: ['Bo'], scores: { Amy: [4], Bo: [null, 5] } },
+    } as unknown as RoundRow).round;
+    const remote = normalizeRoundRow({
+      id: 'r1',
+      group_id: 'g1',
+      completed: false,
+      state: { team1: ['Amy'], team2: ['Bo'], scores: { Amy: [null, 3], Bo: [6, null] } },
+    } as unknown as RoundRow).round;
+
+    const merged = mergeRoundData(local, remote, true);
+    expect(merged.scores.Amy[0]).toBe(4);
+    expect(merged.scores.Amy[1]).toBe(3);
+    expect(merged.scores.Bo[0]).toBe(6);
+    expect(merged.scores.Bo[1]).toBe(5);
   });
 });
 

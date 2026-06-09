@@ -545,8 +545,8 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   `puttPokerFor`, `hasBets`) wire the pure modules to the live round.
 - Score, putt, and team-score mutations write timestamped cells via
   `writeCell()` so concurrent edits stay sync-friendly.
-- `setCompleted()` marks a local round complete or reopens it; Supabase
-  historical persistence is still deferred to the sync/group phase.
+- `setCompleted()` marks a round complete or reopens it locally, then schedules
+  the same debounced Supabase round-state sync as score edits.
 
 ### Scorecard Screen (rewrite)
 
@@ -647,19 +647,26 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 
 ## Realtime Sync
 
-Sync target:
-
-```text
-rounds.state
-```
-
-Mechanics:
-
-- Local edits write immediately to localStorage.
-- Remote push is debounced by about 600ms.
-- Supabase Realtime listens for `rounds` changes filtered by `group_id`.
-- A 10-second polling fallback also refreshes active round state.
-- Score and putt merge logic avoids remote nulls wiping out local non-null values.
+- `src/domain/round.ts` exposes `roundForDb()` and `mergeRoundData()` so
+  Supabase round-state writes and realtime reads use the same pure mapping and
+  legacy cell-level merge behavior.
+- `src/stores/round.ts` owns the sync lifecycle: local edits still persist to
+  `localStorage` immediately, then `scheduleSync()` debounces `pushToSupabase()`
+  by about 600ms for active rounds that have a DB id.
+- `pushToSupabase()` first reads the current `rounds` row, merges any remote
+  non-null score/putt/team-score cells, then updates `rounds.state` and
+  `rounds.completed`.
+- `subscribeToGroup(groupId)` opens a Supabase Realtime channel filtered by
+  `group_id`; updates for the active round are merged into the store, inserts of
+  incomplete rounds become the active round, and local echo payloads are ignored
+  with a last-pushed guard.
+- `startPolling()` keeps a 10-second active-round polling fallback while a group
+  subscription is open. `stopGroupSubscription()` clears the channel, debounce
+  timer, and polling timer on leave/reset.
+- Group create/join starts the subscription when Supabase is configured; leaving
+  a group stops it. Offline/no-credential mode remains a no-op.
+- Score, putt, and team-score merge logic avoids remote nulls wiping out local
+  non-null values.
 
 For multi-device testing, use two browsers/devices joined to the same group code.
 

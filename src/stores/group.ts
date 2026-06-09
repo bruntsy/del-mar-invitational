@@ -144,6 +144,7 @@ export const useGroupStore = defineStore('group', {
             this.group = normalizeGroup(data as GroupRow);
             this.persist();
             this.rememberGroup();
+            useRoundStore().subscribeToGroup(this.group.id);
             this.setStatus('');
             return true;
           }
@@ -187,7 +188,9 @@ export const useGroupStore = defineStore('group', {
         this.rememberGroup();
         // Pull the group's latest in-progress round into the round store
         // (legacy `joinGroup` → `loadActiveRound`).
-        await useRoundStore().loadActiveRound(this.group.id);
+        const round = useRoundStore();
+        await round.loadActiveRound(this.group.id);
+        round.subscribeToGroup(this.group.id);
         this.setStatus('');
         return true;
       } finally {
@@ -201,6 +204,7 @@ export const useGroupStore = defineStore('group', {
     },
 
     leaveGroup() {
+      useRoundStore().stopGroupSubscription();
       this.group = null;
       this.persist();
       this.setStatus('');
