@@ -9,6 +9,7 @@ const { mockSearchCourses } = vi.hoisted(() => ({ mockSearchCourses: vi.fn() }))
 const push = vi.fn();
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push }),
+  useRoute: () => ({ query: {} }),
 }));
 vi.mock('@/services/courseSearch', () => ({
   searchCourses: mockSearchCourses,
