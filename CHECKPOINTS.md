@@ -1713,8 +1713,6 @@ Verification:
 
 Next likely tasks:
 
-- Add a course-handicap preview in setup after player rows are entered, using
-  the round-store/domain handicap helpers instead of duplicating scoring logic.
 - Expand group roster persistence if online group setup should prefill players.
 - Continue toward all-time Stats or event realtime sync depending on priority.
 - After each step, run:
@@ -1722,3 +1720,43 @@ Next likely tasks:
   - `npm run test:run`
   - `npm run build`
 - Add the next checkpoint, then commit and push to `origin/rewrite`.
+
+## Checkpoint 33: Setup Course Handicap Preview
+
+Files changed since Checkpoint 32:
+
+- Updated `src/components/screens/SetupScreen.vue`.
+- Updated `tests/screens/setup.test.ts`.
+- Updated `README.md` and this file.
+
+What changed:
+
+- Added a compact Course Handicap Preview under the setup player rows.
+- The preview reuses shared handicap helpers:
+  - `computeWHSCourseHcp()` for WHS course handicap,
+  - `allocateNetStrokes()` for relative strokes off the low player, and
+  - `getsStroke()` for the SI-based stroke-hole list.
+- The preview is driven by current setup form state, so it updates before a
+  round exists when player indexes, course rating, slope, par, SI, or a selected
+  searched tee changes.
+- Each named player now shows:
+  - handicap index,
+  - computed course handicap,
+  - relative strokes (`Low` for the low course handicap), and
+  - the stroke holes that will produce scorecard net dots.
+- Manual course entry and searched tee selection both feed the same preview
+  path.
+
+Verification:
+
+- `npm run test:run -- tests/screens/setup.test.ts` passed: 1 file, 10 tests.
+- `node scripts/event-format-tests.js` passed.
+- `npm run test:run` passed: 27 files, 197 tests.
+- `npm run build` passed (vue-tsc clean).
+
+Next likely tasks:
+
+- Expand group roster persistence if online group setup should prefill players.
+- Consider live course-search browser QA against the deployed Edge Function if
+  safe to exercise.
+- Continue toward all-time Stats or event realtime sync depending on priority.

@@ -589,6 +589,10 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   and maps selected tees into the round `Course` shape. Selecting a tee fills
   rating, slope, par, SI/stroke index, and yardage before handicap/stroke
   getters run.
+- The player section previews each named player's handicap index, WHS course
+  handicap, relative strokes, and SI-based stroke-hole list using the shared
+  handicap helpers. The preview updates immediately when course rating, slope,
+  par, SI, player indexes, or a searched tee changes.
 - "Start round" validates (par present, both teams populated, unique names),
   builds the `RoundState` + player handicap map, generates head-to-head matchups
   by zipping `team1[i]` vs `team2[i]` (as legacy did), writes through

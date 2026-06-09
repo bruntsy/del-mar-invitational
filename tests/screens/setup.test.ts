@@ -20,6 +20,19 @@ function mountSetup() {
   return mount(SetupScreen, { global: { plugins: [pinia] } });
 }
 
+async function fillDefaultPlayers(wrapper: ReturnType<typeof mountSetup>) {
+  const rows = wrapper.findAll('.player-row');
+  const setRow = async (row: ReturnType<typeof wrapper.findAll>[number], name: string, idx: string) => {
+    const inputs = row.findAll('input');
+    await inputs[0].setValue(name);
+    await inputs[1].setValue(idx);
+  };
+  await setRow(rows[0], 'Ann', '10');
+  await setRow(rows[1], 'Bea', '12');
+  await setRow(rows[2], 'Cal', '6');
+  await setRow(rows[3], 'Dan', '20');
+}
+
 beforeEach(() => {
   pinia = createPinia();
   setActivePinia(pinia);
@@ -51,17 +64,7 @@ describe('SetupScreen', () => {
     const store = useRoundStore();
     const wrapper = mountSetup();
 
-    const rows = wrapper.findAll('.player-row');
-    // each row: [name, index, select, remove]
-    const setRow = async (row: ReturnType<typeof wrapper.findAll>[number], name: string, idx: string) => {
-      const inputs = row.findAll('input');
-      await inputs[0].setValue(name);
-      await inputs[1].setValue(idx);
-    };
-    await setRow(rows[0], 'Ann', '10');
-    await setRow(rows[1], 'Bea', '12');
-    await setRow(rows[2], 'Cal', '6');
-    await setRow(rows[3], 'Dan', '20');
+    await fillDefaultPlayers(wrapper);
 
     await wrapper.find('.btn-primary').trigger('click');
 
@@ -77,6 +80,22 @@ describe('SetupScreen', () => {
     // handicap map drives course handicaps
     expect(store.courseHandicaps.Ann).toBeGreaterThan(store.courseHandicaps.Cal);
     expect(push).toHaveBeenCalledWith('/scorecard');
+  });
+
+  it('previews course handicaps and stroke holes from the current course', async () => {
+    const wrapper = mountSetup();
+
+    await fillDefaultPlayers(wrapper);
+
+    const rows = wrapper.findAll('.hcp-preview-row');
+    expect(rows).toHaveLength(4);
+    expect(rows[0].text()).toContain('Ann');
+    expect(rows[0].text()).toContain('Idx 10');
+    expect(rows[0].text()).toContain('Course 10');
+    expect(rows[0].text()).toContain('+4');
+    expect(rows[0].text()).toContain('Holes 2, 11, 7, 13');
+    expect(rows[2].text()).toContain('Low');
+    expect(rows[2].text()).toContain('No strokes');
   });
 
   it('fills course fields from selected search tee', async () => {
@@ -114,16 +133,7 @@ describe('SetupScreen', () => {
     await wrapper.find('.course-result').trigger('click');
     await wrapper.find('.tee-result').trigger('click');
 
-    const rows = wrapper.findAll('.player-row');
-    const setRow = async (row: ReturnType<typeof wrapper.findAll>[number], name: string, idx: string) => {
-      const inputs = row.findAll('input');
-      await inputs[0].setValue(name);
-      await inputs[1].setValue(idx);
-    };
-    await setRow(rows[0], 'Ann', '10');
-    await setRow(rows[1], 'Bea', '12');
-    await setRow(rows[2], 'Cal', '6');
-    await setRow(rows[3], 'Dan', '20');
+    await fillDefaultPlayers(wrapper);
     await wrapper.find('.btn-primary').trigger('click');
 
     expect(mockSearchCourses).toHaveBeenCalledWith('Del Mar');
@@ -137,6 +147,48 @@ describe('SetupScreen', () => {
     expect(store.round?.course?.par).toHaveLength(18);
     expect(store.round?.course?.si).toEqual(Array.from({ length: 18 }, (_, index) => index + 1));
     expect(store.round?.course?.yds[0]).toBe(350);
+  });
+
+  it('updates the handicap preview when a searched tee is selected', async () => {
+    mockSearchCourses.mockResolvedValue([
+      {
+        id: 'course-1',
+        clubName: 'Del Mar Country Club',
+        courseName: 'Championship',
+        location: 'Del Mar, CA',
+        tees: {
+          male: [
+            {
+              name: 'Black',
+              gender: 'Men',
+              rating: 74.2,
+              slope: 138,
+              parTotal: 72,
+              yards: 7011,
+              holes: Array.from({ length: 18 }, (_, index) => ({
+                par: 4,
+                yardage: 350 + index,
+                si: index + 1,
+              })),
+            },
+          ],
+        },
+      },
+    ]);
+    const wrapper = mountSetup();
+
+    await fillDefaultPlayers(wrapper);
+    expect(wrapper.findAll('.hcp-preview-row')[0].text()).toContain('Course 10');
+
+    await wrapper.find('.course-search-input').setValue('Del Mar');
+    await wrapper.find('.course-search-btn').trigger('click');
+    await flushPromises();
+    await wrapper.find('.course-result').trigger('click');
+    await wrapper.find('.tee-result').trigger('click');
+
+    expect(wrapper.findAll('.hcp-preview-row')[0].text()).toContain('Course 14');
+    expect(wrapper.findAll('.hcp-preview-row')[3].text()).toContain('+17');
+    expect(wrapper.findAll('.hcp-preview-row')[3].text()).toContain('Holes 1, 2, 3');
   });
 
   it('keeps manual course setup available when search fails', async () => {
@@ -155,16 +207,7 @@ describe('SetupScreen', () => {
     const store = useRoundStore();
     const wrapper = mountSetup();
 
-    const rows = wrapper.findAll('.player-row');
-    const setRow = async (row: ReturnType<typeof wrapper.findAll>[number], name: string, idx: string) => {
-      const inputs = row.findAll('input');
-      await inputs[0].setValue(name);
-      await inputs[1].setValue(idx);
-    };
-    await setRow(rows[0], 'Ann', '10');
-    await setRow(rows[1], 'Bea', '12');
-    await setRow(rows[2], 'Cal', '6');
-    await setRow(rows[3], 'Dan', '20');
+    await fillDefaultPlayers(wrapper);
 
     const scrambleRow = wrapper.findAll('.game-row').find((row) => row.text().includes('4-Man Scramble'));
     expect(scrambleRow).toBeDefined();
@@ -189,16 +232,7 @@ describe('SetupScreen', () => {
     const store = useRoundStore();
     const wrapper = mountSetup();
 
-    const rows = wrapper.findAll('.player-row');
-    const setRow = async (row: ReturnType<typeof wrapper.findAll>[number], name: string, idx: string) => {
-      const inputs = row.findAll('input');
-      await inputs[0].setValue(name);
-      await inputs[1].setValue(idx);
-    };
-    await setRow(rows[0], 'Ann', '10');
-    await setRow(rows[1], 'Bea', '12');
-    await setRow(rows[2], 'Cal', '6');
-    await setRow(rows[3], 'Dan', '20');
+    await fillDefaultPlayers(wrapper);
 
     const pairRow = wrapper.findAll('.game-row').find((row) => row.text().includes('Pair Match Play'));
     expect(pairRow).toBeDefined();

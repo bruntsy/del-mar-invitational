@@ -3,6 +3,7 @@ import { computed, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { courseFromSearchTee, selectableCourseTees, type CourseSearchResult, type CourseSearchTee } from '@/domain/courseSearch';
 import { cloneDefaultGames, normalizeGames } from '@/domain/games';
+import { allocateNetStrokes, computeWHSCourseHcp, getsStroke } from '@/scoring/handicap';
 import { ensurePairMatches } from '@/scoring/pairMatch';
 import { searchCourses } from '@/services/courseSearch';
 import { useGroupStore } from '@/stores/group';
@@ -160,6 +161,42 @@ const errors = computed(() => {
 const canStart = computed(() => errors.value.length === 0);
 
 const pairMatches = computed(() => ensurePairMatches(form.pairMatches, team1.value, team2.value));
+
+const courseParTotal = computed(() => form.par.reduce((total, value) => total + Number(value || 0), 0));
+
+const previewCourseHandicaps = computed(() => Object.fromEntries(
+  namedPlayers.value.map((player) => [
+    player.name.trim(),
+    computeWHSCourseHcp(player.handicapIndex, form.slope, form.rating, courseParTotal.value),
+  ]),
+));
+
+const previewStrokes = computed(() => allocateNetStrokes(previewCourseHandicaps.value));
+
+const handicapPreviewRows = computed(() => namedPlayers.value.map((player) => {
+  const name = player.name.trim();
+  const strokes = previewStrokes.value[name] ?? 0;
+  return {
+    name,
+    index: Number(player.handicapIndex || 0),
+    courseHandicap: previewCourseHandicaps.value[name] ?? 0,
+    strokes,
+    holes: strokeHoleSummary(strokes),
+  };
+}));
+
+function strokeHoleSummary(strokes: number) {
+  if (strokes <= 0) return 'No strokes';
+  const holes = form.si
+    .map((si, index) => ({ hole: index + 1, si: Number(si) }))
+    .filter(({ si }) => getsStroke(strokes, si))
+    .sort((a, b) => a.si - b.si)
+    .map(({ hole }) => hole);
+
+  if (!holes.length) return 'No strokes';
+  if (holes.length === 18) return 'All 18 holes';
+  return `Holes ${holes.join(', ')}`;
+}
 
 function syncPairMatches() {
   form.pairMatches = ensurePairMatches(form.pairMatches, team1.value, team2.value);
@@ -366,6 +403,22 @@ function goHome() {
         </div>
       </div>
       <button class="btn-ghost" type="button" @click="addPlayer">+ Add player</button>
+
+      <div v-if="handicapPreviewRows.length" class="hcp-preview">
+        <h3 class="sub-hdr">Course Handicap Preview</h3>
+        <div class="hcp-preview-list">
+          <div v-for="row in handicapPreviewRows" :key="row.name" class="hcp-preview-row">
+            <div>
+              <strong>{{ row.name }}</strong>
+              <small>Idx {{ row.index.toFixed(1).replace('.0', '') }} / Course {{ row.courseHandicap }}</small>
+            </div>
+            <div class="hcp-preview-strokes">
+              <strong>{{ row.strokes > 0 ? `+${row.strokes}` : 'Low' }}</strong>
+              <small>{{ row.holes }}</small>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section class="setup-card">
@@ -545,6 +598,14 @@ function goHome() {
   color: #2f5d43;
 }
 
+.sub-hdr {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  color: #2f5d43;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
 .course-search {
   display: flex;
   gap: 8px;
@@ -711,6 +772,49 @@ label {
   cursor: pointer;
 }
 
+.hcp-preview {
+  margin-top: 16px;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 12px;
+}
+
+.hcp-preview-list {
+  display: grid;
+  gap: 8px;
+}
+
+.hcp-preview-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(150px, 1.1fr);
+  gap: 12px;
+  align-items: center;
+  border-top: 1px solid #ece3d2;
+  padding-top: 8px;
+}
+
+.hcp-preview-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.hcp-preview-row strong {
+  color: #283b30;
+}
+
+.hcp-preview-row small {
+  display: block;
+  margin-top: 2px;
+  color: #6a7a6f;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.hcp-preview-strokes {
+  text-align: right;
+}
+
 .games-list {
   display: grid;
   gap: 10px;
@@ -838,6 +942,15 @@ label {
 
   .course-search-btn {
     width: 100%;
+  }
+
+  .hcp-preview-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .hcp-preview-strokes {
+    text-align: left;
   }
 }
 </style>
