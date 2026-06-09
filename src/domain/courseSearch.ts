@@ -27,6 +27,16 @@ export interface CourseSearchResult {
   };
 }
 
+function normalizeLocation(location: unknown): string | undefined {
+  if (!location) return undefined;
+  if (typeof location === 'string') return location;
+  if (typeof location === 'object') {
+    const loc = location as Record<string, unknown>;
+    return [loc.city, loc.state].filter(Boolean).join(', ') || undefined;
+  }
+  return undefined;
+}
+
 export function normalizeStrokeIndexes(si: Array<number | string | null | undefined>): number[] {
   const values = si.map((value) => Number(value));
   const seen = new Set(values);
@@ -67,7 +77,7 @@ export function courseFromSearchTee(course: CourseSearchResult, tee: CourseSearc
     id: course.id == null ? undefined : String(course.id),
     clubName: course.clubName || undefined,
     courseName: course.courseName || course.clubName || 'Course',
-    location: course.location || undefined,
+    location: normalizeLocation(course.location) || undefined,
     tee: {
       name: String(tee.name || 'Tee'),
       gender: tee.gender || undefined,
