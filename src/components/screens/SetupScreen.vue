@@ -353,6 +353,12 @@ async function startRound() {
   const { round, players } = buildRound();
   const created = await store.startRound(round, players, group.group?.id ?? null);
   if (event.pendingRoundLink != null && created.id) {
+    const { roundIndex } = event.pendingRoundLink;
+    if (event.event?.config.rounds[roundIndex]) {
+      const rounds = [...event.event.config.rounds];
+      rounds[roundIndex] = { ...rounds[roundIndex], playingGroups: round.playingGroups };
+      event.event.config = { ...event.event.config, rounds };
+    }
     await event.linkRound(created.id);
   }
   void router.push('/scorecard');
