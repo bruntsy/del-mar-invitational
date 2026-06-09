@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { getsStroke } from '@/scoring/handicap';
+import { playerHoleScore } from '@/scoring/round';
 import { puttPenaltyNote } from '@/scoring/puttPoker';
 import { useRoundStore } from '@/stores/round';
 
@@ -138,6 +139,45 @@ const puttPokerEnabled = computed(() => store.games.puttPoker.enabled);
 const scrambleEnabled = computed(() => store.games.scramble4.enabled);
 const pairMatch = computed(() => store.pairMatchResult);
 const pairMatchVisible = computed(() => pairMatch.value.enabled && pairMatch.value.matches.length > 0);
+
+// C1 Part A: per-hole winner across all pair matches ('team1'|'team2'|'tie'|null)
+const holeWinnerByHole = computed((): Array<'team1' | 'team2' | 'tie' | null> => {
+  const matches = pairMatch.value.matches;
+  return HOLES.map((h) => {
+    const winners = matches.map((m) => m.holes[h]?.winner ?? null);
+    if (winners.every((w) => w == null)) return null;
+    const played = winners.filter((w) => w != null);
+    if (played.every((w) => w === 'a')) return 'team1';
+    if (played.every((w) => w === 'b')) return 'team2';
+    if (played.every((w) => w === 'tie')) return 'tie';
+    return null;
+  });
+});
+
+function holeWinnerClass(hole: number): string {
+  const winner = holeWinnerByHole.value[hole];
+  if (!winner || winner === 'tie') return '';
+  return `hole-win-${winner}`;
+}
+
+// C1 Part B: which player contributed the best ball score for a team on a hole
+const bestBallEnabled = computed(() => store.games.bestBall.enabled);
+
+function bestBallContributor(teamPlayers: string[], hole: number): string | null {
+  if (!bestBallEnabled.value) return null;
+  const context = store.scoreContext;
+  if (!context) return null;
+  const type = store.games.bestBall.type ?? 'net';
+  let best: string | null = null;
+  let bestScore = Infinity;
+  for (const player of teamPlayers) {
+    const score = playerHoleScore(context, player, hole, type);
+    if (score == null) continue;
+    if (score < bestScore) { bestScore = score; best = player; }
+  }
+  return best;
+}
+
 const wolf = computed(() => store.wolfResult);
 const wolfVisible = computed(() => wolf.value.enabled && wolf.value.rows.length > 0);
 interface PuttGroup {
@@ -454,7 +494,7 @@ const mobilePlayers = computed(() => {
                   <div class="fmt-row-sub">4-man scramble</div>
                 </td>
                 <template v-for="h in FRONT" :key="`scrf-${section.teamKey}-${h}`">
-                  <td class="score-cell" :class="scoreColorClass(store.readTeamScore(section.teamKey!, h), par[h])">
+                  <td class="score-cell" :class="[scoreColorClass(store.readTeamScore(section.teamKey!, h), par[h]), holeWinnerClass(h)]">
                     <div class="sc-cell-inner">
                       <input
                         type="number"
@@ -470,7 +510,7 @@ const mobilePlayers = computed(() => {
                 </template>
                 <td class="sum-cell out-col">{{ dash(teamScoreSum(section.teamKey!, 0, 9)) }}</td>
                 <template v-for="h in BACK" :key="`scrb-${section.teamKey}-${h}`">
-                  <td class="score-cell" :class="scoreColorClass(store.readTeamScore(section.teamKey!, h), par[h])">
+                  <td class="score-cell" :class="[scoreColorClass(store.readTeamScore(section.teamKey!, h), par[h]), holeWinnerClass(h)]">
                     <div class="sc-cell-inner">
                       <input
                         type="number"
@@ -510,7 +550,7 @@ const mobilePlayers = computed(() => {
                   </div>
                 </td>
                 <template v-for="h in FRONT" :key="`${player}-${h}`">
-                  <td class="score-cell" :class="scoreColorClass(store.readScore(player, h), par[h])">
+                  <td class="score-cell" :class="[scoreColorClass(store.readScore(player, h), par[h]), { 'is-best-ball': bestBallContributor(section.players, h) === player }]">
                     <div class="sc-cell-inner">
                       <input
                         type="number"
@@ -527,7 +567,7 @@ const mobilePlayers = computed(() => {
                 </template>
                 <td class="sum-cell out-col">{{ dash(store.playerTotals[player].out) }}</td>
                 <template v-for="h in BACK" :key="`${player}-${h}`">
-                  <td class="score-cell" :class="scoreColorClass(store.readScore(player, h), par[h])">
+                  <td class="score-cell" :class="[scoreColorClass(store.readScore(player, h), par[h]), { 'is-best-ball': bestBallContributor(section.players, h) === player }]">
                     <div class="sc-cell-inner">
                       <input
                         type="number"
@@ -588,11 +628,11 @@ const mobilePlayers = computed(() => {
                   <div class="fmt-row-label">{{ format.label }}</div>
                   <div class="fmt-row-sub">{{ format.sublabel }}</div>
                 </td>
-                <td v-for="h in FRONT" :key="`${section.key}-${format.key}-fh-${h}`" class="fmt-cell">
+                <td v-for="h in FRONT" :key="`${section.key}-${format.key}-fh-${h}`" class="fmt-cell" :class="holeWinnerClass(h)">
                   {{ dash(format.holes[h]) }}
                 </td>
                 <td class="sum-cell out-col">{{ dash(format.out) }}</td>
-                <td v-for="h in BACK" :key="`${section.key}-${format.key}-bh-${h}`" class="fmt-cell">
+                <td v-for="h in BACK" :key="`${section.key}-${format.key}-bh-${h}`" class="fmt-cell" :class="holeWinnerClass(h)">
                   {{ dash(format.holes[h]) }}
                 </td>
                 <td class="sum-cell in-col">{{ dash(format.in) }}</td>
@@ -1021,6 +1061,11 @@ const mobilePlayers = computed(() => {
   font-size: 0.4rem;
   color: #b1462f;
 }
+
+.hole-win-team1 { background: rgba(47, 93, 67, 0.10); }
+.hole-win-team2 { background: rgba(180, 71, 58, 0.10); }
+
+.is-best-ball input { font-weight: 900; text-decoration: underline; }
 
 .score-eagle { background: #f6d365; }
 .score-birdie { background: #cdeccd; }
