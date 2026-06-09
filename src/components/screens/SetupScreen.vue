@@ -226,6 +226,8 @@ const errors = computed(() => {
 
 const canStart = computed(() => errors.value.length === 0);
 
+const hasEventContext = computed(() => event.pendingRoundLink != null);
+
 const pairMatches = computed(() => ensurePairMatches(form.pairMatches, team1.value, team2.value));
 
 const previewPlayingGroups = computed(() =>
@@ -508,7 +510,7 @@ function goHome() {
       </div>
     </section>
 
-    <section class="setup-card">
+    <section v-if="!hasEventContext" class="setup-card">
       <h2 class="setup-hdr">Games</h2>
       <div class="games-list">
         <div class="game-row">
