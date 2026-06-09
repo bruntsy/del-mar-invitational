@@ -31,9 +31,24 @@ export interface PuttPokerConfig {
   pot: number;
 }
 
+export interface BestBallAggyGameConfig {
+  enabled: boolean;
+  scoreBasis: ScoreType;
+  scoringMode: 'stroke' | 'match';
+  stake: { front: number; back: number; overall: number };
+}
+
+export interface TwoManScrambleGameConfig {
+  enabled: boolean;
+  scoringMode: 'stroke' | 'match';
+  stake: { front: number; back: number; overall: number };
+}
+
 export interface GameConfig {
   skins: SkinsConfig;
   bestBall: BestBallConfig;
+  bestBallAggy: BestBallAggyGameConfig;
+  twoManScramble: TwoManScrambleGameConfig;
   scramble4: MoneyNassauConfig;
   wolf: WolfConfig;
   puttPoker: PuttPokerConfig;
