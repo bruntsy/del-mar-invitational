@@ -189,6 +189,46 @@ function save() {
             </div>
           </div>
 
+          <!-- Best Ball Bet (bestBallNassau, twoManBestBallAggy) -->
+          <template v-if="round.format === 'bestBallNassau' || round.format === 'twoManBestBallAggy'">
+            <div class="ece-field">
+              <label class="ece-sublabel">Best Ball Bet</label>
+              <div class="ece-row ece-points-row">
+                <label class="ece-pts-label">Front
+                  <input v-model.number="round.bestBallBet.front" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
+                </label>
+                <label class="ece-pts-label">Back
+                  <input v-model.number="round.bestBallBet.back" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
+                </label>
+                <label class="ece-pts-label">Total
+                  <input v-model.number="round.bestBallBet.total" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
+                </label>
+                <select v-model="round.bestBallBet.type" class="form-input ece-type-select">
+                  <option value="net">Net</option>
+                  <option value="gross">Gross</option>
+                </select>
+              </div>
+            </div>
+          </template>
+
+          <!-- Scramble Bet (scramble2v2Nassau) -->
+          <template v-if="round.format === 'scramble2v2Nassau'">
+            <div class="ece-field">
+              <label class="ece-sublabel">Scramble Bet</label>
+              <div class="ece-row ece-points-row">
+                <label class="ece-pts-label">Front
+                  <input v-model.number="round.scrambleBet.front" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
+                </label>
+                <label class="ece-pts-label">Back
+                  <input v-model.number="round.scrambleBet.back" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
+                </label>
+                <label class="ece-pts-label">Total
+                  <input v-model.number="round.scrambleBet.total" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
+                </label>
+              </div>
+            </div>
+          </template>
+
           <!-- Points (not shown for twoManBestBallAggy which uses fixed 36-pt model) -->
           <div v-if="round.format !== 'twoManBestBallAggy'" class="ece-field">
             <label class="ece-sublabel">Points</label>
