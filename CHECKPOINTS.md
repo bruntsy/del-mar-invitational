@@ -1953,3 +1953,53 @@ Next likely tasks:
 
 - Event/tournament core: event store, group hub UI, event builder, round launch.
 - Event leaderboard + realtime standings.
+
+---
+
+## Checkpoint 38 — Event/Tournament Core
+
+### What changed
+
+- **`src/stores/event.ts`** — New Pinia event store.
+  - `loadEvent(groupId)` fetches the active `events` row for a group.
+  - `createEvent(groupId, name, playerNames)` inserts a new event using
+    `defaultEventConfig` and stores it.
+  - `saveEvent()` / `archiveEvent()` update the `events` row.
+  - `setPendingRoundLink(roundIndex)` / `linkRound(roundId)` handle the
+    launch-then-link flow: the round index is stashed before navigating to
+    /setup; after `startRound` succeeds, `linkRound` writes the new round ID
+    back into `config.rounds[N].roundId` and saves.
+  - `updateRoundResult(roundIndex, team1, team2)` writes scored points back
+    into the event config (consumed by the standings getter).
+  - `standings` getter sums `pointsResult` across all rounds.
+  - `roundsWithStatus` getter annotates each round with `linked: boolean`.
+
+- **`src/components/screens/SetupScreen.vue`** — After `startRound` resolves,
+  checks `event.pendingRoundLink` and calls `event.linkRound(created.id)` if
+  set. Adds `useEventStore` import.
+
+- **`src/components/screens/GroupScreen.vue`** — New "Team Event" section
+  (online-only, above history). Shows create form when no event exists; shows
+  event name, team rosters, live standings (pts – pts, X to win), and a round
+  list with Launch / "Round linked" per round. Archive button removes the event.
+  Loads/clears event store alongside history and stats on mount, group switch,
+  and leave.
+
+- **`tests/stores/event.test.ts`** — 18 new tests covering loadEvent
+  (offline, null groupId, no-event, normalizes row, DB error), createEvent
+  (offline, success, insert error), archiveEvent (no event, success), round link
+  flow (setPending, clear, linkRound success/no-pending), standings getter, 
+  updateRoundResult, and clear.
+
+### Verification
+
+- `node scripts/event-format-tests.js` passed.
+- `npm run test:run` passed: 31 files, 253 tests.
+- `npm run build` passed (vue-tsc clean).
+
+### Next likely tasks
+
+- Event leaderboard + realtime: subscribe to `events` table, recompute standings
+  live from linked rounds as scores change.
+- Event config editor: edit team assignments, round formats, points, pair matches.
+- Production hardening / cutover.

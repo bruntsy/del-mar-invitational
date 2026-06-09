@@ -6,14 +6,18 @@ import { hasSupabase } from '@/services/supabase';
 import { useGroupStore } from '@/stores/group';
 import { useHistoryStore } from '@/stores/history';
 import { useStatsStore } from '@/stores/stats';
+import { useEventStore } from '@/stores/event';
+import { eventFormatLabel } from '@/domain/events';
 
 const store = useGroupStore();
 const history = useHistoryStore();
 const stats = useStatsStore();
+const eventStore = useEventStore();
 const router = useRouter();
 
 const newName = ref('');
 const joinCode = ref('');
+const newEventName = ref('');
 const renameValue = ref('');
 const online = hasSupabase();
 const rosterName = ref('');
@@ -30,6 +34,7 @@ onMounted(() => {
   if (store.group?.id) {
     void history.loadHistory(store.group.id);
     void stats.loadStats(store.group.id);
+    void eventStore.loadEvent(store.group.id);
   }
 });
 
@@ -37,9 +42,11 @@ function refreshHistory() {
   if (store.group?.id) {
     void history.loadHistory(store.group.id);
     void stats.loadStats(store.group.id);
+    void eventStore.loadEvent(store.group.id);
   } else {
     history.clear();
     stats.clear();
+    eventStore.clear();
   }
 }
 
@@ -114,9 +121,26 @@ function leave() {
   renameValue.value = '';
   history.clear();
   stats.clear();
+  eventStore.clear();
 }
 
 function goSetup() {
+  void router.push('/setup');
+}
+
+async function createEvent() {
+  if (!store.group?.id) return;
+  const playerNames = Object.keys(store.group.players || {});
+  await eventStore.createEvent(store.group.id, newEventName.value, playerNames);
+  newEventName.value = '';
+}
+
+async function archiveEvent() {
+  await eventStore.archiveEvent();
+}
+
+function launchEventRound(roundIndex: number) {
+  eventStore.setPendingRoundLink(roundIndex);
   void router.push('/setup');
 }
 
@@ -187,6 +211,83 @@ function goHome() {
               </div>
             </template>
           </div>
+        </section>
+
+        <!-- Team event (online only) -->
+        <section v-if="online" class="event-section">
+          <span class="field-label">Team Event</span>
+
+          <!-- Active event -->
+          <template v-if="eventStore.event">
+            <div class="event-header">
+              <div class="event-name">{{ eventStore.event.name }}</div>
+              <button class="btn-ghost sm danger" type="button" @click="archiveEvent">Archive</button>
+            </div>
+
+            <div class="event-teams">
+              <div class="event-team">
+                <div class="event-team-name">{{ eventStore.event.config.teamNames.team1 }}</div>
+                <div class="event-team-players">{{ eventStore.event.config.team1.join(', ') || '—' }}</div>
+              </div>
+              <div class="event-vs">vs</div>
+              <div class="event-team">
+                <div class="event-team-name">{{ eventStore.event.config.teamNames.team2 }}</div>
+                <div class="event-team-players">{{ eventStore.event.config.team2.join(', ') || '—' }}</div>
+              </div>
+            </div>
+
+            <div class="event-standings">
+              <span class="event-score">{{ eventStore.standings.team1 }}</span>
+              <span class="event-score-sep">–</span>
+              <span class="event-score">{{ eventStore.standings.team2 }}</span>
+              <span class="event-score-label">({{ eventStore.event.config.winPoints }} to win)</span>
+            </div>
+
+            <div class="event-rounds">
+              <div
+                v-for="r in eventStore.roundsWithStatus"
+                :key="r.index"
+                class="event-round-row"
+              >
+                <div>
+                  <div class="event-round-name">{{ r.name }}</div>
+                  <div class="event-round-meta">{{ eventFormatLabel(r.format) }}</div>
+                  <div v-if="r.pointsResult.team1 != null" class="event-round-result">
+                    {{ r.pointsResult.team1 }} – {{ r.pointsResult.team2 }} pts
+                  </div>
+                </div>
+                <button
+                  v-if="!r.linked"
+                  class="btn-ghost sm"
+                  type="button"
+                  @click="launchEventRound(r.index)"
+                >
+                  Launch
+                </button>
+                <span v-else class="event-round-linked">Round linked</span>
+              </div>
+            </div>
+
+            <p v-if="eventStore.error" class="status error">{{ eventStore.error }}</p>
+          </template>
+
+          <!-- No active event -->
+          <template v-else-if="!eventStore.loading">
+            <p class="hint">No active event.</p>
+            <div class="field-row" style="margin-top: 8px;">
+              <input
+                v-model="newEventName"
+                class="form-input"
+                type="text"
+                placeholder="Event name"
+                @keyup.enter="createEvent"
+              />
+              <button class="btn-ghost" type="button" :disabled="!store.group?.id" @click="createEvent">
+                Create
+              </button>
+            </div>
+          </template>
+          <p v-else class="hint">Loading…</p>
         </section>
 
         <!-- Past rounds (online only) -->
@@ -506,6 +607,118 @@ function goHome() {
   text-transform: uppercase;
   font-size: 0.7rem;
   letter-spacing: 0;
+}
+
+.event-section {
+  margin-top: 28px;
+}
+
+.event-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.event-name {
+  font-weight: 700;
+  color: #24362c;
+  font-size: 1rem;
+}
+
+.event-teams {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e0d7c4;
+  border-radius: 6px;
+}
+
+.event-team {
+  flex: 1;
+}
+
+.event-team-name {
+  font-weight: 700;
+  color: #24362c;
+  font-size: 0.9rem;
+}
+
+.event-team-players {
+  color: #7a8a7f;
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+.event-vs {
+  color: #7a8a7f;
+  font-weight: 700;
+  padding-top: 2px;
+}
+
+.event-standings {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #24362c;
+}
+
+.event-score-sep {
+  color: #7a8a7f;
+}
+
+.event-score-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #7a8a7f;
+  margin-left: 4px;
+}
+
+.event-rounds {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.event-round-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #e0d7c4;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.event-round-name {
+  font-weight: 700;
+  color: #24362c;
+  font-size: 0.9rem;
+}
+
+.event-round-meta {
+  color: #7a8a7f;
+  font-size: 0.78rem;
+}
+
+.event-round-result {
+  color: #2f5d43;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.event-round-linked {
+  color: #7a8a7f;
+  font-size: 0.8rem;
+  font-style: italic;
 }
 
 .stats {

@@ -10,10 +10,12 @@ import { ensurePairMatches } from '@/scoring/pairMatch';
 import { searchCourses } from '@/services/courseSearch';
 import { useGroupStore } from '@/stores/group';
 import { emptyRound, useRoundStore } from '@/stores/round';
+import { useEventStore } from '@/stores/event';
 import type { Course, GameConfig, PairMatch, PlayerMap, RoundState } from '@/types';
 
 const store = useRoundStore();
 const group = useGroupStore();
+const event = useEventStore();
 const router = useRouter();
 
 const HOLES = Array.from({ length: 18 }, (_, hole) => hole);
@@ -302,7 +304,10 @@ function buildRound(): { round: RoundState; players: PlayerMap } {
 async function startRound() {
   if (!canStart.value) return;
   const { round, players } = buildRound();
-  await store.startRound(round, players, group.group?.id ?? null);
+  const created = await store.startRound(round, players, group.group?.id ?? null);
+  if (event.pendingRoundLink != null && created.id) {
+    await event.linkRound(created.id);
+  }
   void router.push('/scorecard');
 }
 

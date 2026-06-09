@@ -681,6 +681,14 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   (rounds played, avg gross, avg net, total skins) from `rounds.state.players`
   snapshots — stable even if the live roster changes. `GroupScreen.vue` renders
   the stats panel below history when Supabase is configured and data exists.
+- `src/stores/event.ts` is the Pinia event store. It fetches the active `events`
+  row for a group (`loadEvent`), creates events with `defaultEventConfig`
+  (`createEvent`), saves/archives, and owns the round-launch link flow:
+  `setPendingRoundLink(index)` before navigating to /setup; `linkRound(roundId)`
+  after `startRound` to write the new round ID into `config.rounds[N].roundId`.
+  `updateRoundResult` writes scored points back; the `standings` getter sums
+  `pointsResult` across rounds. `GroupScreen.vue` renders the event panel (teams,
+  standings, round list with Launch/linked status) above history.
 
 ## Realtime Sync
 
