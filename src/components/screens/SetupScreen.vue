@@ -56,6 +56,7 @@ const form = reactive({
   games: cloneDefaultGames() as GameConfig,
   pairMatches: [] as PairMatch[],
   playingGroupNames: [] as string[],
+  playingGroupCustom: null as string[][] | null,
   scoringMode: 'strokePlay' as 'strokePlay' | 'matchPlay',
 });
 
@@ -110,6 +111,7 @@ function prefillPlayersFromGroup() {
     form.games = structuredClone(r.games) as GameConfig;
     form.pairMatches = structuredClone(r.pairMatches ?? []);
     form.playingGroupNames = (r.playingGroups ?? []).map((g) => g.name);
+    form.playingGroupCustom = (r.playingGroups ?? []).map((g) => [...g.players]);
     form.scoringMode = r.games.pairMatch?.enabled ? 'matchPlay' : 'strokePlay';
     return;
   }
@@ -283,6 +285,28 @@ const previewPlayingGroups = computed(() =>
   ),
 );
 
+const displayPlayingGroups = computed(() => {
+  if (form.playingGroupCustom) {
+    return form.playingGroupCustom.map((players, i) => ({
+      name: previewPlayingGroups.value[i]?.name ?? `Group ${i + 1}`,
+      players,
+    }));
+  }
+  return previewPlayingGroups.value;
+});
+
+function movePlayerToGroup(player: string, toGroupIndex: number) {
+  if (!form.playingGroupCustom) {
+    form.playingGroupCustom = previewPlayingGroups.value.map((g) => [...g.players]);
+  }
+  form.playingGroupCustom = form.playingGroupCustom.map((players) => players.filter((p) => p !== player));
+  form.playingGroupCustom[toGroupIndex]?.push(player);
+}
+
+function resetCustomGroups() {
+  form.playingGroupCustom = null;
+}
+
 const courseParTotal = computed(() => form.par.reduce((total, value) => total + Number(value || 0), 0));
 
 const previewCourseHandicaps = computed(() => Object.fromEntries(
@@ -370,7 +394,7 @@ function buildRound(): { round: RoundState; players: PlayerMap } {
     .filter((m) => m.t1 && m.t2);
 
   const playingGroups = normalizePlayingGroups(
-    previewPlayingGroups.value.map((g, i) => ({
+    displayPlayingGroups.value.map((g, i) => ({
       name: form.playingGroupNames[i] || g.name,
       players: g.players,
     })),
@@ -712,10 +736,13 @@ function goHome() {
     </section>
 
     <section v-if="namedPlayers.length >= 2" class="setup-card">
-      <h2 class="setup-hdr">Playing Groups</h2>
-      <p class="pg-hint">Auto-assigned from pair matches or team order. Rename groups if needed.</p>
+      <div class="pg-header">
+        <h2 class="setup-hdr">Playing Groups</h2>
+        <button v-if="form.playingGroupCustom" class="btn-ghost sm" type="button" @click="resetCustomGroups">Reset to auto</button>
+      </div>
+      <p class="pg-hint">{{ form.playingGroupCustom ? 'Manually assigned.' : 'Auto-assigned from pair matches or team order.' }} Rename groups or move players between groups.</p>
       <div class="pg-list">
-        <div v-for="(group, gi) in previewPlayingGroups" :key="gi" class="pg-group">
+        <div v-for="(group, gi) in displayPlayingGroups" :key="gi" class="pg-group">
           <input
             class="form-input pg-name-input"
             :placeholder="group.name"
@@ -723,7 +750,19 @@ function goHome() {
             @input="form.playingGroupNames[gi] = ($event.target as HTMLInputElement).value"
           />
           <div class="pg-players">
-            <span v-for="player in group.players" :key="player" class="pg-player-chip">{{ player }}</span>
+            <span v-for="player in group.players" :key="player" class="pg-player-chip">
+              {{ player }}
+              <select
+                v-if="displayPlayingGroups.length > 1"
+                class="pg-move-select"
+                :value="gi"
+                @change="movePlayerToGroup(player, Number(($event.target as HTMLSelectElement).value))"
+              >
+                <option v-for="(g, i) in displayPlayingGroups" :key="i" :value="i" :disabled="i === gi">
+                  {{ form.playingGroupNames[i] || g.name }}
+                </option>
+              </select>
+            </span>
           </div>
         </div>
       </div>
@@ -1139,13 +1178,44 @@ label {
   gap: 6px;
 }
 
+.pg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.pg-header .setup-hdr {
+  margin-bottom: 0;
+}
+
 .pg-player-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   background: #e8f0e8;
   border: 1px solid #b8d4c0;
   border-radius: 20px;
-  padding: 3px 10px;
+  padding: 3px 6px 3px 10px;
   font-size: 0.78rem;
   font-weight: 700;
+  color: #2f5d43;
+}
+
+.pg-move-select {
+  background: transparent;
+  border: 1px solid #b8d4c0;
+  border-radius: 10px;
+  font-size: 0.68rem;
+  color: #7a8a7f;
+  cursor: pointer;
+  padding: 1px 2px;
+  max-width: 72px;
+}
+
+.pg-move-select:focus {
+  outline: none;
+  border-color: #2f5d43;
   color: #2f5d43;
 }
 
