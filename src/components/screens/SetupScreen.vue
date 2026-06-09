@@ -220,6 +220,27 @@ function applyCourse(course: CourseSearchResult, tee: CourseSearchTee) {
   form.yds = [...selected.yds];
   selectedCourse.value = course;
   selectedTeeKey.value = courseTeeKey(tee);
+  courseResults.value = [];
+  courseSearchError.value = '';
+}
+
+function clearCourse() {
+  form.courseId = '';
+  form.clubName = '';
+  form.courseName = '';
+  form.location = '';
+  form.teeName = 'Blue';
+  form.teeGender = '';
+  form.teeYards = 0;
+  form.rating = 72;
+  form.slope = 113;
+  form.par = [...DEFAULT_PAR];
+  form.si = [...DEFAULT_SI];
+  form.yds = [...DEFAULT_YDS];
+  form.courseQuery = '';
+  selectedCourse.value = null;
+  selectedTeeKey.value = '';
+  courseResults.value = [];
   courseSearchError.value = '';
 }
 
@@ -422,99 +443,82 @@ function goHome() {
         </div>
       </template>
 
-      <!-- Editable course search (standalone new round only) -->
+      <!-- Standalone new round: search then read-only display -->
       <template v-else>
-        <div class="course-search">
-          <input
-            v-model="form.courseQuery"
-            class="form-input course-search-input"
-            type="search"
-            placeholder="Search course name"
-            @keydown.enter.prevent="runCourseSearch"
-          />
-          <button class="btn-ghost course-search-btn" type="button" :disabled="!canSearchCourses" @click="runCourseSearch">
-            {{ courseSearching ? 'Searching...' : 'Search' }}
-          </button>
-        </div>
-
-        <div v-if="courseResults.length" class="course-results">
-          <button v-for="course in courseResults" :key="course.id || courseLabel(course)" class="course-result" type="button" @click="chooseCourse(course)">
-            <span>
-              <strong>{{ courseLabel(course) }}</strong>
-              <small>{{ courseSubLabel(course) }}</small>
-            </span>
-            <span class="course-result-meta">{{ selectableCourseTees(course).length }} tees</span>
-          </button>
-        </div>
-
-        <div v-if="selectedCourse" class="tee-results">
-          <button
-            v-for="tee in selectableCourseTees(selectedCourse)"
-            :key="courseTeeKey(tee)"
-            class="tee-result"
-            :class="{ selected: selectedTeeKey === courseTeeKey(tee) }"
-            type="button"
-            @click="applyCourse(selectedCourse, tee)"
-          >
-            <span>
-              <strong>{{ tee.name || 'Tee' }}</strong>
-              <small>{{ teeLabel(tee) }}</small>
-            </span>
-          </button>
-        </div>
-
-        <p v-if="courseSearchError" class="course-search-error">{{ courseSearchError }}</p>
-
-        <div class="field-grid">
-          <label>Club<input v-model="form.clubName" class="form-input" placeholder="Del Mar Country Club" /></label>
-          <label>Course<input v-model="form.courseName" class="form-input" placeholder="Championship" /></label>
-          <label>Location<input v-model="form.location" class="form-input" placeholder="Del Mar, CA" /></label>
-          <label>Tee<input v-model="form.teeName" class="form-input" /></label>
-          <label>Rating<input v-model.number="form.rating" class="form-input" type="number" step="0.1" /></label>
-          <label>Slope<input v-model.number="form.slope" class="form-input" type="number" /></label>
-        </div>
-
-        <div class="hole-grid">
-          <div class="hole-grid-row">
-            <span class="hole-grid-label">Hole</span>
-            <span v-for="h in HOLES" :key="`hl-${h}`" class="hole-grid-head">{{ h + 1 }}</span>
+        <!-- Course selected: show read-only summary + hole grid -->
+        <template v-if="selectedTeeKey">
+          <div class="course-readonly">
+            <div class="course-readonly-name">{{ [form.clubName, form.courseName].filter(Boolean).join(' — ') || 'Course' }}</div>
+            <div class="course-readonly-meta">
+              <span v-if="form.teeName">{{ form.teeName }} tees</span>
+              <span v-if="form.rating"> · Rating {{ form.rating }}</span>
+              <span v-if="form.slope"> · Slope {{ form.slope }}</span>
+              <span v-if="form.location"> · {{ form.location }}</span>
+            </div>
           </div>
-          <div class="hole-grid-row">
-            <span class="hole-grid-label">Par</span>
+          <div class="hole-grid hole-grid-readonly">
+            <div class="hole-grid-row">
+              <span class="hole-grid-label">Hole</span>
+              <span v-for="h in HOLES" :key="`hl-${h}`" class="hole-grid-head">{{ h + 1 }}</span>
+            </div>
+            <div class="hole-grid-row">
+              <span class="hole-grid-label">Par</span>
+              <span v-for="h in HOLES" :key="`par-${h}`" class="hole-cell">{{ form.par[h] }}</span>
+            </div>
+            <div class="hole-grid-row">
+              <span class="hole-grid-label">SI</span>
+              <span v-for="h in HOLES" :key="`si-${h}`" class="hole-cell">{{ form.si[h] }}</span>
+            </div>
+            <div class="hole-grid-row">
+              <span class="hole-grid-label">Yds</span>
+              <span v-for="h in HOLES" :key="`yds-${h}`" class="hole-cell">{{ form.yds[h] }}</span>
+            </div>
+          </div>
+          <button class="btn-ghost sm" type="button" style="margin-top: 8px;" @click="clearCourse">Change course</button>
+        </template>
+
+        <!-- No course selected: show search -->
+        <template v-else>
+          <div class="course-search">
             <input
-              v-for="h in HOLES"
-              :key="`par-${h}`"
-              v-model.number="form.par[h]"
-              class="hole-input"
-              type="number"
-              min="3"
-              max="6"
+              v-model="form.courseQuery"
+              class="form-input course-search-input"
+              type="search"
+              placeholder="Search course name"
+              @keydown.enter.prevent="runCourseSearch"
             />
+            <button class="btn-ghost course-search-btn" type="button" :disabled="!canSearchCourses" @click="runCourseSearch">
+              {{ courseSearching ? 'Searching...' : 'Search' }}
+            </button>
           </div>
-          <div class="hole-grid-row">
-            <span class="hole-grid-label">SI</span>
-            <input
-              v-for="h in HOLES"
-              :key="`si-${h}`"
-              v-model.number="form.si[h]"
-              class="hole-input"
-              type="number"
-              min="1"
-              max="18"
-            />
+
+          <div v-if="courseResults.length" class="course-results">
+            <button v-for="course in courseResults" :key="course.id || courseLabel(course)" class="course-result" type="button" @click="chooseCourse(course)">
+              <span>
+                <strong>{{ courseLabel(course) }}</strong>
+                <small>{{ courseSubLabel(course) }}</small>
+              </span>
+              <span class="course-result-meta">{{ selectableCourseTees(course).length }} tees</span>
+            </button>
           </div>
-          <div class="hole-grid-row">
-            <span class="hole-grid-label">Yds</span>
-            <input
-              v-for="h in HOLES"
-              :key="`yds-${h}`"
-              v-model.number="form.yds[h]"
-              class="hole-input"
-              type="number"
-              min="0"
-            />
+
+          <div v-if="selectedCourse" class="tee-results">
+            <button
+              v-for="tee in selectableCourseTees(selectedCourse)"
+              :key="courseTeeKey(tee)"
+              class="tee-result"
+              type="button"
+              @click="applyCourse(selectedCourse, tee)"
+            >
+              <span>
+                <strong>{{ tee.name || 'Tee' }}</strong>
+                <small>{{ teeLabel(tee) }}</small>
+              </span>
+            </button>
           </div>
-        </div>
+
+          <p v-if="courseSearchError" class="course-search-error">{{ courseSearchError }}</p>
+        </template>
       </template>
     </section>
 
@@ -849,6 +853,18 @@ label {
   padding: 4px 0;
   background: #fdfbf4;
   color: #283b30;
+}
+
+.hole-cell {
+  width: 34px;
+  text-align: center;
+  font-size: 0.82rem;
+  color: #283b30;
+  flex-shrink: 0;
+}
+
+.hole-grid-readonly {
+  margin-top: 10px;
 }
 
 .player-list {
