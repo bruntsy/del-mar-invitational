@@ -170,6 +170,25 @@ function save() {
             </select>
           </div>
 
+          <!-- Scoring Mode -->
+          <div class="ece-field">
+            <label class="ece-sublabel">Scoring Mode</label>
+            <div class="ece-seg">
+              <button
+                class="ece-seg-btn"
+                :class="{ active: round.scoringMode === 'matchPlay' }"
+                type="button"
+                @click="round.scoringMode = 'matchPlay'"
+              >Match Play</button>
+              <button
+                class="ece-seg-btn"
+                :class="{ active: round.scoringMode === 'strokePlay' }"
+                type="button"
+                @click="round.scoringMode = 'strokePlay'"
+              >Stroke Play</button>
+            </div>
+          </div>
+
           <!-- Points (not shown for twoManBestBallAggy which uses fixed 36-pt model) -->
           <div v-if="round.format !== 'twoManBestBallAggy'" class="ece-field">
             <label class="ece-sublabel">Points</label>
@@ -529,5 +548,32 @@ function save() {
 .btn-ghost.xs {
   padding: 2px 7px;
   font-size: 0.75rem;
+}
+
+.ece-seg {
+  display: flex;
+  border: 1px solid #cdbf9f;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.ece-seg-btn {
+  flex: 1;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  color: #4a5a4f;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ece-seg-btn + .ece-seg-btn {
+  border-left: 1px solid #cdbf9f;
+}
+
+.ece-seg-btn.active {
+  background: #2f5d43;
+  color: #f3efe2;
 }
 </style>
