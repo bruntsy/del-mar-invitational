@@ -409,8 +409,8 @@ function goHome() {
     <section class="setup-card">
       <h2 class="setup-hdr">Course</h2>
 
-      <!-- Read-only display when launched from an event -->
-      <template v-if="hasEventContext">
+      <!-- Read-only display when launched from an event or editing an existing round -->
+      <template v-if="hasEventContext || editMode">
         <div class="course-readonly">
           <div class="course-readonly-name">{{ [form.clubName, form.courseName].filter(Boolean).join(' — ') || 'Course' }}</div>
           <div class="course-readonly-meta">
@@ -422,7 +422,7 @@ function goHome() {
         </div>
       </template>
 
-      <!-- Editable course search (standalone setup) -->
+      <!-- Editable course search (standalone new round only) -->
       <template v-else>
         <div class="course-search">
           <input
