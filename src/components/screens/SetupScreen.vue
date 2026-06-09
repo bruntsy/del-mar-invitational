@@ -85,21 +85,23 @@ function prefillPlayersFromGroup() {
   const players = sortedGroupPlayers(group.group?.players);
 
   // Edit mode: prefill from live round state, preserving all setup fields.
-  if (editMode.value && store.round?.course) {
-    const r = store.round;
+  const editRound = editMode.value ? store.round : null;
+  const editCourse = editRound?.course ?? null;
+  if (editRound && editCourse) {
+    const r = editRound;
     const hcpMap = Object.fromEntries(players.map((p) => [p.name, p.handicapIndex]));
-    form.courseId = r.course.id ?? '';
-    form.clubName = r.course.clubName ?? '';
-    form.courseName = r.course.courseName ?? '';
-    form.location = typeof r.course.location === 'string' ? r.course.location : '';
-    form.teeName = r.course.tee.name;
-    form.teeGender = r.course.tee.gender ?? '';
-    form.teeYards = r.course.tee.yards ?? 0;
-    form.rating = r.course.tee.rating;
-    form.slope = r.course.tee.slope;
-    form.par = [...r.course.par];
-    form.si = [...r.course.si];
-    form.yds = [...r.course.yds];
+    form.courseId = editCourse.id ?? '';
+    form.clubName = editCourse.clubName ?? '';
+    form.courseName = editCourse.courseName ?? '';
+    form.location = typeof editCourse.location === 'string' ? editCourse.location : '';
+    form.teeName = editCourse.tee.name;
+    form.teeGender = editCourse.tee.gender ?? '';
+    form.teeYards = editCourse.tee.yards ?? 0;
+    form.rating = editCourse.tee.rating;
+    form.slope = editCourse.tee.slope;
+    form.par = [...editCourse.par];
+    form.si = [...editCourse.si];
+    form.yds = [...editCourse.yds];
     form.teamNames = { ...r.teamNames };
     form.players = [
       ...r.team1.map((name) => ({ name, handicapIndex: hcpMap[name] ?? '', team: 'team1' as const })),
