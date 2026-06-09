@@ -1811,3 +1811,52 @@ Next likely tasks:
   roster save, course selection, remote round start, scoring, results, and
   two-client merge behavior without relying on Playwright.
 - Playing Groups + Mobile Scoring UX.
+
+## Checkpoint 35: Live Flow Reliability
+
+Files changed since Checkpoint 34:
+
+- Added `tests/flows/online-flow.test.ts`.
+
+What changed:
+
+- Added a new `tests/flows/` directory with a pure store-level integration test
+  covering the full online round lifecycle without any DOM mounting or Playwright.
+- Tests cover:
+  - **Group create online**: DB row id is reflected in the group store.
+  - **Roster add online**: `addPlayer` dispatches an update to Supabase with the
+    correct players payload.
+  - **Round start online**: `startRound` with a group id inserts a rounds row,
+    gets back the DB id, and opens the realtime channel.
+  - **Score debounce sync**: `setScore` does not write immediately; after 600 ms
+    the updated score matrix is pushed via `update`.
+  - **Putt debounce sync**: same debounce path for `setPutt`.
+  - **Completion sync**: `setCompleted(true)` schedules a sync that writes
+    `completed: true` to Supabase.
+  - **Two-client realtime merge**: local hole survives; remote holes from a
+    different player or different hole index are applied; putts are merged
+    identically.
+  - **INSERT follow-the-leader**: a realtime INSERT event makes all group
+    members switch to the new round (correct legacy behavior).
+  - **UPDATE for wrong round id**: ignored; active round unchanged.
+  - **Polling fallback**: `startPolling` fires every 10 s, fetches the rounds
+    row, and merges scores without clobbering local extra cells.
+  - **Join group with active round**: `joinGroup` populates the round store with
+    scores from the active round row.
+  - **Join group with no active round**: round store stays empty.
+- Clarified INSERT semantics in a comment in the test: all group members follow
+  a new INSERT, which is the correct group-sync design.
+
+Verification:
+
+- `node scripts/event-format-tests.js` passed.
+- `npm run test:run` passed: 29 files, 217 tests.
+- `npm run build` passed (vue-tsc clean).
+
+Next likely tasks:
+
+- Playing Groups + Mobile Scoring UX:
+  - Setup controls for creating/editing playing groups.
+  - Scorecard playing-group filter.
+  - Mobile hole-by-hole score + putt entry mode.
+  - Persist selected mobile hole using `dmi_mobile_hole_*` key.
