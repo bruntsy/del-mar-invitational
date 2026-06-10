@@ -117,6 +117,32 @@ const bestBallAggyResults = computed(() =>
   }),
 );
 
+const highBallLowBallResults = computed(() =>
+  store.highBallLowBallResults.map((r, index) => {
+    const aId = r.teams[0].id;
+    const bId = r.teams[1].id;
+    const mode = r.scoringMode;
+    return {
+      index,
+      aName: r.teams[0].players.join(' + ') || 'Team A',
+      bName: r.teams[1].players.join(' + ') || 'Team B',
+      mode,
+      basis: r.scoreBasis,
+      unit: mode === 'match' ? 'holes' : 'strokes',
+      valid: r.valid,
+      validationError: r.validationError,
+      rows: [
+        segmentRow('Low Ball — Front', r.segmentResults.lowBall.front, aId, bId, mode),
+        segmentRow('Low Ball — Back', r.segmentResults.lowBall.back, aId, bId, mode),
+        segmentRow('Low Ball — Overall', r.segmentResults.lowBall.overall, aId, bId, mode),
+        segmentRow('High Ball — Front', r.segmentResults.highBall.front, aId, bId, mode),
+        segmentRow('High Ball — Back', r.segmentResults.highBall.back, aId, bId, mode),
+        segmentRow('High Ball — Overall', r.segmentResults.highBall.overall, aId, bId, mode),
+      ],
+    };
+  }),
+);
+
 const twoManScrambleResults = computed(() =>
   store.twoManScrambleResults.map((r, index) => {
     const aId = r.teams[0].id;
@@ -287,6 +313,35 @@ function goHome() {
       <section v-if="bestBallAggyResults.length" class="rs-section">
         <h2 class="rs-section-hdr">Best Ball + Aggy</h2>
         <div v-for="match in bestBallAggyResults" :key="`bba-${match.index}`" class="bba-match">
+          <div class="bba-head">
+            <span class="bba-vs">{{ match.aName }} <span class="bba-vs-sep">vs</span> {{ match.bName }}</span>
+            <span class="bba-meta">{{ match.mode === 'match' ? 'Match play' : 'Stroke play' }} · {{ match.basis }}</span>
+          </div>
+          <p v-if="!match.valid" class="bba-error">{{ match.validationError }}</p>
+          <table v-else class="rs-table bba-table">
+            <thead>
+              <tr>
+                <th>Bet</th>
+                <th>{{ match.aName }}</th>
+                <th>{{ match.bName }}</th>
+                <th>Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in match.rows" :key="row.label" :class="`status-${row.status}`">
+                <td class="bba-bet">{{ row.label }}</td>
+                <td :class="{ 'bba-win': row.winnerSide === 'a' }">{{ dash(row.a) }}</td>
+                <td :class="{ 'bba-win': row.winnerSide === 'b' }">{{ dash(row.b) }}</td>
+                <td class="bba-result">{{ outcomeLabel(row, match.aName, match.bName) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section v-if="highBallLowBallResults.length" class="rs-section">
+        <h2 class="rs-section-hdr">High Ball / Low Ball</h2>
+        <div v-for="match in highBallLowBallResults" :key="`hbl-${match.index}`" class="bba-match">
           <div class="bba-head">
             <span class="bba-vs">{{ match.aName }} <span class="bba-vs-sep">vs</span> {{ match.bName }}</span>
             <span class="bba-meta">{{ match.mode === 'match' ? 'Match play' : 'Stroke play' }} · {{ match.basis }}</span>
