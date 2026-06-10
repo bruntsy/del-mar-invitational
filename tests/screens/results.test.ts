@@ -3,7 +3,10 @@ import { createPinia, setActivePinia } from 'pinia';
 import { nextTick } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ResultsScreen from '@/components/screens/ResultsScreen.vue';
+import { cloneDefaultGames } from '@/domain/games';
+import { defaultEventConfig } from '@/domain/events';
 import { demoRound } from '@/fixtures/demoRound';
+import { useEventStore } from '@/stores/event';
 import { useRoundStore } from '@/stores/round';
 
 vi.mock('vue-router', () => ({
@@ -90,6 +93,42 @@ describe('ResultsScreen', () => {
     expect(wrapper.text()).not.toContain('Team Scores');
     expect(wrapper.text()).toContain('Best Ball + Aggy');
     expect(wrapper.text()).toContain('Match play');
+  });
+
+  it('does not lead linked event match play with stroke-total team scores', async () => {
+    const roundStore = useRoundStore();
+    const eventStore = useEventStore();
+    const { round, players } = demoRound();
+    round.id = 'event-round-1';
+    round.groupId = 'g1';
+    round.games = cloneDefaultGames();
+    round.pairMatches = [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }];
+    roundStore.setRound(round, players);
+
+    const config = defaultEventConfig(['Wes', 'Aaron', 'Tito', 'Q']);
+    config.rounds[0] = {
+      ...config.rounds[0],
+      name: 'Round 1',
+      format: 'twoManHighBallLowBall',
+      scoringMode: 'matchPlay',
+      roundId: 'event-round-1',
+      pairMatches: [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }],
+    };
+    eventStore.event = { id: 'event-1', groupId: 'g1', name: 'Event Test', status: 'active', config };
+
+    fillCard(roundStore, 'Wes', 4);
+    fillCard(roundStore, 'Aaron', 5);
+    fillCard(roundStore, 'Tito', 5);
+    fillCard(roundStore, 'Q', 6);
+
+    const wrapper = mountResults();
+    await nextTick();
+
+    expect(wrapper.text()).not.toContain('Team Scores');
+    expect(wrapper.text()).toContain('High Ball / Low Ball');
+    expect(wrapper.text()).toContain('Match play');
+    expect(wrapper.text()).toContain('Low Ball — Front');
+    expect(wrapper.text()).toContain('High Ball — Front');
   });
 
   it('renders wolf standings and Nassau segments', async () => {

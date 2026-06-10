@@ -1,14 +1,24 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { gamesFromEventRound } from '@/domain/events';
+import { buildScoreContext } from '@/composables/useEventLeaderboard';
+import { buildBestBallAggyConfig, scoreBestBallAggy } from '@/scoring/bestBallAggy';
+import { buildHighBallLowBallConfig, scoreHighBallLowBall } from '@/scoring/highBallLowBall';
+import { buildTwoManScrambleConfig, scoreTwoManScramble, twoManScrambleTeamKey } from '@/scoring/twoManScramble';
+import { useEventStore } from '@/stores/event';
 import { useRoundStore } from '@/stores/round';
 import { puttPenaltyNote } from '@/scoring/puttPoker';
 
 const store = useRoundStore();
+const eventStore = useEventStore();
 const router = useRouter();
 
 onMounted(() => {
   if (!store.round) store.load();
+  if (store.round?.groupId && !eventStore.event) {
+    void eventStore.loadEvent(store.round.groupId).then(() => eventStore.loadLinkedRounds());
+  }
 });
 
 const course = computed(() => store.course);
@@ -27,9 +37,33 @@ const teamMembers = computed(() => ({
 const leaderboard = computed(() => store.leaderboard);
 const teamNet = computed(() => store.teamNetTotals);
 const teamGameResults = computed(() => store.teamGameResults);
+const activeEventRound = computed(() => {
+  const roundId = store.round?.id;
+  const event = eventStore.event;
+  if (!roundId || !event) return null;
+  const index = event.config.rounds.findIndex((round) => round.roundId === roundId);
+  if (index < 0) return null;
+  return { index, config: event.config.rounds[index], eventConfig: event.config };
+});
+
+const activeEventGames = computed(() => {
+  const eventRound = activeEventRound.value;
+  return eventRound ? gamesFromEventRound(eventRound.config) : null;
+});
+
+const activeEventIsPrimaryMatchPlay = computed(() => {
+  const eventRound = activeEventRound.value;
+  if (!eventRound) return false;
+  if (eventRound.config.scoringMode !== 'matchPlay') return false;
+  return ['bestBallNassau', 'twoManBestBallAggy', 'twoManHighBallLowBall', 'scramble2v2Nassau'].includes(
+    eventRound.config.format,
+  );
+});
+
 const hasPrimaryMatchPlayGame = computed(() =>
   Boolean(
-    (store.games.bestBallAggy.enabled && store.games.bestBallAggy.scoringMode === 'match') ||
+    activeEventIsPrimaryMatchPlay.value ||
+      (store.games.bestBallAggy.enabled && store.games.bestBallAggy.scoringMode === 'match') ||
       (store.games.highBallLowBall.enabled && store.games.highBallLowBall.scoringMode === 'match') ||
       (store.games.twoManScramble.enabled && store.games.twoManScramble.scoringMode === 'match') ||
       (store.games.bestBall.enabled && store.games.bestBall.scoringMode === 'match'),
@@ -99,8 +133,41 @@ function segmentRow(
   return { label, a, b, winnerSide, status, stake: seg.stakePerPerson };
 }
 
+const eventBestBallAggyResults = computed(() => {
+  const eventRound = activeEventRound.value;
+  const games = activeEventGames.value;
+  const scoreContext = store.round ? buildScoreContext(store.round, store.players) : null;
+  if (!eventRound || !games || !scoreContext || eventRound.config.format !== 'twoManBestBallAggy') return [];
+  return eventRound.config.pairMatches.map((match) =>
+    scoreBestBallAggy(buildBestBallAggyConfig(match, games.bestBallAggy), scoreContext),
+  );
+});
+
+const eventHighBallLowBallResults = computed(() => {
+  const eventRound = activeEventRound.value;
+  const games = activeEventGames.value;
+  const scoreContext = store.round ? buildScoreContext(store.round, store.players) : null;
+  if (!eventRound || !games || !scoreContext || eventRound.config.format !== 'twoManHighBallLowBall') return [];
+  return eventRound.config.pairMatches.map((match) =>
+    scoreHighBallLowBall(buildHighBallLowBallConfig(match, games.highBallLowBall), scoreContext),
+  );
+});
+
+const eventTwoManScrambleResults = computed(() => {
+  const eventRound = activeEventRound.value;
+  const games = activeEventGames.value;
+  if (!eventRound || !games || !store.round || eventRound.config.format !== 'scramble2v2Nassau') return [];
+  return eventRound.config.pairMatches.map((match, index) => {
+    const config = buildTwoManScrambleConfig(match, index, games.twoManScramble);
+    return scoreTwoManScramble(config, {
+      [twoManScrambleTeamKey(index, 'a')]: store.round?.teamScores?.[twoManScrambleTeamKey(index, 'a')],
+      [twoManScrambleTeamKey(index, 'b')]: store.round?.teamScores?.[twoManScrambleTeamKey(index, 'b')],
+    });
+  });
+});
+
 const bestBallAggyResults = computed(() =>
-  store.bestBallAggyResults.map((r, index) => {
+  (eventBestBallAggyResults.value.length ? eventBestBallAggyResults.value : store.bestBallAggyResults).map((r, index) => {
     const aId = r.teams[0].id;
     const bId = r.teams[1].id;
     const mode = r.scoringMode;
@@ -126,7 +193,7 @@ const bestBallAggyResults = computed(() =>
 );
 
 const highBallLowBallResults = computed(() =>
-  store.highBallLowBallResults.map((r, index) => {
+  (eventHighBallLowBallResults.value.length ? eventHighBallLowBallResults.value : store.highBallLowBallResults).map((r, index) => {
     const aId = r.teams[0].id;
     const bId = r.teams[1].id;
     const mode = r.scoringMode;
@@ -152,7 +219,7 @@ const highBallLowBallResults = computed(() =>
 );
 
 const twoManScrambleResults = computed(() =>
-  store.twoManScrambleResults.map((r, index) => {
+  (eventTwoManScrambleResults.value.length ? eventTwoManScrambleResults.value : store.twoManScrambleResults).map((r, index) => {
     const aId = r.teams[0].id;
     const bId = r.teams[1].id;
     const mode = r.scoringMode;
