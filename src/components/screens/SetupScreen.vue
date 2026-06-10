@@ -60,6 +60,9 @@ const form = reactive({
 
 onMounted(() => {
   group.load();
+  // In edit mode, recover the round from storage if it isn't already in memory
+  // (e.g. a refresh or deep-link to /setup?edit=1) before prefilling the form.
+  if (editMode.value && !store.round) store.load();
   prefillPlayersFromGroup();
 });
 
@@ -69,6 +72,10 @@ const selectedCourse = ref<CourseSearchResult | null>(null);
 const selectedTeeKey = ref('');
 const courseSearching = ref(false);
 const courseSearchError = ref('');
+// True once a real course is in the form (prefilled from edit/event, or picked
+// from search). Drives whether we show the read-only scorecard + "Change course"
+// or the search UI — applies in every mode so a missing/wrong course is fixable.
+const courseSet = ref(false);
 
 const canSearchCourses = computed(() => form.courseQuery.trim().length >= 3 && !courseSearching.value);
 
@@ -98,10 +105,13 @@ function prefillPlayersFromGroup() {
       ...r.team1.map((name) => ({ name, handicapIndex: hcpMap[name] ?? '', team: 'team1' as const })),
       ...r.team2.map((name) => ({ name, handicapIndex: hcpMap[name] ?? '', team: 'team2' as const })),
     ];
-    form.games = structuredClone(r.games) as GameConfig;
+    // r.games is a reactive proxy; structuredClone throws on it, so deep-clone
+    // via JSON (plain data) to avoid aborting the rest of the prefill.
+    form.games = JSON.parse(JSON.stringify(r.games)) as GameConfig;
     form.playingGroupNames = (r.playingGroups ?? []).map((g) => g.name);
     form.playingGroupCustom = (r.playingGroups ?? []).map((g) => [...g.players]);
     form.pairMatches = (r.pairMatches ?? []).map((m) => ({ a: [...m.a], b: [...m.b] }));
+    courseSet.value = true;
     return;
   }
 
@@ -139,6 +149,7 @@ function prefillPlayersFromGroup() {
       form.par = [...c.par];
       form.si = [...c.si];
       form.yds = [...c.yds];
+      courseSet.value = true;
     }
     applyEventGames(roundConfig);
     return;
@@ -241,6 +252,7 @@ function applyCourse(course: CourseSearchResult, tee: CourseSearchTee) {
   selectedTeeKey.value = courseTeeKey(tee);
   courseResults.value = [];
   courseSearchError.value = '';
+  courseSet.value = true;
 }
 
 function clearCourse() {
@@ -261,6 +273,7 @@ function clearCourse() {
   selectedTeeKey.value = '';
   courseResults.value = [];
   courseSearchError.value = '';
+  courseSet.value = false;
 }
 
 function addPlayer() {
@@ -560,61 +573,54 @@ function goHome() {
     <section class="setup-card">
       <h2 class="setup-hdr">Course</h2>
 
-      <!-- Read-only display when launched from an event or editing an existing round -->
-      <template v-if="hasEventContext || editMode">
+      <!-- A course is set (prefilled from edit/event or picked from search):
+           show the read-only scorecard with a Change action available in every mode. -->
+      <template v-if="courseSet">
         <CourseScorecard :course="formCourse" />
+        <button class="btn-ghost sm" type="button" style="margin-top: 8px;" @click="clearCourse">Change course</button>
       </template>
 
-      <!-- Standalone new round: search then read-only display -->
+      <!-- No course yet: show search (works for new, edit, and event rounds). -->
       <template v-else>
-        <!-- Course selected: show read-only scorecard -->
-        <template v-if="selectedTeeKey">
-          <CourseScorecard :course="formCourse" />
-          <button class="btn-ghost sm" type="button" style="margin-top: 8px;" @click="clearCourse">Change course</button>
-        </template>
+        <div class="course-search">
+          <input
+            v-model="form.courseQuery"
+            class="form-input course-search-input"
+            type="search"
+            placeholder="Search course name"
+            @keydown.enter.prevent="runCourseSearch"
+          />
+          <button class="btn-ghost course-search-btn" type="button" :disabled="!canSearchCourses" @click="runCourseSearch">
+            {{ courseSearching ? 'Searching...' : 'Search' }}
+          </button>
+        </div>
 
-        <!-- No course selected: show search -->
-        <template v-else>
-          <div class="course-search">
-            <input
-              v-model="form.courseQuery"
-              class="form-input course-search-input"
-              type="search"
-              placeholder="Search course name"
-              @keydown.enter.prevent="runCourseSearch"
-            />
-            <button class="btn-ghost course-search-btn" type="button" :disabled="!canSearchCourses" @click="runCourseSearch">
-              {{ courseSearching ? 'Searching...' : 'Search' }}
-            </button>
-          </div>
+        <div v-if="courseResults.length" class="course-results">
+          <button v-for="course in courseResults" :key="course.id || courseLabel(course)" class="course-result" type="button" @click="chooseCourse(course)">
+            <span>
+              <strong>{{ courseLabel(course) }}</strong>
+              <small>{{ courseSubLabel(course) }}</small>
+            </span>
+            <span class="course-result-meta">{{ selectableCourseTees(course).length }} tees</span>
+          </button>
+        </div>
 
-          <div v-if="courseResults.length" class="course-results">
-            <button v-for="course in courseResults" :key="course.id || courseLabel(course)" class="course-result" type="button" @click="chooseCourse(course)">
-              <span>
-                <strong>{{ courseLabel(course) }}</strong>
-                <small>{{ courseSubLabel(course) }}</small>
-              </span>
-              <span class="course-result-meta">{{ selectableCourseTees(course).length }} tees</span>
-            </button>
-          </div>
+        <div v-if="selectedCourse" class="tee-results">
+          <button
+            v-for="tee in selectableCourseTees(selectedCourse)"
+            :key="courseTeeKey(tee)"
+            class="tee-result"
+            type="button"
+            @click="applyCourse(selectedCourse, tee)"
+          >
+            <span>
+              <strong>{{ tee.name || 'Tee' }}</strong>
+              <small>{{ teeLabel(tee) }}</small>
+            </span>
+          </button>
+        </div>
 
-          <div v-if="selectedCourse" class="tee-results">
-            <button
-              v-for="tee in selectableCourseTees(selectedCourse)"
-              :key="courseTeeKey(tee)"
-              class="tee-result"
-              type="button"
-              @click="applyCourse(selectedCourse, tee)"
-            >
-              <span>
-                <strong>{{ tee.name || 'Tee' }}</strong>
-                <small>{{ teeLabel(tee) }}</small>
-              </span>
-            </button>
-          </div>
-
-          <p v-if="courseSearchError" class="course-search-error">{{ courseSearchError }}</p>
-        </template>
+        <p v-if="courseSearchError" class="course-search-error">{{ courseSearchError }}</p>
       </template>
     </section>
 

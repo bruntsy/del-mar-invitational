@@ -2,14 +2,18 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SetupScreen from '@/components/screens/SetupScreen.vue';
+import { cloneDefaultGames } from '@/domain/games';
 import { useRoundStore } from '@/stores/round';
 
-const { mockSearchCourses } = vi.hoisted(() => ({ mockSearchCourses: vi.fn() }));
+const { mockSearchCourses, routeQuery } = vi.hoisted(() => ({
+  mockSearchCourses: vi.fn(),
+  routeQuery: { value: {} as Record<string, string> },
+}));
 
 const push = vi.fn();
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push }),
-  useRoute: () => ({ query: {} }),
+  useRoute: () => ({ query: routeQuery.value }),
 }));
 vi.mock('@/services/courseSearch', () => ({
   searchCourses: mockSearchCourses,
@@ -57,6 +61,7 @@ beforeEach(() => {
   localStorage.clear();
   push.mockClear();
   mockSearchCourses.mockReset();
+  routeQuery.value = {};
 });
 
 describe('SetupScreen', () => {
@@ -353,6 +358,53 @@ describe('SetupScreen', () => {
     const wrapper = mountSetup();
     await fillDefaultPlayers(wrapper);
     expect(wrapper.text()).not.toContain('Scoring Mode');
+  });
+
+  it('prefills a read-only course scorecard with a Change action in edit mode', async () => {
+    routeQuery.value = { edit: '1' };
+    const store = useRoundStore();
+    store.setRound(
+      {
+        id: 'r1',
+        groupId: null,
+        course: {
+          id: 'c1',
+          clubName: 'Pebble Beach',
+          courseName: 'Links',
+          location: 'CA',
+          tee: { name: 'Gold', gender: 'Men', rating: 75, slope: 144, parTotal: 72, yards: 7000 },
+          par: [5, 4, 3, 4, 4, 3, 5, 4, 4, 4, 4, 3, 5, 4, 4, 3, 5, 4],
+          si: [1, 7, 15, 5, 11, 17, 3, 9, 13, 8, 2, 16, 4, 12, 10, 18, 6, 14],
+          yds: Array(18).fill(400),
+        },
+        team1: ['Al'],
+        team2: ['Bo'],
+        teamNames: { team1: 'T1', team2: 'T2' },
+        pairMatches: [],
+        playingGroups: [{ name: 'Group 1', players: ['Al', 'Bo'] }],
+        matchups: [],
+        games: { ...cloneDefaultGames(), skins: { enabled: true, pot: 3, type: 'net', carry: false } },
+        scores: {},
+        putts: {},
+        teamScores: {},
+        wolf: { holes: {} },
+        completed: false,
+      } as unknown as Parameters<typeof store.setRound>[0],
+      { Al: { name: 'Al', handicapIndex: 7 }, Bo: { name: 'Bo', handicapIndex: 14 } },
+    );
+
+    const wrapper = mountSetup();
+    await flushPromises();
+
+    // Prefill must run to completion past the reactive games clone, so the
+    // read-only scorecard + Change action appear (regression: structuredClone
+    // on the reactive games proxy used to throw and abort the prefill).
+    expect(wrapper.find('.cs-card').exists()).toBe(true);
+    expect(wrapper.text()).toContain('Pebble Beach — Links');
+    expect(wrapper.text()).toContain('Change course');
+    const names = wrapper.findAll('.player-row input').map((i) => (i.element as HTMLInputElement).value);
+    expect(names).toContain('Al');
+    expect(names).toContain('Bo');
   });
 
   it('adds and removes player rows', async () => {
