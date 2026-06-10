@@ -1,4 +1,10 @@
 import {
+  buildBestBallAggyConfig,
+  scoreBestBallAggy,
+  type BbaContest,
+  type BbaSegment,
+} from '@/scoring/bestBallAggy';
+import {
   pairAggyScore,
   pairBestBallScore,
   pairMatchRangeWins,
@@ -6,7 +12,20 @@ import {
   type PairSegmentWins,
   type ScoreContext,
 } from '@/scoring/round';
-import type { EventRoundConfig, PairMatch, RyderPointEntry, ScoreMatrix, ScoreType } from '@/types';
+import {
+  buildTwoManScrambleConfig,
+  scoreTwoManScramble,
+  twoManScrambleTeamKey,
+  type TmsSegment,
+} from '@/scoring/twoManScramble';
+import type {
+  EventRoundConfig,
+  GameConfig,
+  PairMatch,
+  RyderPointEntry,
+  ScoreMatrix,
+  ScoreType,
+} from '@/types';
 
 export type EventWinner = 'team1' | 'team2' | 'tie' | 'open';
 
@@ -44,10 +63,54 @@ export interface EventRoundInput {
   round: EventRoundConfig;
   roundIndex?: number;
   scoreContext: ScoreContext;
+  games?: GameConfig;
   pairMatches: PairMatch[];
   team1: string[];
   team2: string[];
   teamScores?: ScoreMatrix;
+}
+
+const SEGMENTS: BbaSegment[] = ['front', 'back', 'overall'];
+const SEGMENT_LABEL: Record<BbaSegment, string> = {
+  front: 'Front',
+  back: 'Back',
+  overall: 'Overall',
+};
+
+/** Resolve the point value for a component/segment, honouring per-component overrides. */
+export function getPointValue(
+  points: EventRoundConfig['points'],
+  component: BbaContest | null,
+  segment: BbaSegment,
+): number {
+  const override = component === 'best_ball' ? points.bestBall : component === 'aggy' ? points.aggy : undefined;
+  if (override) return Number(override[segment] || 0);
+  const fallback = { front: points.front, back: points.back, overall: points.total };
+  return Number(fallback[segment] || 0);
+}
+
+/** Derive a Ryder point entry from a scored event component (a = team1 side). */
+function ryderFromComponent(
+  component: EventComponent,
+  roundIndex: number,
+  matchIndex: number,
+  gameType: string,
+  contest: BbaContest | null,
+  segment: BbaSegment,
+): RyderPointEntry {
+  const winningTeam =
+    component.winner === 'team1' ? 'team1' : component.winner === 'team2' ? 'team2' : null;
+  const tiedTeams = component.winner === 'tie' ? (['team1', 'team2'] as ('team1' | 'team2')[]) : null;
+  return {
+    roundIndex,
+    matchIndex,
+    gameType,
+    component: contest,
+    segment,
+    winningTeam,
+    tiedTeams,
+    points: { team1: component.team1, team2: component.team2 },
+  };
 }
 
 export function scorePoint(
@@ -173,8 +236,10 @@ function teamMatchRangeWins(
 }
 
 export function computeEventRoundResult(input: EventRoundInput): EventRoundResult {
-  const { round, scoreContext, pairMatches, team1: inputTeam1, team2: inputTeam2, teamScores } = input;
+  const { round, scoreContext, games, pairMatches, team1: inputTeam1, team2: inputTeam2, teamScores } = input;
   const rows: EventRoundRow[] = [];
+  const ryderPoints: RyderPointEntry[] = [];
+  const roundIndex = input.roundIndex ?? 0;
   const matchPlay = round.scoringMode !== 'strokePlay';
   let team1 = 0;
   let team2 = 0;
@@ -186,7 +251,14 @@ export function computeEventRoundResult(input: EventRoundInput): EventRoundResul
     if (component.winner === 'open') complete = false;
   };
 
-  const addMatch = (label: string, aPlayers: string[], bPlayers: string[], type: ScoreType = 'net') => {
+  const addMatch = (
+    label: string,
+    aPlayers: string[],
+    bPlayers: string[],
+    matchIndex: number,
+    gameType: string,
+    type: ScoreType = 'net',
+  ) => {
     const component = (componentLabel: string, start: number, end: number, points: number) => {
       if (matchPlay) {
         const wins = pairMatchRangeWins(scoreContext, aPlayers, bPlayers, start, end, type);
@@ -210,16 +282,96 @@ export function computeEventRoundResult(input: EventRoundInput): EventRoundResul
     ];
 
     components.forEach(addComponent);
+    SEGMENTS.forEach((segment, i) =>
+      ryderPoints.push(ryderFromComponent(components[i], roundIndex, matchIndex, gameType, null, segment)),
+    );
     rows.push({ label, aPlayers, bPlayers, components });
   };
 
   if (round.format === 'twoManBestBallAggy') {
+    const game = games?.bestBallAggy ?? {
+      enabled: true,
+      scoreBasis: 'net' as ScoreType,
+      scoringMode: matchPlay ? ('match' as const) : ('stroke' as const),
+      stake: { front: 0, back: 0, overall: 0 },
+    };
     pairMatches.forEach((match, index) => {
-      const components = Array.from({ length: 18 }, (_, hole) =>
-        bestBallAggyHoleComponent(scoreContext, match.a ?? [], match.b ?? [], hole, 'net'),
-      );
+      const config = buildBestBallAggyConfig(match, {
+        ...game,
+        // event round scoring mode is authoritative for how segments resolve
+        scoringMode: matchPlay ? 'match' : 'stroke',
+      });
+      const result = scoreBestBallAggy(config, scoreContext);
+      const [aId, bId] = [config.teams[0].id, config.teams[1].id];
+      const contests: { contest: BbaContest; key: 'bestBall' | 'aggy'; label: string }[] = [
+        { contest: 'best_ball', key: 'bestBall', label: 'Best Ball' },
+        { contest: 'aggy', key: 'aggy', label: 'Aggy' },
+      ];
 
-      components.forEach(addComponent);
+      const components: EventComponent[] = [];
+      for (const { contest, key, label } of contests) {
+        for (const segment of SEGMENTS) {
+          const seg = result.segmentResults[key][segment];
+          const points = getPointValue(round.points, contest, segment);
+          const map = matchPlay ? seg.teamHolesWon : seg.teamScores;
+          const a = seg.incomplete || !map ? null : map[aId] ?? null;
+          const b = seg.incomplete || !map ? null : map[bId] ?? null;
+          const component = eventComponent(
+            `${label} ${SEGMENT_LABEL[segment]}`,
+            a,
+            b,
+            points,
+            matchPlay,
+            matchPlay ? 'holes' : 'strokes',
+            { kind: 'bestBallAggySegment', contest, segment },
+          );
+          components.push(component);
+          addComponent(component);
+          ryderPoints.push(ryderFromComponent(component, roundIndex, index, 'best_ball_aggy', contest, segment));
+        }
+      }
+
+      rows.push({ label: `Match ${index + 1}`, aPlayers: match.a ?? [], bPlayers: match.b ?? [], components });
+    });
+  } else if (round.format === 'scramble2v2Nassau') {
+    const game = games?.twoManScramble ?? {
+      enabled: true,
+      scoringMode: matchPlay ? ('match' as const) : ('stroke' as const),
+      stake: { front: 0, back: 0, overall: 0 },
+    };
+    pairMatches.forEach((match, index) => {
+      const config = buildTwoManScrambleConfig(match, index, {
+        ...game,
+        scoringMode: matchPlay ? 'match' : 'stroke',
+      });
+      const teamHoleScores = {
+        [twoManScrambleTeamKey(index, 'a')]: teamScores?.[twoManScrambleTeamKey(index, 'a')],
+        [twoManScrambleTeamKey(index, 'b')]: teamScores?.[twoManScrambleTeamKey(index, 'b')],
+      };
+      const result = scoreTwoManScramble(config, teamHoleScores);
+      const [aId, bId] = [config.teams[0].id, config.teams[1].id];
+
+      const components: EventComponent[] = [];
+      for (const segment of SEGMENTS as TmsSegment[]) {
+        const seg = result.segmentResults[segment];
+        const points = getPointValue(round.points, null, segment);
+        const map = matchPlay ? seg.teamHolesWon : seg.teamScores;
+        const a = seg.incomplete || !map ? null : map[aId] ?? null;
+        const b = seg.incomplete || !map ? null : map[bId] ?? null;
+        const component = eventComponent(
+          SEGMENT_LABEL[segment],
+          a,
+          b,
+          points,
+          matchPlay,
+          matchPlay ? 'holes' : 'strokes',
+          { kind: 'twoManScrambleSegment', segment },
+        );
+        components.push(component);
+        addComponent(component);
+        ryderPoints.push(ryderFromComponent(component, roundIndex, index, 'two_man_scramble', null, segment));
+      }
+
       rows.push({ label: `Match ${index + 1}`, aPlayers: match.a ?? [], bPlayers: match.b ?? [], components });
     });
   } else if (round.format === 'fourManScramble') {
@@ -245,10 +397,16 @@ export function computeEventRoundResult(input: EventRoundInput): EventRoundResul
     ];
 
     components.forEach(addComponent);
+    SEGMENTS.forEach((segment, i) =>
+      ryderPoints.push(ryderFromComponent(components[i], roundIndex, 0, 'scramble', null, segment)),
+    );
     rows.push({ label: '4-Man Scramble', aPlayers: inputTeam1, bPlayers: inputTeam2, components });
   } else {
     const type = round.format === 'bestBallNassau' ? 'net' : 'gross';
-    pairMatches.forEach((match, index) => addMatch(`Match ${index + 1}`, match.a ?? [], match.b ?? [], type));
+    const gameType = round.format === 'bestBallNassau' ? 'best_ball' : 'custom';
+    pairMatches.forEach((match, index) =>
+      addMatch(`Match ${index + 1}`, match.a ?? [], match.b ?? [], index, gameType, type),
+    );
   }
 
   return {
@@ -258,10 +416,10 @@ export function computeEventRoundResult(input: EventRoundInput): EventRoundResul
     team2,
     complete,
     rows,
-    ryderPoints: [],
+    ryderPoints,
     note:
       round.format === 'scramble2v2Nassau'
-        ? 'Two-man scramble uses the pair scorecard currently available for this round.'
+        ? 'Two-man scramble uses team-level scramble scores entered on the round scorecard.'
         : undefined,
   };
 }
