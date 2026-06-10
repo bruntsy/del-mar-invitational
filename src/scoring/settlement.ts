@@ -1,5 +1,6 @@
 import { buildBestBallAggyConfig, scoreBestBallAggy } from '@/scoring/bestBallAggy';
 import { scoreAt } from '@/scoring/cells';
+import { buildHighBallLowBallConfig, scoreHighBallLowBall } from '@/scoring/highBallLowBall';
 import { type ScoreContext } from '@/scoring/round';
 import { computeSkins } from '@/scoring/skins';
 import { computeTeamTotals } from '@/scoring/teamGames';
@@ -111,6 +112,14 @@ export function computePlayerPnL(input: SettlementInput): Record<string, number>
     }
   }
 
+  if (g.highBallLowBall.enabled) {
+    for (const match of pairMatches ?? []) {
+      const config = buildHighBallLowBallConfig(match, g.highBallLowBall);
+      const result = scoreHighBallLowBall(config, scoreContext);
+      applyLedger(result.ledgerEntries);
+    }
+  }
+
   if (g.twoManScramble.enabled) {
     (pairMatches ?? []).forEach((match, index) => {
       const config = buildTwoManScrambleConfig(match, index, g.twoManScramble);
@@ -179,6 +188,10 @@ export function gamesHaveBets(g: GameConfig): boolean {
         (g.twoManScramble.stake.front ||
           g.twoManScramble.stake.back ||
           g.twoManScramble.stake.overall)) ||
+      (g.highBallLowBall?.enabled &&
+        (g.highBallLowBall.stake.front ||
+          g.highBallLowBall.stake.back ||
+          g.highBallLowBall.stake.overall)) ||
       (g.scramble4.enabled && (g.scramble4.front || g.scramble4.back || g.scramble4.total)) ||
       (g.wolf.enabled && g.wolf.amount) ||
       (g.puttPoker.enabled && g.puttPoker.pot),

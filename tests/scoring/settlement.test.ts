@@ -121,6 +121,32 @@ describe('settlement P&L', () => {
     expect(pnl).toEqual({ A: 60, B: 60, C: -60, D: -60 });
   });
 
+  it('settles High Ball / Low Ball across pair matches via ledger entries', () => {
+    const players = ['A', 'B', 'C', 'D'];
+    const scores = matrix(players);
+    fill(scores, 'A', 4); // team1 low 4, high 4
+    fill(scores, 'B', 5); // team1 high 5
+    fill(scores, 'C', 6); // team2 low 6, high 7
+    fill(scores, 'D', 7);
+
+    const pnl = computePlayerPnL(
+      makeInput(
+        players,
+        scores,
+        (g) => {
+          g.highBallLowBall.enabled = true;
+          g.highBallLowBall.scoreBasis = 'gross';
+          g.highBallLowBall.scoringMode = 'stroke';
+          g.highBallLowBall.stake = { front: 10, back: 10, overall: 10 };
+        },
+        { pairMatches: [{ a: ['A', 'B'], b: ['C', 'D'] }] },
+      ),
+    );
+
+    // team1 wins all 6 segments (Low + High x front/back/overall) at $10 each -> +60 / -60
+    expect(pnl).toEqual({ A: 60, B: 60, C: -60, D: -60 });
+  });
+
   it('settles Two-Man Scramble from the team-score matrix via pair matches', () => {
     const players = ['A', 'B', 'C', 'D'];
     const scores = matrix(players);
@@ -224,5 +250,11 @@ describe('gamesHaveBets', () => {
     expect(gamesHaveBets(tms)).toBe(false);
     tms.twoManScramble.stake.front = 5;
     expect(gamesHaveBets(tms)).toBe(true);
+
+    const hbl = cloneDefaultGames();
+    hbl.highBallLowBall.enabled = true;
+    expect(gamesHaveBets(hbl)).toBe(false);
+    hbl.highBallLowBall.stake.overall = 10;
+    expect(gamesHaveBets(hbl)).toBe(true);
   });
 });
