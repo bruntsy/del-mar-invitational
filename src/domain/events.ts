@@ -46,7 +46,8 @@ export function eventRoundAvailablePoints(round: Pick<EventRoundConfig, 'format'
     return 36 * matchCount;
   }
 
-  return Object.values(round.points ?? {}).reduce((total, value) => total + Number(value || 0), 0) * matchCount;
+  const points = round.points ?? { front: 0, back: 0, total: 0 };
+  return (Number(points.front || 0) + Number(points.back || 0) + Number(points.total || 0)) * matchCount;
 }
 
 export function defaultEventConfig(groupPlayerNames: string[]): EventConfig {

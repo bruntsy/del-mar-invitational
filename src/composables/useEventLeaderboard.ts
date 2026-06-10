@@ -43,6 +43,7 @@ function emptyResult(roundConfig: EventRoundConfig, idx: number): EventRoundResu
     team2: 0,
     complete: false,
     rows: [],
+    ryderPoints: [],
     note: 'No round data yet.',
   };
 }

@@ -6,7 +6,7 @@ import {
   type PairSegmentWins,
   type ScoreContext,
 } from '@/scoring/round';
-import type { EventRoundConfig, PairMatch, ScoreMatrix, ScoreType } from '@/types';
+import type { EventRoundConfig, PairMatch, RyderPointEntry, ScoreMatrix, ScoreType } from '@/types';
 
 export type EventWinner = 'team1' | 'team2' | 'tie' | 'open';
 
@@ -36,6 +36,7 @@ export interface EventRoundResult {
   team2: number;
   complete: boolean;
   rows: EventRoundRow[];
+  ryderPoints: RyderPointEntry[];
   note?: string;
 }
 
@@ -257,6 +258,7 @@ export function computeEventRoundResult(input: EventRoundInput): EventRoundResul
     team2,
     complete,
     rows,
+    ryderPoints: [],
     note:
       round.format === 'scramble2v2Nassau'
         ? 'Two-man scramble uses the pair scorecard currently available for this round.'

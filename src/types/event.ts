@@ -9,6 +9,17 @@ export type EventRoundFormat =
 
 export type EventScoringMode = 'matchPlay' | 'strokePlay';
 
+export interface RyderPointEntry {
+  roundIndex: number;
+  matchIndex: number; // which pair match (0-based)
+  gameType: string; // 'best_ball_aggy' | 'best_ball' | 'two_man_scramble' | 'scramble'
+  component: string | null; // 'best_ball' | 'aggy' | null
+  segment: 'front' | 'back' | 'overall';
+  winningTeam: 'team1' | 'team2' | null;
+  tiedTeams: ('team1' | 'team2')[] | null;
+  points: { team1: number; team2: number };
+}
+
 export interface EventRoundConfig {
   name: string;
   format: EventRoundFormat;
@@ -17,6 +28,9 @@ export interface EventRoundConfig {
     front: number;
     back: number;
     total: number;
+    // optional per-component overrides for combo games (BB+Aggy, HB/LB)
+    bestBall?: { front: number; back: number; overall: number };
+    aggy?: { front: number; back: number; overall: number };
   };
   skins: {
     enabled: boolean;
