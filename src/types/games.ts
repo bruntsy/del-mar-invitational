@@ -44,11 +44,19 @@ export interface TwoManScrambleGameConfig {
   stake: { front: number; back: number; overall: number };
 }
 
+export interface HighBallLowBallGameConfig {
+  enabled: boolean;
+  scoreBasis: ScoreType;
+  scoringMode: 'stroke' | 'match';
+  stake: { front: number; back: number; overall: number };
+}
+
 export interface GameConfig {
   skins: SkinsConfig;
   bestBall: BestBallConfig;
   bestBallAggy: BestBallAggyGameConfig;
   twoManScramble: TwoManScrambleGameConfig;
+  highBallLowBall: HighBallLowBallGameConfig;
   scramble4: MoneyNassauConfig;
   wolf: WolfConfig;
   puttPoker: PuttPokerConfig;
