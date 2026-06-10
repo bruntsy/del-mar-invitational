@@ -54,6 +54,98 @@ const skinsEnabled = computed(() => store.games.skins.enabled);
 const skinHoles = computed(() => store.skins.holeResults);
 const completed = computed(() => store.round?.completed ?? false);
 
+interface SegmentDisplayRow {
+  label: string;
+  a: number | null;
+  b: number | null;
+  winnerSide: 'a' | 'b' | null;
+  status: 'win' | 'push' | 'open';
+  stake: number;
+}
+
+function segmentRow(
+  label: string,
+  seg: {
+    incomplete: boolean;
+    pushed: boolean;
+    winnerTeamId: string | undefined;
+    stakePerPerson: number;
+    teamScores?: Record<string, number>;
+    teamHolesWon?: Record<string, number>;
+  },
+  aId: string,
+  bId: string,
+  mode: 'stroke' | 'match',
+): SegmentDisplayRow {
+  const map = mode === 'stroke' ? seg.teamScores : seg.teamHolesWon;
+  const a = seg.incomplete || !map ? null : map[aId] ?? null;
+  const b = seg.incomplete || !map ? null : map[bId] ?? null;
+  let winnerSide: 'a' | 'b' | null = null;
+  let status: 'win' | 'push' | 'open' = 'open';
+  if (seg.incomplete) status = 'open';
+  else if (seg.pushed) status = 'push';
+  else {
+    status = 'win';
+    winnerSide = seg.winnerTeamId === aId ? 'a' : seg.winnerTeamId === bId ? 'b' : null;
+  }
+  return { label, a, b, winnerSide, status, stake: seg.stakePerPerson };
+}
+
+const bestBallAggyResults = computed(() =>
+  store.bestBallAggyResults.map((r, index) => {
+    const aId = r.teams[0].id;
+    const bId = r.teams[1].id;
+    const mode = r.scoringMode;
+    return {
+      index,
+      aName: r.teams[0].players.join(' + ') || 'Team A',
+      bName: r.teams[1].players.join(' + ') || 'Team B',
+      mode,
+      basis: r.scoreBasis,
+      unit: mode === 'match' ? 'holes' : 'strokes',
+      valid: r.valid,
+      validationError: r.validationError,
+      rows: [
+        segmentRow('Best Ball — Front', r.segmentResults.bestBall.front, aId, bId, mode),
+        segmentRow('Best Ball — Back', r.segmentResults.bestBall.back, aId, bId, mode),
+        segmentRow('Best Ball — Overall', r.segmentResults.bestBall.overall, aId, bId, mode),
+        segmentRow('Aggy — Front', r.segmentResults.aggy.front, aId, bId, mode),
+        segmentRow('Aggy — Back', r.segmentResults.aggy.back, aId, bId, mode),
+        segmentRow('Aggy — Overall', r.segmentResults.aggy.overall, aId, bId, mode),
+      ],
+    };
+  }),
+);
+
+const twoManScrambleResults = computed(() =>
+  store.twoManScrambleResults.map((r, index) => {
+    const aId = r.teams[0].id;
+    const bId = r.teams[1].id;
+    const mode = r.scoringMode;
+    return {
+      index,
+      aName: r.teams[0].players.join(' + ') || 'Team A',
+      bName: r.teams[1].players.join(' + ') || 'Team B',
+      mode,
+      unit: mode === 'match' ? 'holes' : 'strokes',
+      valid: r.valid,
+      validationError: r.validationError,
+      rows: [
+        segmentRow('Front', r.segmentResults.front, aId, bId, mode),
+        segmentRow('Back', r.segmentResults.back, aId, bId, mode),
+        segmentRow('Overall', r.segmentResults.overall, aId, bId, mode),
+      ],
+    };
+  }),
+);
+
+function outcomeLabel(row: SegmentDisplayRow, aName: string, bName: string): string {
+  if (row.status === 'open') return 'In progress';
+  if (row.status === 'push') return 'Push';
+  const winner = row.winnerSide === 'a' ? aName : bName;
+  return row.stake > 0 ? `${winner} +$${row.stake}` : `${winner}`;
+}
+
 function dash(value: number | null | undefined): string {
   return value == null ? '—' : String(value);
 }
@@ -189,6 +281,64 @@ function goHome() {
               <div class="fc-score">{{ dash(game.team2.total) }}</div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section v-if="bestBallAggyResults.length" class="rs-section">
+        <h2 class="rs-section-hdr">Best Ball + Aggy</h2>
+        <div v-for="match in bestBallAggyResults" :key="`bba-${match.index}`" class="bba-match">
+          <div class="bba-head">
+            <span class="bba-vs">{{ match.aName }} <span class="bba-vs-sep">vs</span> {{ match.bName }}</span>
+            <span class="bba-meta">{{ match.mode === 'match' ? 'Match play' : 'Stroke play' }} · {{ match.basis }}</span>
+          </div>
+          <p v-if="!match.valid" class="bba-error">{{ match.validationError }}</p>
+          <table v-else class="rs-table bba-table">
+            <thead>
+              <tr>
+                <th>Bet</th>
+                <th>{{ match.aName }}</th>
+                <th>{{ match.bName }}</th>
+                <th>Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in match.rows" :key="row.label" :class="`status-${row.status}`">
+                <td class="bba-bet">{{ row.label }}</td>
+                <td :class="{ 'bba-win': row.winnerSide === 'a' }">{{ dash(row.a) }}</td>
+                <td :class="{ 'bba-win': row.winnerSide === 'b' }">{{ dash(row.b) }}</td>
+                <td class="bba-result">{{ outcomeLabel(row, match.aName, match.bName) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section v-if="twoManScrambleResults.length" class="rs-section">
+        <h2 class="rs-section-hdr">Two-Man Scramble</h2>
+        <div v-for="match in twoManScrambleResults" :key="`tms-${match.index}`" class="bba-match">
+          <div class="bba-head">
+            <span class="bba-vs">{{ match.aName }} <span class="bba-vs-sep">vs</span> {{ match.bName }}</span>
+            <span class="bba-meta">{{ match.mode === 'match' ? 'Match play' : 'Stroke play' }} · gross</span>
+          </div>
+          <p v-if="!match.valid" class="bba-error">{{ match.validationError }}</p>
+          <table v-else class="rs-table bba-table">
+            <thead>
+              <tr>
+                <th>Segment</th>
+                <th>{{ match.aName }}</th>
+                <th>{{ match.bName }}</th>
+                <th>Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in match.rows" :key="row.label" :class="`status-${row.status}`">
+                <td class="bba-bet">{{ row.label }}</td>
+                <td :class="{ 'bba-win': row.winnerSide === 'a' }">{{ dash(row.a) }}</td>
+                <td :class="{ 'bba-win': row.winnerSide === 'b' }">{{ dash(row.b) }}</td>
+                <td class="bba-result">{{ outcomeLabel(row, match.aName, match.bName) }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -434,6 +584,66 @@ function goHome() {
 .rs-rank { color: #9aa49a; font-weight: 700; }
 .rs-winner { color: #b08416; font-weight: 700; }
 .rs-net { color: #2f5d43; font-weight: 700; }
+
+.bba-match + .bba-match {
+  margin-top: 16px;
+}
+
+.bba-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.bba-vs {
+  font-weight: 800;
+  color: #283b30;
+}
+
+.bba-vs-sep {
+  color: #9aa49a;
+  font-weight: 600;
+  margin: 0 4px;
+}
+
+.bba-meta {
+  font-size: 0.78rem;
+  color: #7a8a7e;
+  text-transform: capitalize;
+}
+
+.bba-table .bba-bet {
+  text-align: left;
+  font-weight: 600;
+  color: #3a4a40;
+}
+
+.bba-table .bba-result {
+  font-weight: 700;
+  color: #2f5d43;
+}
+
+.bba-table .bba-win {
+  font-weight: 800;
+  color: #2f5d43;
+}
+
+.bba-table tr.status-push .bba-result {
+  color: #8a672f;
+}
+
+.bba-table tr.status-open .bba-result {
+  color: #9aa49a;
+  font-weight: 600;
+}
+
+.bba-error {
+  color: #a3433a;
+  font-size: 0.85rem;
+}
 .rs-skins { color: #8a672f; }
 
 .pnl-table {
