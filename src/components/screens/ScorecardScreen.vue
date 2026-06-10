@@ -507,11 +507,6 @@ const puttGroups = computed<PuttGroup[]>(() => {
   return teamRows.value.map((team) => ({ name: team.label, players: team.players }));
 });
 
-const settlement = computed(() => store.settlement);
-const settlementRows = computed(() =>
-  store.playerNames.map((player) => ({ player, pnl: Math.round(settlement.value.pnl[player] || 0) })),
-);
-
 function loadDemo() {
   // imported lazily to keep the demo fixture out of the production-critical path
   void import('@/fixtures/demoRound').then(({ demoRound }) => {
@@ -1207,29 +1202,6 @@ const mobilePlayers = computed(() => {
         </div>
       </section>
 
-      <section v-if="store.hasBets" class="sc-settlement">
-        <h2 class="sc-section-hdr">Settlement</h2>
-        <table class="pnl-table">
-          <thead>
-            <tr><th>Player</th><th>Net</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in settlementRows" :key="row.player">
-              <td>{{ row.player }}</td>
-              <td :class="row.pnl > 0 ? 'pnl-pos' : row.pnl < 0 ? 'pnl-neg' : ''">
-                {{ row.pnl === 0 ? '—' : `${row.pnl > 0 ? '+' : ''}$${Math.abs(row.pnl)}` }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <div v-if="settlement.transfers.length" class="settle-list">
-          <div v-for="(t, i) in settlement.transfers" :key="i" class="settle-row">
-            <span>{{ t.from }} <span class="settle-arrow">pays</span> {{ t.to }}</span>
-            <span class="settle-amount">${{ Math.round(t.amount) }}</span>
-          </div>
-        </div>
-        <p v-else class="settle-square">All square.</p>
-      </section>
     </template>
 
     <section v-else class="panel sc-empty">
@@ -1777,7 +1749,6 @@ const mobilePlayers = computed(() => {
 .skins-col { color: #8a672f; }
 
 .sc-puttpoker,
-.sc-settlement,
 .pair-live,
 .wolf-live {
   margin-top: 24px;
@@ -2077,50 +2048,6 @@ const mobilePlayers = computed(() => {
   font-size: 0.95rem;
   color: #24362c;
 }
-
-.pnl-table {
-  border-collapse: collapse;
-  min-width: 260px;
-  background: #fdfbf4;
-  border: 1px solid #e4ddcd;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.pnl-table th,
-.pnl-table td {
-  border-bottom: 1px solid #e4ddcd;
-  padding: 8px 12px;
-  text-align: left;
-}
-
-.pnl-table tr:last-child td {
-  border-bottom: 0;
-}
-
-.pnl-pos { color: #2f8f58; font-weight: 700; }
-.pnl-neg { color: #b1462f; font-weight: 700; }
-
-.settle-list {
-  margin-top: 14px;
-  display: grid;
-  gap: 6px;
-}
-
-.settle-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 8px 12px;
-  background: #fdfbf4;
-  border: 1px solid #e4ddcd;
-  border-radius: 6px;
-  max-width: 360px;
-}
-
-.settle-arrow { color: #9aa49a; font-size: 0.78rem; }
-.settle-amount { font-weight: 700; color: #2f5d43; }
-.settle-square { color: #6a7a6f; }
 
 /* Group filter bar */
 .group-filter {

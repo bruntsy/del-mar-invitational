@@ -140,15 +140,16 @@ describe('ScorecardScreen', () => {
     expect(firstWolfRow.text()).toContain('Wes +2');
   });
 
-  it('shows the settlement section once bets exist', () => {
+  it('does not show settlement on the live scorecard', () => {
     const store = useRoundStore();
     const { round, players } = demoRound();
     store.setRound(round, players);
 
     const wrapper = mountScorecard();
 
-    expect(wrapper.find('.sc-settlement').exists()).toBe(true);
-    expect(wrapper.text()).toContain('Settlement');
+    expect(store.hasBets).toBe(true);
+    expect(wrapper.find('.sc-settlement').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('Settlement');
   });
 
   it('shows linked event round status even when round games are missing the event game', async () => {
