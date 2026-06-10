@@ -14,6 +14,17 @@ import type { RoundRow } from '@/types/db';
 import { scoreAt, writeCell } from '@/scoring/cells';
 import { computeWHSCourseHcp, allocateNetStrokes } from '@/scoring/handicap';
 import { playerRangeScore, type ScoreContext } from '@/scoring/round';
+import {
+  buildBestBallAggyConfig,
+  scoreBestBallAggy,
+  type BestBallAggyResult,
+} from '@/scoring/bestBallAggy';
+import {
+  buildTwoManScrambleConfig,
+  scoreTwoManScramble,
+  twoManScrambleTeamKey,
+  type TwoManScrambleResult,
+} from '@/scoring/twoManScramble';
 import { computeSkins, type SkinsResult } from '@/scoring/skins';
 import {
   computePlayerPnL,
@@ -232,6 +243,31 @@ export const useRoundStore = defineStore('round', {
       const context = this.scoreContext;
       if (!context) return { skinsByPlayer: {}, holeResults: [], pendingPot: 0 };
       return computeSkins(context, this.playerNames, this.games.skins.type);
+    },
+
+    /** Best Ball + Aggy results, one per pair match (empty if game disabled). */
+    bestBallAggyResults(state): BestBallAggyResult[] {
+      const context = this.scoreContext;
+      if (!context || !state.round || !this.games.bestBallAggy?.enabled) return [];
+      const pairMatches = state.round.pairMatches ?? [];
+      return pairMatches.map((match) =>
+        scoreBestBallAggy(buildBestBallAggyConfig(match, this.games.bestBallAggy), context),
+      );
+    },
+
+    /** Two-Man Scramble results, one per pair match (empty if game disabled). */
+    twoManScrambleResults(state): TwoManScrambleResult[] {
+      if (!state.round || !this.games.twoManScramble?.enabled) return [];
+      const pairMatches = state.round.pairMatches ?? [];
+      const teamScores = state.round.teamScores ?? {};
+      return pairMatches.map((match, index) => {
+        const config = buildTwoManScrambleConfig(match, index, this.games.twoManScramble);
+        const teamHoleScores = {
+          [twoManScrambleTeamKey(index, 'a')]: teamScores[twoManScrambleTeamKey(index, 'a')],
+          [twoManScrambleTeamKey(index, 'b')]: teamScores[twoManScrambleTeamKey(index, 'b')],
+        };
+        return scoreTwoManScramble(config, teamHoleScores);
+      });
     },
 
     /**
