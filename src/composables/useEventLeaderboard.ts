@@ -1,4 +1,5 @@
 import { computed } from 'vue';
+import { normalizeGames } from '@/domain/games';
 import { computeEventRoundResult, type EventRoundResult } from '@/scoring/eventRound';
 import { computeWHSCourseHcp, allocateNetStrokes } from '@/scoring/handicap';
 import { groupPlayerByName } from '@/domain/players';
@@ -22,7 +23,7 @@ export interface EventLeaderboard {
   winPoints: number;
 }
 
-function buildScoreContext(round: RoundState, players: PlayerMap): ScoreContext | null {
+export function buildScoreContext(round: RoundState, players: PlayerMap): ScoreContext | null {
   const course = round.course;
   if (!course) return null;
   const names = [...(round.team1 || []), ...(round.team2 || [])];
@@ -81,6 +82,7 @@ export function useEventLeaderboard(
             round: roundConfig,
             roundIndex,
             scoreContext: ctx,
+            games: normalizeGames(live!.games),
             pairMatches: roundConfig.pairMatches,
             team1: cfg.team1,
             team2: cfg.team2,
@@ -99,6 +101,7 @@ export function useEventLeaderboard(
             round: roundConfig,
             roundIndex,
             scoreContext: ctx,
+            games: normalizeGames(round.games),
             pairMatches: roundConfig.pairMatches,
             team1: cfg.team1,
             team2: cfg.team2,

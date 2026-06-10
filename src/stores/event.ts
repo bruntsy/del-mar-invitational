@@ -1,6 +1,9 @@
 import { defineStore } from 'pinia';
+import { normalizeGames } from '@/domain/games';
 import { defaultEventConfig, eventWinPoints, normalizeEventConfig } from '@/domain/events';
 import { normalizeRoundRow } from '@/domain/round';
+import { buildScoreContext } from '@/composables/useEventLeaderboard';
+import { computeEventRoundResult } from '@/scoring/eventRound';
 import { hasSupabase, supabase } from '@/services/supabase';
 import type { EventRow, RoundRow } from '@/types/db';
 import type { Event, EventConfig } from '@/types/event';
@@ -59,15 +62,43 @@ export const useEventStore = defineStore('event', {
   }),
 
   getters: {
-    /** Total points per team summed over rounds that have a recorded result. */
+    /**
+     * Total points per team summed over rounds. A manually entered
+     * `pointsResult` override wins; otherwise points are derived from the
+     * cached round's computed Ryder result when available.
+     */
     standings(state): { team1: number; team2: number } {
       const config = state.event?.config;
       if (!config) return { team1: 0, team2: 0 };
       return config.rounds.reduce(
-        (acc, r) => ({
-          team1: acc.team1 + (r.pointsResult?.team1 ?? 0),
-          team2: acc.team2 + (r.pointsResult?.team2 ?? 0),
-        }),
+        (acc, r) => {
+          // Manual override takes precedence (backward compat).
+          if (r.pointsResult?.team1 != null || r.pointsResult?.team2 != null) {
+            return {
+              team1: acc.team1 + (r.pointsResult?.team1 ?? 0),
+              team2: acc.team2 + (r.pointsResult?.team2 ?? 0),
+            };
+          }
+
+          const cached = r.roundId ? state.cachedRounds[r.roundId] : undefined;
+          if (cached) {
+            const ctx = buildScoreContext(cached.round, cached.players);
+            if (ctx) {
+              const result = computeEventRoundResult({
+                round: r,
+                scoreContext: ctx,
+                games: normalizeGames(cached.round.games),
+                pairMatches: r.pairMatches,
+                team1: config.team1,
+                team2: config.team2,
+                teamScores: cached.round.teamScores,
+              });
+              return { team1: acc.team1 + result.team1, team2: acc.team2 + result.team2 };
+            }
+          }
+
+          return acc;
+        },
         { team1: 0, team2: 0 },
       );
     },
