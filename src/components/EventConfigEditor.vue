@@ -19,6 +19,17 @@ const draft = ref<EventConfig>(JSON.parse(JSON.stringify(props.event.config)));
 const draftName = ref(props.event.name);
 const openRound = ref<number | null>(0);
 
+/** Seed per-component point overrides for Best Ball + Aggy rounds. */
+function ensureAggyPoints(round: EventRoundConfig) {
+  const base = { front: round.points.front, back: round.points.back, overall: round.points.total };
+  if (!round.points.bestBall) round.points.bestBall = { ...base };
+  if (!round.points.aggy) round.points.aggy = { ...base };
+}
+
+for (const round of draft.value.rounds) {
+  if (round.format === 'twoManBestBallAggy') ensureAggyPoints(round);
+}
+
 type BaseFormat = 'bestBall' | 'scramble' | 'custom';
 
 function roundBase(round: EventRoundConfig): BaseFormat {
@@ -57,6 +68,7 @@ function setRoundNassau(ri: number, nassau: boolean) {
 function setRoundAggy(ri: number, aggy: boolean) {
   const round = draft.value.rounds[ri];
   round.format = deriveFormat(roundBase(round), roundNassau(round), aggy);
+  if (round.format === 'twoManBestBallAggy') ensureAggyPoints(round);
 }
 
 function recomputePlayingGroups(roundIndex: number) {
@@ -280,10 +292,36 @@ function save() {
             </div>
           </template>
 
-          <!-- Points (not shown for Aggy which uses fixed 36-pt model) -->
-          <div v-if="!roundAggy(round)" class="ece-field">
+          <!-- Points: 6 per-component fields for Best Ball + Aggy, 3 otherwise -->
+          <div class="ece-field">
             <label class="ece-sublabel">Points</label>
-            <div class="ece-row ece-points-row">
+            <template v-if="roundAggy(round) && round.points.bestBall && round.points.aggy">
+              <div class="ece-row ece-points-row">
+                <span class="ece-pts-group">Best Ball</span>
+                <label class="ece-pts-label">Front
+                  <input v-model.number="round.points.bestBall.front" class="form-input ece-pts-input" type="number" min="0" />
+                </label>
+                <label class="ece-pts-label">Back
+                  <input v-model.number="round.points.bestBall.back" class="form-input ece-pts-input" type="number" min="0" />
+                </label>
+                <label class="ece-pts-label">Overall
+                  <input v-model.number="round.points.bestBall.overall" class="form-input ece-pts-input" type="number" min="0" />
+                </label>
+              </div>
+              <div class="ece-row ece-points-row">
+                <span class="ece-pts-group">Aggy</span>
+                <label class="ece-pts-label">Front
+                  <input v-model.number="round.points.aggy.front" class="form-input ece-pts-input" type="number" min="0" />
+                </label>
+                <label class="ece-pts-label">Back
+                  <input v-model.number="round.points.aggy.back" class="form-input ece-pts-input" type="number" min="0" />
+                </label>
+                <label class="ece-pts-label">Overall
+                  <input v-model.number="round.points.aggy.overall" class="form-input ece-pts-input" type="number" min="0" />
+                </label>
+              </div>
+            </template>
+            <div v-else class="ece-row ece-points-row">
               <label class="ece-pts-label">Front
                 <input v-model.number="round.points.front" class="form-input ece-pts-input" type="number" min="0" />
               </label>
@@ -554,6 +592,13 @@ function save() {
 
 .ece-points-row {
   gap: 12px;
+}
+
+.ece-pts-group {
+  min-width: 72px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #2f5d43;
 }
 
 .ece-pts-label {
