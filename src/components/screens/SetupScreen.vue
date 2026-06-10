@@ -590,6 +590,51 @@ function goHome() {
         </div>
 
         <div class="game-row">
+          <label class="game-toggle"><input v-model="form.games.bestBallAggy.enabled" type="checkbox" /> Best Ball + Aggy</label>
+        </div>
+        <div v-if="form.games.bestBallAggy.enabled" class="game-subconfig">
+          <div class="sub-row">
+            <span class="sub-label">Score basis</span>
+            <div class="seg-ctrl">
+              <button class="seg-btn" :class="{ active: form.games.bestBallAggy.scoreBasis === 'net' }" type="button" @click="form.games.bestBallAggy.scoreBasis = 'net'">Net</button>
+              <button class="seg-btn" :class="{ active: form.games.bestBallAggy.scoreBasis === 'gross' }" type="button" @click="form.games.bestBallAggy.scoreBasis = 'gross'">Gross</button>
+            </div>
+          </div>
+          <div class="sub-row">
+            <span class="sub-label">Scoring mode</span>
+            <div class="seg-ctrl">
+              <button class="seg-btn" :class="{ active: form.games.bestBallAggy.scoringMode === 'match' }" type="button" @click="form.games.bestBallAggy.scoringMode = 'match'">Match Play</button>
+              <button class="seg-btn" :class="{ active: form.games.bestBallAggy.scoringMode === 'stroke' }" type="button" @click="form.games.bestBallAggy.scoringMode = 'stroke'">Stroke Play</button>
+            </div>
+          </div>
+          <div class="sub-row">
+            <span class="sub-label">Stakes ($/person)</span>
+            <input v-model.number="form.games.bestBallAggy.stake.front" class="form-input sm" type="number" min="0" placeholder="Front $" />
+            <input v-model.number="form.games.bestBallAggy.stake.back" class="form-input sm" type="number" min="0" placeholder="Back $" />
+            <input v-model.number="form.games.bestBallAggy.stake.overall" class="form-input sm" type="number" min="0" placeholder="Overall $" />
+          </div>
+        </div>
+
+        <div class="game-row">
+          <label class="game-toggle"><input v-model="form.games.twoManScramble.enabled" type="checkbox" /> Two-Man Scramble <span class="game-note">(gross)</span></label>
+        </div>
+        <div v-if="form.games.twoManScramble.enabled" class="game-subconfig">
+          <div class="sub-row">
+            <span class="sub-label">Scoring mode</span>
+            <div class="seg-ctrl">
+              <button class="seg-btn" :class="{ active: form.games.twoManScramble.scoringMode === 'match' }" type="button" @click="form.games.twoManScramble.scoringMode = 'match'">Match Play</button>
+              <button class="seg-btn" :class="{ active: form.games.twoManScramble.scoringMode === 'stroke' }" type="button" @click="form.games.twoManScramble.scoringMode = 'stroke'">Stroke Play</button>
+            </div>
+          </div>
+          <div class="sub-row">
+            <span class="sub-label">Stakes ($/person)</span>
+            <input v-model.number="form.games.twoManScramble.stake.front" class="form-input sm" type="number" min="0" placeholder="Front $" />
+            <input v-model.number="form.games.twoManScramble.stake.back" class="form-input sm" type="number" min="0" placeholder="Back $" />
+            <input v-model.number="form.games.twoManScramble.stake.overall" class="form-input sm" type="number" min="0" placeholder="Overall $" />
+          </div>
+        </div>
+
+        <div class="game-row">
           <label class="game-toggle"><input v-model="form.games.scramble4.enabled" type="checkbox" /> 4-Man Scramble</label>
           <input v-model.number="form.games.scramble4.front" class="form-input sm" type="number" min="0" placeholder="Front $" />
           <input v-model.number="form.games.scramble4.back" class="form-input sm" type="number" min="0" placeholder="Back $" />
@@ -968,6 +1013,36 @@ label {
 .game-toggle.sm {
   min-width: auto;
   font-weight: 600;
+}
+
+.game-note {
+  font-weight: 500;
+  color: #7a8a7e;
+  font-size: 0.85rem;
+}
+
+.game-subconfig {
+  display: grid;
+  gap: 8px;
+  margin: -2px 0 4px 16px;
+  padding: 8px 12px;
+  border-left: 2px solid #d3e0d3;
+  background: #f7faf6;
+  border-radius: 0 6px 6px 0;
+}
+
+.sub-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.sub-label {
+  min-width: 120px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #4a6050;
 }
 
 .seg-ctrl {
