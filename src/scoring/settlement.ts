@@ -1,7 +1,7 @@
 import { buildBestBallAggyConfig, scoreBestBallAggy } from '@/scoring/bestBallAggy';
 import { scoreAt } from '@/scoring/cells';
 import { buildHighBallLowBallConfig, scoreHighBallLowBall } from '@/scoring/highBallLowBall';
-import { type ScoreContext } from '@/scoring/round';
+import { pairMatchRangeWins, type ScoreContext } from '@/scoring/round';
 import { computeSkins } from '@/scoring/skins';
 import { computeTeamTotals } from '@/scoring/teamGames';
 import {
@@ -96,12 +96,32 @@ export function computePlayerPnL(input: SettlementInput): Record<string, number>
     }
   };
 
+  const applyTeamMatch = (v1: number | null, v2: number | null, amount: number) => {
+    if (!amount || v1 == null || v2 == null) return;
+    if (v1 > v2) {
+      team1.forEach((player) => (pnl[player] += amount));
+      team2.forEach((player) => (pnl[player] -= amount));
+    } else if (v2 > v1) {
+      team2.forEach((player) => (pnl[player] += amount));
+      team1.forEach((player) => (pnl[player] -= amount));
+    }
+  };
+
   if (g.bestBall.enabled) {
-    const bb1 = computeTeamTotals(scoreContext, team1, g.bestBall.type);
-    const bb2 = computeTeamTotals(scoreContext, team2, g.bestBall.type);
-    applyTeam(bb1.bbOut, bb2.bbOut, g.bestBall.front);
-    applyTeam(bb1.bbIn, bb2.bbIn, g.bestBall.back);
-    applyTeam(bb1.bbTotal, bb2.bbTotal, g.bestBall.total);
+    if (g.bestBall.scoringMode === 'match') {
+      const front = pairMatchRangeWins(scoreContext, team1, team2, 0, 9, g.bestBall.type);
+      const back = pairMatchRangeWins(scoreContext, team1, team2, 9, 18, g.bestBall.type);
+      const total = pairMatchRangeWins(scoreContext, team1, team2, 0, 18, g.bestBall.type);
+      applyTeamMatch(front?.a ?? null, front?.b ?? null, g.bestBall.front);
+      applyTeamMatch(back?.a ?? null, back?.b ?? null, g.bestBall.back);
+      applyTeamMatch(total?.a ?? null, total?.b ?? null, g.bestBall.total);
+    } else {
+      const bb1 = computeTeamTotals(scoreContext, team1, g.bestBall.type);
+      const bb2 = computeTeamTotals(scoreContext, team2, g.bestBall.type);
+      applyTeam(bb1.bbOut, bb2.bbOut, g.bestBall.front);
+      applyTeam(bb1.bbIn, bb2.bbIn, g.bestBall.back);
+      applyTeam(bb1.bbTotal, bb2.bbTotal, g.bestBall.total);
+    }
   }
 
   if (g.bestBallAggy.enabled) {

@@ -6,6 +6,7 @@ import {
   eventRoundAvailablePoints,
   eventScoringModeLabel,
   normalizeEventConfig,
+  gamesFromEventRound,
 } from '@/domain/events';
 
 describe('event config helpers', () => {
@@ -18,11 +19,20 @@ describe('event config helpers', () => {
   it('builds default rounds with expected formats and pairings', () => {
     const round0 = eventDefaultRound(0, ['A', 'B', 'C', 'D'], ['E', 'F', 'G', 'H']);
     const round1 = eventDefaultRound(1, ['A', 'B'], ['E', 'F']);
+    const round2 = eventDefaultRound(2, ['A', 'B', 'C', 'D'], ['E', 'F', 'G', 'H']);
 
     expect(round0.format).toBe('bestBallNassau');
     expect(round0.pairMatches).toEqual([
       { a: ['A', 'B'], b: ['E', 'F'] },
       { a: ['C', 'D'], b: ['G', 'H'] },
+    ]);
+    expect(eventDefaultRound(1, ['A', 'B', 'C', 'D'], ['E', 'F', 'G', 'H']).pairMatches).toEqual([
+      { a: ['A', 'C'], b: ['E', 'G'] },
+      { a: ['B', 'D'], b: ['F', 'H'] },
+    ]);
+    expect(round2.pairMatches).toEqual([
+      { a: ['A', 'D'], b: ['E', 'H'] },
+      { a: ['B', 'C'], b: ['F', 'G'] },
     ]);
     expect(round1.format).toBe('scramble2v2Nassau');
   });
@@ -52,6 +62,41 @@ describe('event config helpers', () => {
         format: 'twoManHighBallLowBall',
       }),
     ).toBe(6);
+  });
+
+  it('recalculates stale stored win points during normalization', () => {
+    const config = normalizeEventConfig({
+      team1: ['A', 'B', 'C', 'D'],
+      team2: ['E', 'F', 'G', 'H'],
+      winPoints: 9.5,
+      rounds: [
+        {
+          ...eventDefaultRound(0, ['A', 'B', 'C', 'D'], ['E', 'F', 'G', 'H']),
+          format: 'twoManHighBallLowBall',
+        },
+      ],
+    });
+
+    expect(config.winPoints).toBe(6.5);
+  });
+
+  it('maps event formats to active round game config', () => {
+    const round = {
+      ...eventDefaultRound(0, ['A', 'B'], ['C', 'D']),
+      format: 'twoManBestBallAggy' as const,
+      scoringMode: 'matchPlay' as const,
+      bestBallBet: { front: 5, back: 5, total: 10, type: 'gross' as const },
+    };
+
+    const games = gamesFromEventRound(round);
+
+    expect(games.bestBall.enabled).toBe(false);
+    expect(games.bestBallAggy).toMatchObject({
+      enabled: true,
+      scoreBasis: 'gross',
+      scoringMode: 'match',
+      stake: { front: 5, back: 5, overall: 10 },
+    });
   });
 
   it('normalizes teams by removing duplicate team assignments and adding group players', () => {

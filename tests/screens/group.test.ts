@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import GroupScreen from '@/components/screens/GroupScreen.vue';
 import { useGroupStore } from '@/stores/group';
+import { emptyRound, useRoundStore } from '@/stores/round';
 
 const push = vi.fn();
 vi.mock('vue-router', () => ({
@@ -61,5 +62,30 @@ describe('GroupScreen roster', () => {
 
     expect(wrapper.text()).toContain('No players yet.');
     expect(store.group?.players.Annie).toBeUndefined();
+  });
+
+  it('does not show a resume card for a round from another group', async () => {
+    const group = useGroupStore();
+    const round = useRoundStore();
+    await group.createGroup('Current Group');
+    round.setRound({
+      ...emptyRound('other-group'),
+      course: {
+        courseName: 'Wrong Course',
+        tee: { name: 'Blue', rating: 72, slope: 113, parTotal: 72 },
+        par: Array(18).fill(4),
+        si: Array.from({ length: 18 }, (_, index) => index + 1),
+        yds: Array(18).fill(400),
+      },
+      team1: ['Ann'],
+      team2: ['Cal'],
+      scores: { Ann: [4] as never },
+    });
+
+    const wrapper = mountGroup();
+    await flushPromises();
+
+    expect(wrapper.find('.resume-card').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('Wrong Course');
   });
 });

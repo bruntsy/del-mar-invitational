@@ -1,5 +1,6 @@
 import { autoPlayingGroupsFromPairMatches, normalizePlayingGroups } from '@/domain/playingGroups';
-import type { EventConfig, EventRoundConfig, EventRoundFormat, PairMatch } from '@/types';
+import { cloneDefaultGames } from '@/domain/games';
+import type { EventConfig, EventRoundConfig, EventRoundFormat, GameConfig, PairMatch } from '@/types';
 
 export function eventFormatLabel(format: EventRoundFormat): string {
   return (
@@ -19,10 +20,7 @@ export function eventScoringModeLabel(mode: EventRoundConfig['scoringMode']): st
 }
 
 export function eventDefaultRound(index: number, team1: string[] = [], team2: string[] = []): EventRoundConfig {
-  const defaultPairs: PairMatch[] = [
-    { a: team1.slice(0, 2), b: team2.slice(0, 2) },
-    { a: team1.slice(2, 4), b: team2.slice(2, 4) },
-  ].filter((match) => match.a.length > 0 || match.b.length > 0);
+  const defaultPairs = defaultPairMatchesForRound(index, team1, team2);
 
   return {
     name: `Round ${index + 1}`,
@@ -39,6 +37,34 @@ export function eventDefaultRound(index: number, team1: string[] = [], team2: st
     roundId: null,
     pointsResult: { team1: null, team2: null },
   };
+}
+
+function teamPairingsForRound(roundIndex: number, team: string[]): string[][] {
+  const players = team.filter(Boolean);
+  if (players.length <= 2) return players.length ? [players] : [];
+  if (players.length === 4) {
+    const rotations = [
+      [[0, 1], [2, 3]],
+      [[0, 2], [1, 3]],
+      [[0, 3], [1, 2]],
+    ];
+    return rotations[roundIndex % rotations.length].map((pair) => pair.map((i) => players[i]).filter(Boolean));
+  }
+
+  const rotated = players.slice(roundIndex % players.length).concat(players.slice(0, roundIndex % players.length));
+  const pairs: string[][] = [];
+  for (let i = 0; i < rotated.length; i += 2) pairs.push(rotated.slice(i, i + 2));
+  return pairs;
+}
+
+export function defaultPairMatchesForRound(roundIndex: number, team1: string[] = [], team2: string[] = []): PairMatch[] {
+  const aPairs = teamPairingsForRound(roundIndex, team1);
+  const bPairs = teamPairingsForRound(roundIndex, team2);
+  const count = Math.max(aPairs.length, bPairs.length);
+  return Array.from({ length: count }, (_, index) => ({
+    a: aPairs[index] ?? [],
+    b: bPairs[index] ?? [],
+  })).filter((match) => match.a.length > 0 || match.b.length > 0);
 }
 
 export function eventRoundAvailablePoints(round: Pick<EventRoundConfig, 'format' | 'points' | 'pairMatches'>): number {
@@ -63,6 +89,68 @@ export function eventRoundAvailablePoints(round: Pick<EventRoundConfig, 'format'
   }
 
   return base * matchCount;
+}
+
+export function gamesFromEventRound(round: EventRoundConfig): GameConfig {
+  const games = cloneDefaultGames();
+  const scoringMode = round.scoringMode === 'strokePlay' ? 'stroke' : 'match';
+
+  if (round.format === 'bestBallNassau') {
+    games.bestBall = {
+      enabled: true,
+      front: round.bestBallBet.front,
+      back: round.bestBallBet.back,
+      total: round.bestBallBet.total,
+      balls: 1,
+      type: round.bestBallBet.type,
+      scoringMode,
+    };
+  } else if (round.format === 'twoManBestBallAggy') {
+    games.bestBallAggy = {
+      enabled: true,
+      scoreBasis: round.bestBallBet.type,
+      scoringMode,
+      stake: {
+        front: round.bestBallBet.front,
+        back: round.bestBallBet.back,
+        overall: round.bestBallBet.total,
+      },
+    };
+  } else if (round.format === 'twoManHighBallLowBall') {
+    games.highBallLowBall = {
+      enabled: true,
+      scoreBasis: round.bestBallBet.type,
+      scoringMode,
+      stake: {
+        front: round.bestBallBet.front,
+        back: round.bestBallBet.back,
+        overall: round.bestBallBet.total,
+      },
+    };
+  } else if (round.format === 'scramble2v2Nassau') {
+    games.twoManScramble = {
+      enabled: true,
+      scoringMode,
+      stake: {
+        front: round.scrambleBet.front,
+        back: round.scrambleBet.back,
+        overall: round.scrambleBet.total,
+      },
+    };
+  } else if (round.format === 'fourManScramble') {
+    games.scramble4 = {
+      enabled: true,
+      front: round.scrambleBet.front,
+      back: round.scrambleBet.back,
+      total: round.scrambleBet.total,
+      type: round.scrambleBet.type,
+    };
+  }
+
+  if (round.skins.enabled) games.skins = { enabled: true, pot: round.skins.pot, type: round.skins.type, carry: false };
+  if (round.puttPoker.enabled) games.puttPoker = { enabled: true, pot: round.puttPoker.pot };
+
+  return games;
 }
 
 export function defaultEventConfig(groupPlayerNames: string[]): EventConfig {
@@ -161,7 +249,7 @@ export function normalizeEventConfig(
     team1,
     team2,
     rounds,
-    winPoints: config?.winPoints || eventWinPoints(rounds),
+    winPoints: eventWinPoints(rounds),
     tiebreaker: config?.tiebreaker || '',
   };
 }

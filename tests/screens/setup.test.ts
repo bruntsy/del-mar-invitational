@@ -3,6 +3,8 @@ import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SetupScreen from '@/components/screens/SetupScreen.vue';
 import { cloneDefaultGames } from '@/domain/games';
+import { defaultEventConfig } from '@/domain/events';
+import { useEventStore } from '@/stores/event';
 import { useRoundStore } from '@/stores/round';
 
 const { mockSearchCourses, routeQuery } = vi.hoisted(() => ({
@@ -352,6 +354,46 @@ describe('SetupScreen', () => {
     await wrapper.find('.btn-primary').trigger('click');
 
     expect(store.round?.pairMatches).toEqual([{ a: ['Ann', 'Bea'], b: ['Cal', 'Dan'] }]);
+  });
+
+  it('uses event round config as read-only launch source and preserves the main game', async () => {
+    persistGroup({
+      Ann: { name: 'Ann', handicapIndex: 10 },
+      Bea: { name: 'Bea', handicapIndex: 12 },
+      Cal: { name: 'Cal', handicapIndex: 6 },
+      Dan: { name: 'Dan', handicapIndex: 20 },
+    });
+    const eventStore = useEventStore();
+    const roundStore = useRoundStore();
+    const config = defaultEventConfig(['Ann', 'Bea', 'Cal', 'Dan']);
+    config.rounds[0] = {
+      ...config.rounds[0],
+      format: 'twoManBestBallAggy',
+      scoringMode: 'matchPlay',
+      bestBallBet: { front: 5, back: 5, total: 10, type: 'gross' },
+      skins: { enabled: true, pot: 3, type: 'net' },
+    };
+    eventStore.event = { id: 'e1', groupId: 'g1', name: 'Cup', status: 'active', config };
+    eventStore.setPendingRoundLink(0);
+
+    const wrapper = mountSetup();
+    await flushPromises();
+
+    expect(wrapper.findAll('.player-row')).toHaveLength(0);
+    expect(wrapper.find('.event-roster-preview').text()).toContain('Ann');
+    expect(wrapper.text()).not.toContain('+ Add player');
+
+    await wrapper.find('.setup-actions .btn-primary').trigger('click');
+    await flushPromises();
+
+    expect(roundStore.round?.games.bestBall.enabled).toBe(false);
+    expect(roundStore.round?.games.bestBallAggy).toMatchObject({
+      enabled: true,
+      scoreBasis: 'gross',
+      scoringMode: 'match',
+      stake: { front: 5, back: 5, overall: 10 },
+    });
+    expect(roundStore.round?.games.skins).toMatchObject({ enabled: true, pot: 3, type: 'net' });
   });
 
   it('no longer renders a global scoring-mode toggle', async () => {

@@ -75,6 +75,23 @@ describe('ResultsScreen', () => {
     expect(winner.text()).toContain('Winners');
   });
 
+  it('does not lead match-play team games with stroke-total team scores', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.games.bestBallAggy.enabled = true;
+    round.games.bestBallAggy.scoringMode = 'match';
+    round.pairMatches = [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }];
+    store.setRound(round, players);
+    for (const player of ['Wes', 'Aaron', 'Tito', 'Q']) fillCard(store, player, 5);
+
+    const wrapper = mountResults();
+    await nextTick();
+
+    expect(wrapper.text()).not.toContain('Team Scores');
+    expect(wrapper.text()).toContain('Best Ball + Aggy');
+    expect(wrapper.text()).toContain('Match play');
+  });
+
   it('renders wolf standings and Nassau segments', async () => {
     const store = useRoundStore();
     const { round, players } = demoRound();

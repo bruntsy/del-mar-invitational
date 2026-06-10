@@ -47,6 +47,7 @@ const rosterPlayers = computed(() => sortedGroupPlayers(store.group?.players));
 const resumeCard = computed(() => {
   const round = roundStore.round;
   if (!round) return null;
+  if (store.group && round.groupId !== store.group.id) return null;
   const status = roundStore.roundStatus;
   const subtext = `${courseDisplayName(round.course)} · ${roundStore.holesScoredCount} of 18 holes scored`;
   if (status === 'completed') return { label: 'View results', to: '/results', subtext };
@@ -59,6 +60,8 @@ function resume() {
 }
 
 async function loadGroupData(groupId: string) {
+  const loaded = await roundStore.loadActiveRound(groupId);
+  if (!loaded && roundStore.round?.groupId && roundStore.round.groupId !== groupId) roundStore.reset();
   void history.loadHistory(groupId);
   void stats.loadStats(groupId);
   await eventStore.loadEvent(groupId);
@@ -179,6 +182,13 @@ async function saveEventConfig(config: EventConfig, name: string) {
 function launchEventRound(roundIndex: number) {
   eventStore.setPendingRoundLink(roundIndex);
   void router.push('/setup');
+}
+
+function openEventRound(roundIndex: number) {
+  const roundId = eventStore.event?.config.rounds[roundIndex]?.roundId;
+  const cached = roundId ? eventStore.cachedRounds[roundId] : null;
+  if (cached) roundStore.setRound(cached.round, cached.players);
+  void router.push('/scorecard');
 }
 
 function goHome() {
@@ -368,7 +378,7 @@ function componentResultClass(component: EventComponent): string {
                         v-else
                         class="btn-ghost sm"
                         type="button"
-                        @click="router.push('/scorecard')"
+                        @click="openEventRound(r.roundIndex)"
                       >
                         Open
                       </button>

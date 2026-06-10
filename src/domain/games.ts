@@ -2,7 +2,7 @@ import type { GameConfig } from '@/types';
 
 export const DEFAULT_GAMES: GameConfig = {
   skins: { enabled: false, pot: 0, type: 'net', carry: false },
-  bestBall: { enabled: false, front: 0, back: 0, total: 0, balls: 1, type: 'net' },
+  bestBall: { enabled: false, front: 0, back: 0, total: 0, balls: 1, type: 'net', scoringMode: 'stroke' },
   bestBallAggy: {
     enabled: false,
     scoreBasis: 'net',

@@ -77,6 +77,29 @@ describe('settlement P&L', () => {
     expect(pnl).toEqual({ A: 40, B: 40, C: -40, D: -40 });
   });
 
+  it('settles Best Ball match play by holes won instead of stroke totals', () => {
+    const players = ['A', 'B', 'C', 'D'];
+    const scores = matrix(players);
+    scores.A = [3, 3, 3, 3, 3, 12, 12, 12, 12, 3, 3, 3, 3, 3, 12, 12, 12, 12];
+    scores.B = Array(18).fill(6);
+    scores.C = [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4];
+    scores.D = Array(18).fill(6);
+
+    const pnl = computePlayerPnL(
+      makeInput(players, scores, (g) => {
+        g.bestBall.enabled = true;
+        g.bestBall.type = 'gross';
+        g.bestBall.scoringMode = 'match';
+        g.bestBall.front = 10;
+        g.bestBall.back = 10;
+        g.bestBall.total = 20;
+      }),
+    );
+
+    // Team C/D has lower total strokes, but A/B wins 10 holes to take all match-play segments.
+    expect(pnl).toEqual({ A: 40, B: 40, C: -40, D: -40 });
+  });
+
   it('distributes the skins pot proportionally net of each buy-in', () => {
     const players = ['A', 'B'];
     const scores = matrix(players);

@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import CourseScorecard from '@/components/CourseScorecard.vue';
 import { courseFromSearchTee, selectableCourseTees, type CourseSearchResult, type CourseSearchTee } from '@/domain/courseSearch';
+import { gamesFromEventRound } from '@/domain/events';
 import { cloneDefaultGames, normalizeGames } from '@/domain/games';
 import { sortedGroupPlayers } from '@/domain/players';
 import { autoPlayingGroupsForTeams, autoPlayingGroupsFromPairMatches, normalizePlayingGroups } from '@/domain/playingGroups';
@@ -165,21 +166,7 @@ function prefillPlayersFromGroup() {
 }
 
 function applyEventGames(roundConfig: import('@/types/event').EventRoundConfig) {
-  const g = cloneDefaultGames();
-  const { format, bestBallBet, scrambleBet, skins: sk, puttPoker: pp } = roundConfig;
-
-  if (format === 'bestBallNassau' || format === 'twoManBestBallAggy') {
-    g.bestBall = { enabled: true, front: bestBallBet.front, back: bestBallBet.back, total: bestBallBet.total, balls: 1, type: bestBallBet.type };
-  } else if (format === 'scramble2v2Nassau') {
-    g.scramble4 = { enabled: true, front: scrambleBet.front, back: scrambleBet.back, total: scrambleBet.total, type: scrambleBet.type };
-  } else if (format === 'fourManScramble') {
-    g.scramble4 = { enabled: true, front: scrambleBet.front, back: scrambleBet.back, total: scrambleBet.total, type: scrambleBet.type };
-  }
-
-  if (sk.enabled) g.skins = { enabled: true, pot: sk.pot, type: sk.type, carry: false };
-  if (pp.enabled) g.puttPoker = { enabled: true, pot: pp.pot };
-
-  form.games = g;
+  form.games = gamesFromEventRound(roundConfig);
 }
 
 function courseLabel(course: CourseSearchResult) {
@@ -308,6 +295,7 @@ const errors = computed(() => {
 const canStart = computed(() => errors.value.length === 0);
 
 const hasEventContext = computed(() => event.pendingRoundLink != null);
+const rosterReadOnly = computed(() => hasEventContext.value);
 
 // --- Pair-match builder (Side A vs Side B) ------------------------------
 
@@ -383,6 +371,17 @@ const matchSummaries = computed(() =>
     }),
   })),
 );
+
+const playerPartnerLabels = computed(() => {
+  const labels: Record<string, string> = {};
+  for (const match of cleanedPairMatches.value) {
+    const a = match.a.join(' + ');
+    const b = match.b.join(' + ');
+    const label = `${a || 'TBD'} vs ${b || 'TBD'}`;
+    [...match.a, ...match.b].forEach((player) => { labels[player] = label; });
+  }
+  return labels;
+});
 
 // Prompt before clobbering manually-edited playing groups when matches change.
 watch(
@@ -626,28 +625,48 @@ function goHome() {
 
     <section class="setup-card">
       <h2 class="setup-hdr">Teams &amp; Players</h2>
-      <div class="team-name-grid">
-        <label>Team 1 name<input v-model="form.teamNames.team1" class="form-input" /></label>
-        <label>Team 2 name<input v-model="form.teamNames.team2" class="form-input" /></label>
-      </div>
-      <div class="player-list">
-        <div v-for="(player, index) in form.players" :key="index" class="player-row">
-          <input v-model="player.name" class="form-input" placeholder="Player name" />
-          <input
-            v-model="player.handicapIndex"
-            class="form-input idx-input"
-            type="number"
-            step="0.1"
-            placeholder="Index"
-          />
-          <select v-model="player.team" class="form-input team-select">
-            <option value="team1">{{ form.teamNames.team1 }}</option>
-            <option value="team2">{{ form.teamNames.team2 }}</option>
-          </select>
-          <button class="btn-remove" type="button" title="Remove" @click="removePlayer(index)">✕</button>
+      <div v-if="rosterReadOnly" class="event-roster-preview">
+        <div class="event-roster-team">
+          <div class="event-roster-team-name">{{ form.teamNames.team1 }}</div>
+          <div v-for="row in handicapPreviewRows.filter((p) => team1.includes(p.name))" :key="row.name" class="event-roster-player">
+            <strong>{{ row.name }}</strong>
+            <span>Idx {{ row.index.toFixed(1).replace('.0', '') }}</span>
+            <span>Course {{ row.courseHandicap }}</span>
+          </div>
+        </div>
+        <div class="event-roster-team">
+          <div class="event-roster-team-name">{{ form.teamNames.team2 }}</div>
+          <div v-for="row in handicapPreviewRows.filter((p) => team2.includes(p.name))" :key="row.name" class="event-roster-player">
+            <strong>{{ row.name }}</strong>
+            <span>Idx {{ row.index.toFixed(1).replace('.0', '') }}</span>
+            <span>Course {{ row.courseHandicap }}</span>
+          </div>
         </div>
       </div>
-      <button class="btn-ghost" type="button" @click="addPlayer">+ Add player</button>
+      <template v-else>
+        <div class="team-name-grid">
+          <label>Team 1 name<input v-model="form.teamNames.team1" class="form-input" /></label>
+          <label>Team 2 name<input v-model="form.teamNames.team2" class="form-input" /></label>
+        </div>
+        <div class="player-list">
+          <div v-for="(player, index) in form.players" :key="index" class="player-row">
+            <input v-model="player.name" class="form-input" placeholder="Player name" />
+            <input
+              v-model="player.handicapIndex"
+              class="form-input idx-input"
+              type="number"
+              step="0.1"
+              placeholder="Index"
+            />
+            <select v-model="player.team" class="form-input team-select">
+              <option value="team1">{{ form.teamNames.team1 }}</option>
+              <option value="team2">{{ form.teamNames.team2 }}</option>
+            </select>
+            <button class="btn-remove" type="button" title="Remove" @click="removePlayer(index)">✕</button>
+          </div>
+        </div>
+        <button class="btn-ghost" type="button" @click="addPlayer">+ Add player</button>
+      </template>
 
       <div v-if="handicapPreviewRows.length" class="hcp-preview">
         <h3 class="sub-hdr">Course Handicap Preview</h3>
@@ -671,7 +690,7 @@ function goHome() {
       <div class="games-list">
         <div class="game-row">
           <label class="game-toggle"><input v-model="form.games.skins.enabled" type="checkbox" /> Skins</label>
-          <label class="bet-field">Value per skin<input v-model.number="form.games.skins.pot" class="form-input sm" type="number" min="0" /></label>
+          <label class="bet-field">Buy-in per player<input v-model.number="form.games.skins.pot" class="form-input sm" type="number" min="0" /></label>
           <select v-model="form.games.skins.type" class="form-input sm"><option>net</option><option>gross</option></select>
         </div>
 
@@ -681,7 +700,10 @@ function goHome() {
           <label class="bet-field">Back 9 ($/person)<input v-model.number="form.games.bestBall.back" class="form-input sm" type="number" min="0" /></label>
           <label class="bet-field">Overall ($/person)<input v-model.number="form.games.bestBall.total" class="form-input sm" type="number" min="0" /></label>
           <select v-model="form.games.bestBall.type" class="form-input sm"><option>net</option><option>gross</option></select>
-          <span class="game-note">Stroke play</span>
+          <select v-model="form.games.bestBall.scoringMode" class="form-input sm">
+            <option value="stroke">stroke</option>
+            <option value="match">match</option>
+          </select>
         </div>
 
         <div class="game-row">
@@ -779,10 +801,10 @@ function goHome() {
 
     <section v-if="!hasEventContext && showPairMatches" class="setup-card">
       <div class="pg-header">
-        <h2 class="setup-hdr">Matches</h2>
+        <h2 class="setup-hdr">Teams</h2>
         <button class="btn-ghost sm" type="button" @click="addPairMatch">+ Add match</button>
       </div>
-      <p class="pg-hint">Set Side A vs Side B for each match. These drive Best Ball + Aggy, High/Low and Two-Man Scramble scoring.</p>
+      <p class="pg-hint">Set sides for each team game. These drive Best Ball, Best Ball + Aggy, High/Low and Two-Man Scramble scoring.</p>
 
       <div class="pm-list">
         <div v-for="(_match, mi) in form.pairMatches" :key="mi" class="pair-match-builder">
@@ -840,7 +862,8 @@ function goHome() {
           />
           <div class="pg-players">
             <span v-for="player in group.players" :key="player" class="pg-player-chip">
-              {{ player }}
+              <span>{{ player }}</span>
+              <small v-if="playerPartnerLabels[player]" class="pg-partner-label">{{ playerPartnerLabels[player] }}</small>
               <select
                 v-if="displayPlayingGroups.length > 1"
                 class="pg-move-select"
@@ -1103,6 +1126,41 @@ label {
 
 .team-select {
   max-width: 140px;
+}
+
+.event-roster-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.event-roster-team {
+  border: 1px solid #e0d7c4;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 12px;
+}
+
+.event-roster-team-name {
+  font-weight: 800;
+  color: #2f5d43;
+  margin-bottom: 8px;
+}
+
+.event-roster-player {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  border-top: 1px solid #ece3d2;
+  padding: 7px 0;
+  color: #4a5a4f;
+  font-size: 0.82rem;
+}
+
+.event-roster-player:first-of-type {
+  border-top: 0;
 }
 
 .btn-remove {
@@ -1395,6 +1453,7 @@ label {
 .pg-player-chip {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
   background: #e8f0e8;
   border: 1px solid #b8d4c0;
@@ -1403,6 +1462,12 @@ label {
   font-size: 0.78rem;
   font-weight: 700;
   color: #2f5d43;
+}
+
+.pg-partner-label {
+  color: #6a7a6f;
+  font-size: 0.7rem;
+  font-weight: 700;
 }
 
 .pg-move-select {

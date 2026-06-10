@@ -27,6 +27,14 @@ const teamMembers = computed(() => ({
 const leaderboard = computed(() => store.leaderboard);
 const teamNet = computed(() => store.teamNetTotals);
 const teamGameResults = computed(() => store.teamGameResults);
+const hasPrimaryMatchPlayGame = computed(() =>
+  Boolean(
+    (store.games.bestBallAggy.enabled && store.games.bestBallAggy.scoringMode === 'match') ||
+      (store.games.highBallLowBall.enabled && store.games.highBallLowBall.scoringMode === 'match') ||
+      (store.games.twoManScramble.enabled && store.games.twoManScramble.scoringMode === 'match') ||
+      (store.games.bestBall.enabled && store.games.bestBall.scoringMode === 'match'),
+  ),
+);
 const wolf = computed(() => store.wolfResult);
 const wolfVisible = computed(() => wolf.value.enabled && wolf.value.rows.length > 0);
 const puttPokerEnabled = computed(() => store.games.puttPoker.enabled);
@@ -211,7 +219,7 @@ function goHome() {
         </div>
       </header>
 
-      <section class="rs-section">
+      <section v-if="!hasPrimaryMatchPlayGame" class="rs-section">
         <h2 class="rs-section-hdr">Team Scores</h2>
         <div class="team-grid">
           <div class="team-box" :class="{ winner: teamOutcome.t1Win }">

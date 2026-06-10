@@ -303,9 +303,17 @@ const matchPlayPanels = computed<MpPanel[]>(() => {
 
 const hasMatchPlayPanels = computed(() => matchPlayPanels.value.length > 0);
 
-function holeMark(winner: HoleWinner): string {
-  if (winner === 'a') return 'A';
-  if (winner === 'b') return 'B';
+function sideInitials(label: string): string {
+  return label
+    .split(/\s+\+\s+|\s+\/\s+/)
+    .map((part) => part.trim()[0])
+    .filter(Boolean)
+    .join('');
+}
+
+function holeMark(winner: HoleWinner, match: MpMatch): string {
+  if (winner === 'a') return sideInitials(match.sideA);
+  if (winner === 'b') return sideInitials(match.sideB);
   if (winner === 'tie') return '½';
   return '·';
 }
@@ -817,7 +825,7 @@ const mobilePlayers = computed(() => {
                     </tr>
                     <tr>
                       <td class="name-cell">Result</td>
-                      <td v-for="hole in contest.holes" :key="`r-${hole.hole}`" class="mp-result" :class="`mp-w-${hole.winner ?? 'pending'}`">{{ holeMark(hole.winner) }}</td>
+                      <td v-for="hole in contest.holes" :key="`r-${hole.hole}`" class="mp-result" :class="`mp-w-${hole.winner ?? 'pending'}`">{{ holeMark(hole.winner, match) }}</td>
                     </tr>
                     <tr>
                       <td class="name-cell">Thru</td>

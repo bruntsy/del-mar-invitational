@@ -17,6 +17,7 @@ export interface SkinsConfig {
 
 export interface BestBallConfig extends MoneyNassauConfig {
   balls: number;
+  scoringMode?: 'stroke' | 'match';
 }
 
 export interface WolfConfig {

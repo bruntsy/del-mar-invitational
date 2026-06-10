@@ -560,7 +560,7 @@ function save() {
               Skins
             </label>
             <template v-if="round.skins.enabled">
-              <input v-model.number="round.skins.pot" class="form-input ece-money-input" type="number" min="0" placeholder="Value per skin" />
+              <input v-model.number="round.skins.pot" class="form-input ece-money-input" type="number" min="0" placeholder="Buy-in per player" />
               <select v-model="round.skins.type" class="form-input ece-type-select">
                 <option value="gross">Gross</option>
                 <option value="net">Net</option>
