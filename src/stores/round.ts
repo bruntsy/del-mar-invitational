@@ -268,9 +268,11 @@ export const useRoundStore = defineStore('round', {
       const pnl = computePlayerPnL({
         scoreContext: context,
         teamScores: state.round.teamScores,
+        twoManScrambleTeamScores: state.round.teamScores,
         team1: state.round.team1 || [],
         team2: state.round.team2 || [],
         players: this.playerNames,
+        pairMatches: state.round.pairMatches ?? [],
         games: this.games,
         wolfHoles: state.round.wolf?.holes as Record<string, WolfHoleConfig | undefined> | undefined,
       });

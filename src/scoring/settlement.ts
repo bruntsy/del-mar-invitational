@@ -1,16 +1,24 @@
+import { buildBestBallAggyConfig, scoreBestBallAggy } from '@/scoring/bestBallAggy';
 import { scoreAt } from '@/scoring/cells';
 import { type ScoreContext } from '@/scoring/round';
 import { computeSkins } from '@/scoring/skins';
 import { computeTeamTotals } from '@/scoring/teamGames';
+import {
+  buildTwoManScrambleConfig,
+  scoreTwoManScramble,
+  twoManScrambleTeamKey,
+} from '@/scoring/twoManScramble';
 import { wolfPoints, wolfSegmentWinners, wolfSegments, type WolfHoleConfig } from '@/scoring/wolf';
-import type { GameConfig, ScoreMatrix } from '@/types';
+import type { GameConfig, PairMatch, ScoreMatrix } from '@/types';
 
 export interface SettlementInput {
   scoreContext: ScoreContext;
   teamScores?: ScoreMatrix;
+  twoManScrambleTeamScores?: ScoreMatrix;
   team1: string[];
   team2: string[];
   players: string[];
+  pairMatches?: PairMatch[];
   games: GameConfig;
   wolfHoles?: Record<string, WolfHoleConfig | undefined>;
 }
@@ -43,8 +51,27 @@ function teamScoreRange(
 }
 
 export function computePlayerPnL(input: SettlementInput): Record<string, number> {
-  const { scoreContext, teamScores, team1, team2, players, games: g, wolfHoles } = input;
+  const {
+    scoreContext,
+    teamScores,
+    twoManScrambleTeamScores,
+    team1,
+    team2,
+    players,
+    pairMatches,
+    games: g,
+    wolfHoles,
+  } = input;
   const pnl: Record<string, number> = Object.fromEntries(players.map((player) => [player, 0]));
+
+  const applyLedger = (
+    entries: { fromPlayerId: string; toPlayerId: string; amount: number }[],
+  ) => {
+    for (const entry of entries) {
+      if (entry.fromPlayerId in pnl) pnl[entry.fromPlayerId] -= entry.amount;
+      if (entry.toPlayerId in pnl) pnl[entry.toPlayerId] += entry.amount;
+    }
+  };
 
   if (g.skins.enabled && g.skins.pot) {
     const { skinsByPlayer } = computeSkins(scoreContext, players, g.skins.type);
@@ -74,6 +101,26 @@ export function computePlayerPnL(input: SettlementInput): Record<string, number>
     applyTeam(bb1.bbOut, bb2.bbOut, g.bestBall.front);
     applyTeam(bb1.bbIn, bb2.bbIn, g.bestBall.back);
     applyTeam(bb1.bbTotal, bb2.bbTotal, g.bestBall.total);
+  }
+
+  if (g.bestBallAggy.enabled) {
+    for (const match of pairMatches ?? []) {
+      const config = buildBestBallAggyConfig(match, g.bestBallAggy);
+      const result = scoreBestBallAggy(config, scoreContext);
+      applyLedger(result.ledgerEntries);
+    }
+  }
+
+  if (g.twoManScramble.enabled) {
+    (pairMatches ?? []).forEach((match, index) => {
+      const config = buildTwoManScrambleConfig(match, index, g.twoManScramble);
+      const teamHoleScores = {
+        [twoManScrambleTeamKey(index, 'a')]: twoManScrambleTeamScores?.[twoManScrambleTeamKey(index, 'a')],
+        [twoManScrambleTeamKey(index, 'b')]: twoManScrambleTeamScores?.[twoManScrambleTeamKey(index, 'b')],
+      };
+      const result = scoreTwoManScramble(config, teamHoleScores);
+      applyLedger(result.ledgerEntries);
+    });
   }
 
   if (g.scramble4.enabled) {
@@ -126,6 +173,12 @@ export function gamesHaveBets(g: GameConfig): boolean {
   return Boolean(
     (g.skins.enabled && g.skins.pot) ||
       (g.bestBall.enabled && (g.bestBall.front || g.bestBall.back || g.bestBall.total)) ||
+      (g.bestBallAggy?.enabled &&
+        (g.bestBallAggy.stake.front || g.bestBallAggy.stake.back || g.bestBallAggy.stake.overall)) ||
+      (g.twoManScramble?.enabled &&
+        (g.twoManScramble.stake.front ||
+          g.twoManScramble.stake.back ||
+          g.twoManScramble.stake.overall)) ||
       (g.scramble4.enabled && (g.scramble4.front || g.scramble4.back || g.scramble4.total)) ||
       (g.wolf.enabled && g.wolf.amount) ||
       (g.puttPoker.enabled && g.puttPoker.pot),

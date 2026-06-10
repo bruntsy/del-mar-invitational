@@ -95,6 +95,60 @@ describe('settlement P&L', () => {
     expect(pnl.B).toBeCloseTo(-10);
   });
 
+  it('settles Best Ball + Aggy across pair matches via ledger entries', () => {
+    const players = ['A', 'B', 'C', 'D'];
+    const scores = matrix(players);
+    fill(scores, 'A', 4); // team1 best ball 4, aggy 8
+    fill(scores, 'B', 4);
+    fill(scores, 'C', 5); // team2 best ball 5, aggy 10
+    fill(scores, 'D', 5);
+
+    const pnl = computePlayerPnL(
+      makeInput(
+        players,
+        scores,
+        (g) => {
+          g.bestBallAggy.enabled = true;
+          g.bestBallAggy.scoreBasis = 'gross';
+          g.bestBallAggy.scoringMode = 'stroke';
+          g.bestBallAggy.stake = { front: 10, back: 10, overall: 10 };
+        },
+        { pairMatches: [{ a: ['A', 'B'], b: ['C', 'D'] }] },
+      ),
+    );
+
+    // team1 wins all 6 segments (BB + Aggy x front/back/overall) at $10 each -> +60 / -60
+    expect(pnl).toEqual({ A: 60, B: 60, C: -60, D: -60 });
+  });
+
+  it('settles Two-Man Scramble from the team-score matrix via pair matches', () => {
+    const players = ['A', 'B', 'C', 'D'];
+    const scores = matrix(players);
+    const twoManScrambleTeamScores: ScoreMatrix = {
+      match_0_a: Array(18).fill(4),
+      match_0_b: Array(18).fill(5),
+    };
+
+    const pnl = computePlayerPnL(
+      makeInput(
+        players,
+        scores,
+        (g) => {
+          g.twoManScramble.enabled = true;
+          g.twoManScramble.scoringMode = 'stroke';
+          g.twoManScramble.stake = { front: 10, back: 10, overall: 10 };
+        },
+        {
+          pairMatches: [{ a: ['A', 'B'], b: ['C', 'D'] }],
+          twoManScrambleTeamScores,
+        },
+      ),
+    );
+
+    // team1 wins front/back/overall at $10 each -> +30 / -30
+    expect(pnl).toEqual({ A: 30, B: 30, C: -30, D: -30 });
+  });
+
   it('settles scramble team scores from the team score matrix', () => {
     const players = ['A', 'B', 'C', 'D'];
     const scores = matrix(players);
@@ -156,5 +210,19 @@ describe('gamesHaveBets', () => {
     const games = cloneDefaultGames();
     games.bestBall.enabled = true; // all amounts still zero
     expect(gamesHaveBets(games)).toBe(false);
+  });
+
+  it('detects stakes on bestBallAggy and twoManScramble', () => {
+    const bba = cloneDefaultGames();
+    bba.bestBallAggy.enabled = true;
+    expect(gamesHaveBets(bba)).toBe(false);
+    bba.bestBallAggy.stake.overall = 10;
+    expect(gamesHaveBets(bba)).toBe(true);
+
+    const tms = cloneDefaultGames();
+    tms.twoManScramble.enabled = true;
+    expect(gamesHaveBets(tms)).toBe(false);
+    tms.twoManScramble.stake.front = 5;
+    expect(gamesHaveBets(tms)).toBe(true);
   });
 });

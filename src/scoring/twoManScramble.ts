@@ -1,5 +1,5 @@
 import { cellValue } from '@/scoring/cells';
-import type { ScoreRow } from '@/types';
+import type { PairMatch, ScoreRow, TwoManScrambleGameConfig } from '@/types';
 
 export interface TwoManScrambleTeam {
   id: string;
@@ -62,6 +62,30 @@ const SEGMENT_RANGES: Record<TmsSegment, [number, number]> = {
   back: [9, 18],
   overall: [0, 18],
 };
+
+/** Stable team-score keys for a pair match's two scramble teams. */
+export function twoManScrambleTeamKey(index: number, side: 'a' | 'b'): string {
+  return `match_${index}_${side}`;
+}
+
+/**
+ * Build a single-match TwoManScrambleConfig. Team ids double as the keys used
+ * to look up team-level scramble scores in the team-scores matrix.
+ */
+export function buildTwoManScrambleConfig(
+  match: PairMatch,
+  index: number,
+  game: TwoManScrambleGameConfig,
+): TwoManScrambleConfig {
+  return {
+    teams: [
+      { id: twoManScrambleTeamKey(index, 'a'), players: [...match.a] },
+      { id: twoManScrambleTeamKey(index, 'b'), players: [...match.b] },
+    ],
+    scoringMode: game.scoringMode,
+    stake: { ...game.stake },
+  };
+}
 
 function validateConfig(config: TwoManScrambleConfig): string | null {
   if (!config.teams || config.teams.length !== 2) {

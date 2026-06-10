@@ -4,7 +4,7 @@ import {
   playerHoleScore,
   type ScoreContext,
 } from '@/scoring/round';
-import type { ScoreType } from '@/types';
+import type { BestBallAggyGameConfig, PairMatch, ScoreType } from '@/types';
 
 export interface BestBallAggyTeam {
   id: string;
@@ -88,6 +88,25 @@ const SEGMENT_RANGES: Record<BbaSegment, [number, number]> = {
   back: [9, 18],
   overall: [0, 18],
 };
+
+/**
+ * Build a single-match BestBallAggyConfig from a pair match (a = team1 side,
+ * b = team2 side) and the round's Best Ball + Aggy game settings.
+ */
+export function buildBestBallAggyConfig(
+  match: PairMatch,
+  game: BestBallAggyGameConfig,
+): BestBallAggyConfig {
+  return {
+    teams: [
+      { id: 'a', players: [...match.a] },
+      { id: 'b', players: [...match.b] },
+    ],
+    scoreBasis: game.scoreBasis,
+    scoringMode: game.scoringMode,
+    stake: { ...game.stake },
+  };
+}
 
 function validateConfig(config: BestBallAggyConfig): string | null {
   if (!config.teams || config.teams.length !== 2) {
