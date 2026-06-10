@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { getsStroke } from '@/scoring/handicap';
 import { playerHoleScore } from '@/scoring/round';
 import { puttPenaltyNote } from '@/scoring/puttPoker';
+import { runningMatchStatus, type HoleWinner } from '@/scoring/matchStatus';
 import { useRoundStore } from '@/stores/round';
 
 const store = useRoundStore();
@@ -155,6 +156,158 @@ const twoManScrambleMatches = computed(() => {
 
 function holeWinnerClass(_hole: number): string {
   return '';
+}
+
+// ── Match-play visibility (BB+Aggy, High/Low, Two-Man Scramble) ───────────────
+// Read-only per-hole derived team scores + hole winners + running match status,
+// driven by the existing scoring-module holeResults.
+
+interface MpHole {
+  hole: number;
+  a: number | null;
+  b: number | null;
+  winner: HoleWinner;
+  status: string;
+  short: string;
+  leader: 'a' | 'b' | null;
+}
+interface MpContest {
+  name: string;
+  holes: MpHole[];
+  finalLabel: string;
+}
+interface MpMatch {
+  label: string;
+  sideA: string;
+  sideB: string;
+  contests: MpContest[];
+}
+interface MpPanel {
+  gameLabel: string;
+  basis: string;
+  matches: MpMatch[];
+}
+
+function toSide(winnerId: string | undefined, tied: boolean, incomplete: boolean, aId: string): HoleWinner {
+  if (incomplete) return null;
+  if (tied) return 'tie';
+  if (winnerId === aId) return 'a';
+  if (winnerId != null) return 'b';
+  return null;
+}
+
+function buildContest<T extends { holeNumber: number; incomplete: boolean }>(
+  name: string,
+  holeResults: T[],
+  getScore: (hr: T, side: 'a' | 'b') => number | null,
+  getWinner: (hr: T) => HoleWinner,
+): MpContest {
+  const winners = holeResults.map(getWinner);
+  const status = runningMatchStatus(winners, { closeout: true });
+  return {
+    name,
+    holes: holeResults.map((hr, i) => {
+      const s = status[i];
+      const short = !s || s.label === 'Pending' ? '–' : s.leader === null ? 'AS' : `${s.leader.toUpperCase()}${s.diff}`;
+      return {
+        hole: hr.holeNumber,
+        a: getScore(hr, 'a'),
+        b: getScore(hr, 'b'),
+        winner: winners[i],
+        status: s?.label ?? 'Pending',
+        short,
+        leader: s?.leader ?? null,
+      };
+    }),
+    finalLabel: status.length ? status[status.length - 1].label : 'Pending',
+  };
+}
+
+const matchPlayPanels = computed<MpPanel[]>(() => {
+  const panels: MpPanel[] = [];
+
+  const aggy = store.bestBallAggyResults;
+  if (aggy.length) {
+    panels.push({
+      gameLabel: 'Best Ball + Aggy',
+      basis: store.games.bestBallAggy.scoreBasis,
+      matches: aggy.map((res, mi) => {
+        const [tA, tB] = res.teams;
+        const id = (side: 'a' | 'b') => (side === 'a' ? tA.id : tB.id);
+        return {
+          label: `Match ${mi + 1}`,
+          sideA: tA.players.join(' + '),
+          sideB: tB.players.join(' + '),
+          contests: [
+            buildContest('Best Ball', res.holeResults,
+              (hr, s) => hr.teamScores[id(s)]?.bestBallScore ?? null,
+              (hr) => toSide(hr.bestBallWinnerTeamId, hr.bestBallTied, hr.incomplete, tA.id)),
+            buildContest('Aggregate', res.holeResults,
+              (hr, s) => hr.teamScores[id(s)]?.aggyScore ?? null,
+              (hr) => toSide(hr.aggyWinnerTeamId, hr.aggyTied, hr.incomplete, tA.id)),
+          ],
+        };
+      }),
+    });
+  }
+
+  const highLow = store.highBallLowBallResults;
+  if (highLow.length) {
+    panels.push({
+      gameLabel: 'High Ball / Low Ball',
+      basis: store.games.highBallLowBall.scoreBasis,
+      matches: highLow.map((res, mi) => {
+        const [tA, tB] = res.teams;
+        const id = (side: 'a' | 'b') => (side === 'a' ? tA.id : tB.id);
+        return {
+          label: `Match ${mi + 1}`,
+          sideA: tA.players.join(' + '),
+          sideB: tB.players.join(' + '),
+          contests: [
+            buildContest('Low Ball', res.holeResults,
+              (hr, s) => hr.teamScores[id(s)]?.lowBallScore ?? null,
+              (hr) => toSide(hr.lowBallWinnerTeamId, hr.lowBallTied, hr.incomplete, tA.id)),
+            buildContest('High Ball', res.holeResults,
+              (hr, s) => hr.teamScores[id(s)]?.highBallScore ?? null,
+              (hr) => toSide(hr.highBallWinnerTeamId, hr.highBallTied, hr.incomplete, tA.id)),
+          ],
+        };
+      }),
+    });
+  }
+
+  const scramble = store.twoManScrambleResults;
+  if (scramble.length) {
+    panels.push({
+      gameLabel: 'Two-Man Scramble',
+      basis: 'gross',
+      matches: scramble.map((res, mi) => {
+        const [tA, tB] = res.teams;
+        const id = (side: 'a' | 'b') => (side === 'a' ? tA.id : tB.id);
+        return {
+          label: `Match ${mi + 1}`,
+          sideA: tA.players.join(' + '),
+          sideB: tB.players.join(' + '),
+          contests: [
+            buildContest('Scramble', res.holeResults,
+              (hr, s) => hr.teamScores[id(s)]?.scrambleScore ?? null,
+              (hr) => toSide(hr.winnerTeamId, hr.tied, hr.incomplete, tA.id)),
+          ],
+        };
+      }),
+    });
+  }
+
+  return panels;
+});
+
+const hasMatchPlayPanels = computed(() => matchPlayPanels.value.length > 0);
+
+function holeMark(winner: HoleWinner): string {
+  if (winner === 'a') return 'A';
+  if (winner === 'b') return 'B';
+  if (winner === 'tie') return '½';
+  return '·';
 }
 
 // C1 Part B: which player contributed the best ball score for a team on a hole
@@ -629,6 +782,55 @@ const mobilePlayers = computed(() => {
         </table>
       </div><!-- end sc-table-wrap / v-if="!mobileMode" -->
 
+      <section v-if="hasMatchPlayPanels" class="mp-live">
+        <div v-for="panel in matchPlayPanels" :key="panel.gameLabel" class="mp-panel">
+          <div class="mp-panel-title">
+            <span>{{ panel.gameLabel }}</span>
+            <span class="mp-basis">{{ panel.basis }}</span>
+          </div>
+          <div v-for="match in panel.matches" :key="`${panel.gameLabel}-${match.label}`" class="mp-match">
+            <div class="mp-match-head">
+              <strong>{{ match.label }}</strong>
+              <span class="mp-vs">{{ match.sideA }} <em>vs</em> {{ match.sideB }}</span>
+            </div>
+            <div v-for="contest in match.contests" :key="contest.name" class="mp-contest">
+              <div class="mp-contest-head">
+                <span class="mp-contest-name">{{ contest.name }}</span>
+                <span class="mp-final" :class="{ pending: contest.finalLabel === 'Pending' }">{{ contest.finalLabel }}</span>
+              </div>
+              <div class="sc-table-wrap">
+                <table class="sc-table mp-table">
+                  <thead>
+                    <tr class="row-holes">
+                      <th class="col-name">Hole</th>
+                      <th v-for="hole in contest.holes" :key="`h-${hole.hole}`">{{ hole.hole }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="name-cell">{{ match.sideA }}</td>
+                      <td v-for="hole in contest.holes" :key="`a-${hole.hole}`" class="mp-score" :class="{ 'mp-win': hole.winner === 'a' }">{{ hole.a ?? '–' }}</td>
+                    </tr>
+                    <tr>
+                      <td class="name-cell">{{ match.sideB }}</td>
+                      <td v-for="hole in contest.holes" :key="`b-${hole.hole}`" class="mp-score" :class="{ 'mp-win': hole.winner === 'b' }">{{ hole.b ?? '–' }}</td>
+                    </tr>
+                    <tr>
+                      <td class="name-cell">Result</td>
+                      <td v-for="hole in contest.holes" :key="`r-${hole.hole}`" class="mp-result" :class="`mp-w-${hole.winner ?? 'pending'}`">{{ holeMark(hole.winner) }}</td>
+                    </tr>
+                    <tr>
+                      <td class="name-cell">Thru</td>
+                      <td v-for="hole in contest.holes" :key="`s-${hole.hole}`" class="mp-thru" :class="`mp-lead-${hole.leader ?? 'none'}`" :title="hole.status">{{ hole.short }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section v-if="twoManScrambleEnabled" class="tms-live">
         <div class="tms-live-title">
           <span>Two-Man Scramble</span>
@@ -1059,6 +1261,107 @@ const mobilePlayers = computed(() => {
 
 .hole-win-team1 { background: rgba(47, 93, 67, 0.10); }
 .hole-win-team2 { background: rgba(180, 71, 58, 0.10); }
+
+/* Match-play panels (BB+Aggy, High/Low, Two-Man Scramble) */
+.mp-live {
+  display: grid;
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.mp-panel-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #2f5d43;
+  margin-bottom: 8px;
+}
+
+.mp-basis {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a672f;
+}
+
+.mp-match {
+  margin-bottom: 14px;
+}
+
+.mp-match-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.mp-vs {
+  font-size: 0.82rem;
+  color: #4a5a4f;
+}
+
+.mp-vs em {
+  color: #8a9489;
+  font-style: normal;
+  font-weight: 700;
+  padding: 0 2px;
+}
+
+.mp-contest {
+  margin-bottom: 10px;
+}
+
+.mp-contest-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.mp-contest-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #283b30;
+}
+
+.mp-final {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #2f5d43;
+}
+
+.mp-final.pending {
+  color: #8a9489;
+}
+
+.mp-table .mp-score,
+.mp-table .mp-result,
+.mp-table .mp-thru {
+  text-align: center;
+}
+
+.mp-table .mp-win {
+  font-weight: 800;
+  background: rgba(47, 93, 67, 0.12);
+}
+
+.mp-w-a { background: rgba(47, 93, 67, 0.16); font-weight: 800; }
+.mp-w-b { background: rgba(180, 71, 58, 0.16); font-weight: 800; }
+.mp-w-tie { color: #8a672f; }
+.mp-w-pending { color: #b8c0b8; }
+
+.mp-thru {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #6a7a6f;
+}
+
+.mp-lead-a { color: #2f5d43; }
+.mp-lead-b { color: #b4473a; }
 
 .is-best-ball input { font-weight: 900; text-decoration: underline; }
 
