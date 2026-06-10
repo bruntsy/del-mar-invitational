@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { gamesFromEventRound } from '@/domain/events';
 import { buildScoreContext } from '@/composables/useEventLeaderboard';
 import { buildBestBallAggyConfig, scoreBestBallAggy } from '@/scoring/bestBallAggy';
 import { buildHighBallLowBallConfig, scoreHighBallLowBall } from '@/scoring/highBallLowBall';
+import { finalMatchStatus, runningMatchStatus, type HoleWinner } from '@/scoring/matchStatus';
 import { buildTwoManScrambleConfig, scoreTwoManScramble, twoManScrambleTeamKey } from '@/scoring/twoManScramble';
 import { useEventStore } from '@/stores/event';
 import { useRoundStore } from '@/stores/round';
@@ -105,6 +106,7 @@ const teamOutcome = computed(() => {
 const skinsEnabled = computed(() => store.games.skins.enabled);
 const skinHoles = computed(() => store.skins.holeResults);
 const completed = computed(() => store.round?.completed ?? false);
+const expandedHblDetails = ref<Record<string, boolean>>({});
 
 interface SegmentDisplayRow {
   label: string;
@@ -113,6 +115,23 @@ interface SegmentDisplayRow {
   winnerSide: 'a' | 'b' | null;
   status: 'win' | 'push' | 'open';
   stake: number;
+}
+
+interface HblHoleDisplay {
+  hole: number;
+  a: number | null;
+  b: number | null;
+  result: string;
+  status: string;
+  winnerSide: 'a' | 'b' | 'tie' | null;
+}
+
+interface HblContestDisplay {
+  key: 'lowBall' | 'highBall';
+  label: string;
+  status: string;
+  segments: SegmentDisplayRow[];
+  holes: HblHoleDisplay[];
 }
 
 function segmentRow(
@@ -141,6 +160,79 @@ function segmentRow(
     winnerSide = seg.winnerTeamId === aId ? 'a' : seg.winnerTeamId === bId ? 'b' : null;
   }
   return { label, a, b, winnerSide, status, stake: seg.stakePerPerson };
+}
+
+function sideName(side: 'a' | 'b' | null, aName: string, bName: string): string {
+  if (side === 'a') return aName;
+  if (side === 'b') return bName;
+  return '';
+}
+
+function matchStatusLabel(winners: HoleWinner[], aName: string, bName: string): string {
+  const status = finalMatchStatus(winners, { closeout: true });
+  if (status.label === 'Pending') return 'In progress';
+  if (status.leader === null) return 'All square';
+  const leader = sideName(status.leader, aName, bName);
+  return status.decided ? `${leader} wins ${status.label}` : `${leader} ${status.label.toLowerCase()}`;
+}
+
+function segmentSummaryLabel(row: SegmentDisplayRow, aName: string, bName: string): string {
+  if (row.status === 'open') return 'In progress';
+  if (row.status === 'push') return 'Push';
+  const winner = sideName(row.winnerSide, aName, bName);
+  if (row.a == null || row.b == null) return winner || 'In progress';
+  return `${winner} ${row.a}-${row.b}`;
+}
+
+function holeWinnerSide(winnerTeamId: string | undefined, tied: boolean, incomplete: boolean, aId: string): HoleWinner {
+  if (incomplete) return null;
+  if (tied) return 'tie';
+  if (winnerTeamId === aId) return 'a';
+  if (winnerTeamId) return 'b';
+  return null;
+}
+
+function holeResultLabel(winner: HoleWinner, aName: string, bName: string): string {
+  if (winner === 'a') return aName;
+  if (winner === 'b') return bName;
+  if (winner === 'tie') return 'Push';
+  return 'In progress';
+}
+
+function hblContest(
+  key: 'lowBall' | 'highBall',
+  label: string,
+  match: ReturnType<typeof scoreHighBallLowBall>,
+  rows: SegmentDisplayRow[],
+  aName: string,
+  bName: string,
+): HblContestDisplay {
+  const aId = match.teams[0].id;
+  const bId = match.teams[1].id;
+  const scoreKey = key === 'lowBall' ? 'lowBallScore' : 'highBallScore';
+  const winnerKey = key === 'lowBall' ? 'lowBallWinnerTeamId' : 'highBallWinnerTeamId';
+  const tiedKey = key === 'lowBall' ? 'lowBallTied' : 'highBallTied';
+  const winners = match.holeResults.map((hole) =>
+    holeWinnerSide(hole[winnerKey], hole[tiedKey], hole.incomplete, aId),
+  );
+  const statuses = runningMatchStatus(winners, { closeout: true });
+  return {
+    key,
+    label,
+    status: matchStatusLabel(winners, aName, bName),
+    segments: rows,
+    holes: match.holeResults.map((hole, index) => {
+      const winner = winners[index];
+      return {
+        hole: hole.holeNumber,
+        a: hole.teamScores[aId][scoreKey],
+        b: hole.teamScores[bId][scoreKey],
+        result: holeResultLabel(winner, aName, bName),
+        status: statuses[index]?.label === 'Pending' ? 'In progress' : statuses[index]?.label ?? 'In progress',
+        winnerSide: winner,
+      };
+    }),
+  };
 }
 
 const eventBestBallAggyResults = computed(() => {
@@ -207,26 +299,43 @@ const highBallLowBallResults = computed(() =>
     const aId = r.teams[0].id;
     const bId = r.teams[1].id;
     const mode = r.scoringMode;
+    const aName = r.teams[0].players.join(' + ') || 'Team A';
+    const bName = r.teams[1].players.join(' + ') || 'Team B';
+    const lowRows = [
+      segmentRow('Front', r.segmentResults.lowBall.front, aId, bId, mode),
+      segmentRow('Back', r.segmentResults.lowBall.back, aId, bId, mode),
+      segmentRow('Overall', r.segmentResults.lowBall.overall, aId, bId, mode),
+    ];
+    const highRows = [
+      segmentRow('Front', r.segmentResults.highBall.front, aId, bId, mode),
+      segmentRow('Back', r.segmentResults.highBall.back, aId, bId, mode),
+      segmentRow('Overall', r.segmentResults.highBall.overall, aId, bId, mode),
+    ];
     return {
       index,
-      aName: r.teams[0].players.join(' + ') || 'Team A',
-      bName: r.teams[1].players.join(' + ') || 'Team B',
+      aName,
+      bName,
       mode,
       basis: r.scoreBasis,
       unit: mode === 'match' ? 'holes' : 'strokes',
       valid: r.valid,
       validationError: r.validationError,
-      rows: [
-        segmentRow('Low Ball — Front', r.segmentResults.lowBall.front, aId, bId, mode),
-        segmentRow('Low Ball — Back', r.segmentResults.lowBall.back, aId, bId, mode),
-        segmentRow('Low Ball — Overall', r.segmentResults.lowBall.overall, aId, bId, mode),
-        segmentRow('High Ball — Front', r.segmentResults.highBall.front, aId, bId, mode),
-        segmentRow('High Ball — Back', r.segmentResults.highBall.back, aId, bId, mode),
-        segmentRow('High Ball — Overall', r.segmentResults.highBall.overall, aId, bId, mode),
+      contests: [
+        hblContest('lowBall', 'Low Ball', r, lowRows, aName, bName),
+        hblContest('highBall', 'High Ball', r, highRows, aName, bName),
       ],
     };
   }),
 );
+
+function hblDetailKey(matchIndex: number, contest: HblContestDisplay): string {
+  return `${matchIndex}-${contest.key}`;
+}
+
+function toggleHblDetails(matchIndex: number, contest: HblContestDisplay) {
+  const key = hblDetailKey(matchIndex, contest);
+  expandedHblDetails.value = { ...expandedHblDetails.value, [key]: !expandedHblDetails.value[key] };
+}
 
 const twoManScrambleResults = computed(() =>
   (eventTwoManScrambleResults.value.length ? eventTwoManScrambleResults.value : store.twoManScrambleResults).map((r, index) => {
@@ -440,33 +549,60 @@ function goGroup() {
 
       <section v-if="highBallLowBallResults.length" class="rs-section">
         <h2 class="rs-section-hdr">High Ball / Low Ball</h2>
-        <div v-for="match in highBallLowBallResults" :key="`hbl-${match.index}`" class="bba-match">
+        <div v-for="match in highBallLowBallResults" :key="`hbl-${match.index}`" class="hbl-match">
           <div class="bba-head">
             <span class="bba-vs">{{ match.aName }} <span class="bba-vs-sep">vs</span> {{ match.bName }}</span>
             <span class="bba-meta">{{ match.mode === 'match' ? 'Match play' : 'Stroke play' }} · {{ match.basis }}</span>
           </div>
           <p v-if="!match.valid" class="bba-error">{{ match.validationError }}</p>
-          <table v-else class="rs-table bba-table">
-            <thead>
-              <tr>
-                <th>Bet</th>
-                <th>{{ match.aName }}</th>
-                <th>{{ match.bName }}</th>
-                <th>Result</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in match.rows" :key="row.label" :class="`status-${row.status}`">
-                <td class="bba-bet">
-                  <span class="bba-contest">{{ betLabelParts(row.label).contest }}</span>
-                  <span v-if="betLabelParts(row.label).segment" class="bba-segment">{{ betLabelParts(row.label).segment }}</span>
-                </td>
-                <td :class="{ 'bba-win': row.winnerSide === 'a' }">{{ dash(row.a) }}</td>
-                <td :class="{ 'bba-win': row.winnerSide === 'b' }">{{ dash(row.b) }}</td>
-                <td class="bba-result">{{ outcomeLabel(row, match.aName, match.bName) }}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div v-else class="hbl-contests">
+            <article v-for="contest in match.contests" :key="contest.key" class="hbl-card">
+              <div class="hbl-card-head">
+                <div>
+                  <h3>{{ contest.label }}</h3>
+                  <p>{{ contest.status }}</p>
+                </div>
+                <span class="hbl-status" :class="{ pending: contest.status === 'In progress' }">{{ contest.status }}</span>
+              </div>
+
+              <div class="hbl-segments">
+                <div
+                  v-for="segment in contest.segments"
+                  :key="segment.label"
+                  class="hbl-segment"
+                  :class="`status-${segment.status}`"
+                >
+                  <span>{{ segment.label }}</span>
+                  <strong>{{ segmentSummaryLabel(segment, match.aName, match.bName) }}</strong>
+                </div>
+              </div>
+
+              <button class="btn-ghost hbl-toggle" type="button" @click="toggleHblDetails(match.index, contest)">
+                {{ expandedHblDetails[hblDetailKey(match.index, contest)] ? 'Hide hole-by-hole' : 'View hole-by-hole' }}
+              </button>
+
+              <div v-if="expandedHblDetails[hblDetailKey(match.index, contest)]" class="hbl-detail">
+                <div class="hbl-legend">
+                  <span>AS = all square</span>
+                  <span>Push = tied hole or segment</span>
+                  <span>{{ match.aName }} / {{ match.bName }} = winning side</span>
+                </div>
+                <div class="hbl-timeline">
+                  <div v-for="hole in contest.holes" :key="`${contest.key}-${hole.hole}`" class="hbl-hole" :class="`winner-${hole.winnerSide ?? 'open'}`">
+                    <div class="hbl-hole-top">
+                      <strong>Hole {{ hole.hole }}</strong>
+                      <span>{{ hole.status }}</span>
+                    </div>
+                    <div class="hbl-hole-scores">
+                      <span>{{ match.aName }}: <strong>{{ dash(hole.a) }}</strong></span>
+                      <span>{{ match.bName }}: <strong>{{ dash(hole.b) }}</strong></span>
+                    </div>
+                    <div class="hbl-hole-result">Result: {{ hole.result }}</div>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
         </div>
       </section>
 
@@ -849,6 +985,182 @@ function goGroup() {
   color: #a3433a;
   font-size: 0.85rem;
 }
+
+.hbl-match + .hbl-match {
+  margin-top: 16px;
+}
+
+.hbl-match {
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 12px;
+}
+
+.hbl-contests {
+  display: grid;
+  gap: 12px;
+}
+
+.hbl-card {
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fffdf7;
+  padding: 12px;
+}
+
+.hbl-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.hbl-card h3 {
+  margin: 0;
+  color: #24362c;
+  font-size: 1rem;
+}
+
+.hbl-card p {
+  margin: 3px 0 0;
+  color: #4a5a4f;
+  font-weight: 800;
+}
+
+.hbl-status {
+  border-radius: 999px;
+  background: #e8f0e8;
+  color: #2f5d43;
+  padding: 4px 9px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.hbl-status.pending {
+  background: #ece8da;
+  color: #8a672f;
+}
+
+.hbl-segments {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.hbl-segment {
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #f8f4ea;
+  padding: 8px 10px;
+}
+
+.hbl-segment span {
+  display: block;
+  color: #8a9489;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hbl-segment strong {
+  display: block;
+  margin-top: 3px;
+  color: #24362c;
+  font-size: 0.86rem;
+}
+
+.hbl-segment.status-win {
+  border-color: #cddfcf;
+  background: #f3faf2;
+}
+
+.hbl-segment.status-push {
+  border-color: #eadfca;
+  background: #fbf6ea;
+}
+
+.hbl-segment.status-open {
+  color: #8a672f;
+}
+
+.hbl-toggle {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 12px;
+}
+
+.hbl-detail {
+  margin-top: 12px;
+  border-top: 1px solid #e4ddcd;
+  padding-top: 12px;
+}
+
+.hbl-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-bottom: 10px;
+  color: #6a7a6f;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.hbl-timeline {
+  display: grid;
+  gap: 8px;
+}
+
+.hbl-hole {
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 9px 10px;
+}
+
+.hbl-hole.winner-a {
+  border-left: 4px solid #2f5d43;
+}
+
+.hbl-hole.winner-b {
+  border-left: 4px solid #b1462f;
+}
+
+.hbl-hole.winner-tie {
+  border-left: 4px solid #c9a14a;
+}
+
+.hbl-hole-top,
+.hbl-hole-scores {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hbl-hole-top strong {
+  color: #24362c;
+}
+
+.hbl-hole-top span {
+  color: #2f5d43;
+  font-weight: 800;
+}
+
+.hbl-hole-scores {
+  margin-top: 5px;
+  color: #4a5a4f;
+}
+
+.hbl-hole-result {
+  margin-top: 5px;
+  color: #6a7a6f;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
 .rs-skins { color: #8a672f; }
 
 .pnl-table {
@@ -1155,5 +1467,46 @@ function goGroup() {
   border: 1px solid #c0392b;
   background: transparent;
   color: #b1462f;
+}
+
+@media (max-width: 760px) {
+  .rs-shell {
+    padding: 16px 14px 40px;
+  }
+
+  .rs-actions,
+  .rs-actions button {
+    width: 100%;
+  }
+
+  .rs-actions button,
+  .btn-primary,
+  .btn-ghost,
+  .btn-complete,
+  .btn-danger {
+    min-height: 44px;
+  }
+
+  .rs-section {
+    padding: 14px;
+  }
+
+  .hbl-segments {
+    grid-template-columns: 1fr;
+  }
+
+  .hbl-card-head {
+    flex-direction: column;
+  }
+
+  .hbl-status {
+    white-space: normal;
+  }
+
+  .hbl-hole-top,
+  .hbl-hole-scores {
+    display: grid;
+    gap: 4px;
+  }
 }
 </style>

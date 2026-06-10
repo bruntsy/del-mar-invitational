@@ -130,6 +130,19 @@ describe('ResultsScreen', () => {
     expect(wrapper.text()).toContain('Low Ball');
     expect(wrapper.text()).toContain('High Ball');
     expect(wrapper.text()).toContain('Front');
+    expect(wrapper.findAll('.hbl-card')).toHaveLength(2);
+    expect(wrapper.find('.hbl-card').text()).toContain('Wes + Aaron wins');
+    expect(wrapper.findAll('.hbl-segment')).toHaveLength(6);
+    expect(wrapper.findAll('.hbl-toggle')).toHaveLength(2);
+    expect(wrapper.find('.hbl-timeline').exists()).toBe(false);
+
+    await wrapper.find('.hbl-toggle').trigger('click');
+    await nextTick();
+
+    expect(wrapper.find('.hbl-timeline').exists()).toBe(true);
+    expect(wrapper.findAll('.hbl-hole')).toHaveLength(18);
+    expect(wrapper.find('.hbl-legend').text()).toContain('AS = all square');
+    expect(wrapper.find('.hbl-hole').text()).toContain('Hole 1');
   });
 
   it('renders wolf standings and Nassau segments', async () => {
