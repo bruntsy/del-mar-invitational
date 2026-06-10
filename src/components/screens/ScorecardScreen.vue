@@ -23,7 +23,10 @@ onMounted(() => {
   if (store.round?.groupId && !eventStore.event) {
     void eventStore.loadEvent(store.round.groupId).then(() => eventStore.loadLinkedRounds());
   }
-  if (typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 760px)').matches) holeView.value = true;
+  if (typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 760px)').matches) {
+    holeView.value = true;
+    if (playingGroups.value.length > 1) selectedGroupIndex.value = 0;
+  }
   loadMobileHole();
 });
 
@@ -54,6 +57,37 @@ const courseSub = computed(() => {
   const c = course.value;
   if (!c) return '';
   return [c.location, c.tee?.name ? `${c.tee.name} tees` : '', roundTypeLabel.value].filter(Boolean).join(' · ');
+});
+
+const scorecardTitle = computed(() => {
+  const eventRound = activeEventRound.value;
+  return eventRound ? `Event Round ${eventRound.index + 1}` : courseTitle.value;
+});
+
+const scorecardSub = computed(() => {
+  const eventRound = activeEventRound.value;
+  if (!eventRound) return courseSub.value;
+  return [eventRound.config.name, courseTitle.value, courseSub.value].filter(Boolean).join(' · ');
+});
+
+const eventTeamNames = computed(() => {
+  const config = activeEventRound.value?.eventConfig;
+  return {
+    team1: config?.teamNames.team1 || store.round?.teamNames.team1 || 'Team A',
+    team2: config?.teamNames.team2 || store.round?.teamNames.team2 || 'Team B',
+  };
+});
+
+const eventRoundScore = computed(() => {
+  const result = activeEventResult.value;
+  if (!result) return null;
+  return {
+    label: 'Round points',
+    team1Name: eventTeamNames.value.team1,
+    team2Name: eventTeamNames.value.team2,
+    team1: result.team1,
+    team2: result.team2,
+  };
 });
 
 const enabledGameLabels = computed(() => {
@@ -568,6 +602,27 @@ const activeGroupPlayers = computed<Set<string>>(() => {
   return new Set(playingGroups.value[selectedGroupIndex.value]?.players ?? []);
 });
 
+const activeMobileGroup = computed(() => {
+  if (!holeView.value || playingGroups.value.length <= 1) return null;
+  const index = selectedGroupIndex.value >= 0 ? selectedGroupIndex.value : 0;
+  return playingGroups.value[index] ?? null;
+});
+
+const mobileEventGroupContext = computed(() => {
+  const round = store.round;
+  const group = activeMobileGroup.value;
+  if (!round || !group || !activeEventRound.value) return null;
+  const team1 = group.players.filter((player) => (round.team1 || []).includes(player));
+  const team2 = group.players.filter((player) => (round.team2 || []).includes(player));
+  return {
+    groupName: group.name,
+    team1Name: eventTeamNames.value.team1,
+    team2Name: eventTeamNames.value.team2,
+    team1,
+    team2,
+  };
+});
+
 const filteredTeamRows = computed(() =>
   teamRows.value
     .map((team) => ({ ...team, players: team.players.filter((p) => activeGroupPlayers.value.has(p)) }))
@@ -652,6 +707,8 @@ function adjustPutt(player: string, delta: number) {
 }
 
 const mobilePlayers = computed(() => {
+  const mobileGroup = activeMobileGroup.value;
+  if (mobileGroup) return mobileGroup.players;
   if (selectedGroupIndex.value >= 0) {
     return playingGroups.value[selectedGroupIndex.value]?.players ?? store.playerNames;
   }
@@ -680,19 +737,28 @@ const mobileMatchSummaries = computed(() =>
     <template v-if="store.round && course">
       <header class="sc-topbar">
         <div>
-          <h1 class="sc-title">{{ courseTitle }}</h1>
-          <p class="sc-sub">{{ courseSub }}</p>
+          <p v-if="activeEventRound" class="sc-kicker">Team event scorecard</p>
+          <h1 class="sc-title">{{ scorecardTitle }}</h1>
+          <p class="sc-sub">{{ scorecardSub }}</p>
+          <div v-if="eventRoundScore" class="event-score-banner" aria-label="Event round score">
+            <span>{{ eventRoundScore.label }}</span>
+            <strong>{{ eventRoundScore.team1Name }} {{ eventRoundScore.team1 }} - {{ eventRoundScore.team2 }} {{ eventRoundScore.team2Name }}</strong>
+          </div>
         </div>
         <div class="sc-topbar-actions">
           <button class="btn-primary" type="button" @click="goResults">Results →</button>
-          <button class="btn-ghost" type="button" @click="router.push('/setup?edit=1')">Edit Round</button>
-          <button class="btn-ghost" type="button" @click="goGroup">← Back to group</button>
+          <button class="btn-ghost" type="button" @click="router.push('/setup?edit=1')">Edit round</button>
+          <button class="btn-ghost" type="button" @click="goGroup">
+            {{ activeEventRound ? 'Back to event' : 'Back to group' }}
+          </button>
         </div>
       </header>
 
       <!-- Group filter (shown when more than one playing group exists) -->
       <div v-if="playingGroups.length > 1" class="group-filter">
+        <span class="group-filter-label">Playing group</span>
         <button
+          v-if="!holeView"
           class="gf-btn"
           :class="{ active: selectedGroupIndex === -1 }"
           type="button"
@@ -719,6 +785,18 @@ const mobileMatchSummaries = computed(() =>
             <span class="mobile-hole-course">{{ courseTitle }} · {{ course?.tee?.name ?? 'Tee' }} tees</span>
           </div>
           <button class="btn-ghost" type="button" :disabled="mobileHole === 17" @click="nextHole">→</button>
+        </div>
+
+        <div v-if="mobileEventGroupContext" class="mobile-event-context">
+          <div>
+            <span class="mobile-event-label">{{ mobileEventGroupContext.groupName }}</span>
+            <strong>{{ mobileEventGroupContext.team1Name }}: {{ mobileEventGroupContext.team1.join(' + ') || 'No players' }}</strong>
+            <strong>{{ mobileEventGroupContext.team2Name }}: {{ mobileEventGroupContext.team2.join(' + ') || 'No players' }}</strong>
+          </div>
+          <div v-if="eventRoundScore" class="mobile-event-score">
+            <span>{{ eventRoundScore.label }}</span>
+            <strong>{{ eventRoundScore.team1Name }} {{ eventRoundScore.team1 }} - {{ eventRoundScore.team2 }} {{ eventRoundScore.team2Name }}</strong>
+          </div>
         </div>
 
         <div v-if="mobileMatchSummaries.length" class="mobile-match-status">
@@ -1246,15 +1324,16 @@ const mobileMatchSummaries = computed(() =>
           <div v-for="group in puttGroups" :key="group.name" class="pp-group">
             <div class="pp-group-hdr">{{ group.name }}</div>
             <template v-for="result in [store.puttPokerFor(group.players)]" :key="group.name">
+              <div class="pp-pot">Pot: <strong>${{ result.pot }}</strong></div>
               <div class="pp-coin">
-                Coin:
-                <strong v-if="result.coinHolder">{{ result.coinHolder }}</strong>
-                <em v-else class="pp-coin-none">no 3-putts yet</em>
+                <span>Coin status</span>
+                <strong v-if="result.coinHolder">{{ result.coinHolder }} holds the coin</strong>
+                <em v-else class="pp-coin-none">No 3-putts yet</em>
               </div>
               <div class="pp-cards">
                 <div v-for="p in group.players" :key="p" class="pp-player">
                   <div class="pp-player-name">{{ p }}</div>
-                  <div class="pp-card-count">🃏 × {{ result.cards[p] }}</div>
+                  <div class="pp-card-count">{{ result.cards[p] }} tokens</div>
                   <div
                     v-if="puttPenaltyNote(result.threePuttCount[p], result.fourPuttCount[p])"
                     class="pp-note"
@@ -1263,7 +1342,6 @@ const mobileMatchSummaries = computed(() =>
                   </div>
                 </div>
               </div>
-              <div class="pp-pot">Pot: <strong>${{ result.pot }}</strong></div>
             </template>
           </div>
         </div>
@@ -1317,10 +1395,42 @@ const mobileMatchSummaries = computed(() =>
   color: #24362c;
 }
 
+.sc-kicker {
+  margin: 0 0 4px;
+  color: #7a8a7f;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .sc-sub {
   margin: 4px 0 0;
   color: #6a7a6f;
   font-size: 0.85rem;
+}
+
+.event-score-banner {
+  display: inline-flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-top: 10px;
+  border: 1px solid #c8d4bc;
+  border-radius: 8px;
+  background: #f3f7ef;
+  padding: 7px 10px;
+}
+
+.event-score-banner span {
+  color: #6a7a6f;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.event-score-banner strong {
+  color: #2f5d43;
+  font-size: 0.95rem;
 }
 
 .sc-table-wrap {
@@ -1398,6 +1508,8 @@ const mobileMatchSummaries = computed(() =>
 .row-team-divider-sub td {
   background: #4a7c5f;
   font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .row-format td {
@@ -2097,13 +2209,23 @@ const mobileMatchSummaries = computed(() =>
 }
 
 .pp-coin {
+  display: grid;
+  gap: 2px;
   font-size: 0.85rem;
   color: #4a5a4f;
   margin-bottom: 10px;
 }
 
+.pp-coin span {
+  color: #8a9489;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .pp-coin strong { color: #8a672f; }
-.pp-coin-none { color: #9aa49a; font-size: 0.78rem; }
+.pp-coin-none { color: #5a6a5f; font-size: 0.82rem; font-style: normal; font-weight: 700; }
 
 .pp-cards {
   display: flex;
@@ -2125,6 +2247,7 @@ const mobileMatchSummaries = computed(() =>
 .pp-card-count {
   font-size: 0.82rem;
   color: #4a5a4f;
+  font-weight: 700;
 }
 
 .pp-note {
@@ -2134,7 +2257,7 @@ const mobileMatchSummaries = computed(() =>
 }
 
 .pp-pot {
-  margin-top: 12px;
+  margin: 0 0 10px;
   font-size: 0.9rem;
   color: #24362c;
 }
@@ -2151,8 +2274,17 @@ const mobileMatchSummaries = computed(() =>
 .group-filter {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   margin-bottom: 12px;
+}
+
+.group-filter-label {
+  color: #6a7a6f;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .gf-btn {
@@ -2179,6 +2311,45 @@ const mobileMatchSummaries = computed(() =>
   background: #f8f4ea;
   padding: 16px;
   margin-bottom: 16px;
+}
+
+.mobile-event-context {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: stretch;
+  border: 1px solid #d7cebd;
+  border-radius: 8px;
+  background: #fffdf7;
+  padding: 10px 12px;
+  margin: 0 0 14px;
+}
+
+.mobile-event-context strong {
+  display: block;
+  color: #24362c;
+  font-size: 0.82rem;
+  margin-top: 2px;
+}
+
+.mobile-event-label,
+.mobile-event-score span {
+  color: #8a672f;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mobile-event-score {
+  border-left: 1px solid #e4ddcd;
+  padding-left: 10px;
+  text-align: right;
+}
+
+.mobile-event-score strong {
+  color: #2f5d43;
+  white-space: nowrap;
 }
 
 .score-legend {
@@ -2503,10 +2674,47 @@ const mobileMatchSummaries = computed(() =>
     line-height: 1.08;
   }
 
+  .event-score-banner {
+    display: grid;
+    gap: 3px;
+    align-items: stretch;
+    width: 100%;
+  }
+
   .sc-topbar-actions {
     display: grid;
     grid-template-columns: 1fr;
     width: 100%;
+  }
+
+  .group-filter {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .group-filter-label,
+  .gf-btn {
+    flex: 0 0 auto;
+  }
+
+  .mobile-event-context {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-event-score {
+    border-left: 0;
+    border-top: 1px solid #e4ddcd;
+    padding: 8px 0 0;
+    text-align: left;
+  }
+
+  .pp-groups {
+    display: grid;
+  }
+
+  .pp-group {
+    min-width: 0;
   }
 
   .sc-topbar-actions .btn-primary,

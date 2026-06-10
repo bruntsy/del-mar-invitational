@@ -235,6 +235,12 @@ describe('ScorecardScreen', () => {
     await nextTick();
 
     expect(wrapper.find('.event-live').exists()).toBe(true);
+    expect(wrapper.find('.sc-title').text()).toBe('Event Round 1');
+    expect(wrapper.find('.sc-sub').text()).toContain('Round 1');
+    expect(wrapper.find('.event-score-banner').text()).toContain('Round points');
+    expect(wrapper.find('.event-score-banner').text()).toContain('Team A 2 - 0 Team B');
+    expect(wrapper.find('.sc-topbar-actions').text()).toContain('Edit round');
+    expect(wrapper.find('.sc-topbar-actions').text()).toContain('Back to event');
     expect(wrapper.find('.event-live').text()).toContain('Event Round 1');
     expect(wrapper.find('.event-live').text()).toContain('2v2 High Ball / Low Ball');
     expect(wrapper.find('.event-live').text()).toContain('Wes + Aaron vs Tito + Q');
@@ -260,8 +266,10 @@ describe('ScorecardScreen', () => {
     expect(wrapper.text()).toContain('Putt Poker');
     // demo buy-in is $2 over 4 players -> $8 base pot, every player starts with 2 cards
     expect(wrapper.text()).toContain('Pot: $8');
+    expect(wrapper.text()).toContain('Coin status');
+    expect(wrapper.text()).toContain('No 3-putts yet');
     expect(wrapper.findAll('.pp-card-count')).toHaveLength(4);
-    expect(wrapper.find('.pp-card-count').text()).toContain('2');
+    expect(wrapper.find('.pp-card-count').text()).toContain('2 tokens');
   });
 
   it('shows group filter buttons when playing groups are defined', async () => {
@@ -276,6 +284,7 @@ describe('ScorecardScreen', () => {
     const wrapper = mountScorecard();
     const filter = wrapper.find('.group-filter');
     expect(filter.exists()).toBe(true);
+    expect(filter.text()).toContain('Playing group');
     // All + 2 group buttons
     expect(filter.findAll('.gf-btn')).toHaveLength(3);
     expect(filter.text()).toContain('Group 1');
@@ -338,6 +347,57 @@ describe('ScorecardScreen', () => {
 
     expect(wrapper.find('.sc-table-wrap').exists()).toBe(true);
     expect(wrapper.text()).toContain('Hide full scorecard');
+  });
+
+  it('mobile event scorecard defaults to one playing group with team context', async () => {
+    stubMobileViewport();
+    const roundStore = useRoundStore();
+    const eventStore = useEventStore();
+    const { round, players } = demoRound();
+    round.id = 'event-round-1';
+    round.groupId = 'g1';
+    round.games = cloneDefaultGames();
+    round.teamNames = { team1: 'Seattle', team2: 'Cali' };
+    round.team1 = ['Wes', 'Aaron'];
+    round.team2 = ['Tito', 'Q'];
+    round.pairMatches = [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }];
+    round.playingGroups = [
+      { name: 'Group 1', players: ['Wes', 'Tito'] },
+      { name: 'Group 2', players: ['Aaron', 'Q'] },
+    ];
+    roundStore.setRound(round, players);
+
+    const config = defaultEventConfig(['Wes', 'Aaron', 'Tito', 'Q']);
+    config.teamNames = { team1: 'Seattle', team2: 'Cali' };
+    config.rounds[0] = {
+      ...config.rounds[0],
+      name: 'Round 1',
+      format: 'twoManHighBallLowBall',
+      roundId: 'event-round-1',
+      pairMatches: [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }],
+    };
+    eventStore.event = { id: 'event-1', groupId: 'g1', name: 'Event Test', status: 'active', config };
+
+    for (let hole = 0; hole < 9; hole += 1) {
+      roundStore.setScore('Wes', hole, 4);
+      roundStore.setScore('Aaron', hole, 5);
+      roundStore.setScore('Tito', hole, 5);
+      roundStore.setScore('Q', hole, 6);
+    }
+
+    const wrapper = mountScorecard();
+    await nextTick();
+
+    expect(wrapper.find('.mobile-card').exists()).toBe(true);
+    expect(wrapper.find('.group-filter').text()).toContain('Playing group');
+    expect(wrapper.findAll('.group-filter .gf-btn')).toHaveLength(2);
+    expect(wrapper.find('.mobile-event-context').text()).toContain('Group 1');
+    expect(wrapper.find('.mobile-event-context').text()).toContain('Seattle: Wes');
+    expect(wrapper.find('.mobile-event-context').text()).toContain('Cali: Tito');
+    expect(wrapper.find('.mobile-event-context').text()).toContain('Round points');
+    expect(wrapper.findAll('.mobile-player-row')).toHaveLength(2);
+    expect(wrapper.find('.mobile-player-row').text()).toContain('Wes');
+    expect(wrapper.findAll('.mobile-player-row')[1].text()).toContain('Tito');
   });
 
   it('mobile hole card shows players, score steppers, and hole navigation', async () => {
@@ -422,7 +482,7 @@ describe('ScorecardScreen', () => {
 
     await nextTick();
     // coin moves to Wes and the pot grows by $1 over the $8 base
-    expect(wrapper.find('.pp-coin').text()).toContain('Wes');
+    expect(wrapper.find('.pp-coin').text()).toContain('Wes holds the coin');
     expect(wrapper.text()).toContain('Pot: $9');
     expect(wrapper.text()).toContain('1x 3-putt');
   });
