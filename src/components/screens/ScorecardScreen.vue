@@ -8,6 +8,9 @@ import { playerHoleScore } from '@/scoring/round';
 import { puttPenaltyNote } from '@/scoring/puttPoker';
 import { runningMatchStatus, type HoleWinner } from '@/scoring/matchStatus';
 import { computeEventRoundResult, type EventComponent, type EventRoundRow } from '@/scoring/eventRound';
+import { buildBestBallAggyConfig, scoreBestBallAggy, type BestBallAggyResult, type BestBallAggySegmentResult } from '@/scoring/bestBallAggy';
+import { buildHighBallLowBallConfig, scoreHighBallLowBall, type HighBallLowBallResult, type HighBallLowBallSegmentResult } from '@/scoring/highBallLowBall';
+import { buildTwoManScrambleConfig, scoreTwoManScramble, twoManScrambleTeamKey, type TwoManScrambleResult, type TwoManScrambleSegmentResult } from '@/scoring/twoManScramble';
 import { useEventStore } from '@/stores/event';
 import { useRoundStore } from '@/stores/round';
 
@@ -183,6 +186,7 @@ interface MpContest {
   name: string;
   holes: MpHole[];
   finalLabel: string;
+  segments: Array<{ label: string; a: number | null; b: number | null; status: string }>;
 }
 interface MpMatch {
   label: string;
@@ -209,6 +213,7 @@ function buildContest<T extends { holeNumber: number; incomplete: boolean }>(
   holeResults: T[],
   getScore: (hr: T, side: 'a' | 'b') => number | null,
   getWinner: (hr: T) => HoleWinner,
+  segments: MpContest['segments'] = [],
 ): MpContest {
   const winners = holeResults.map(getWinner);
   const status = runningMatchStatus(winners, { closeout: true });
@@ -228,83 +233,174 @@ function buildContest<T extends { holeNumber: number; incomplete: boolean }>(
       };
     }),
     finalLabel: status.length ? status[status.length - 1].label : 'Pending',
+    segments,
+  };
+}
+
+type SegmentResult = BestBallAggySegmentResult | HighBallLowBallSegmentResult | TwoManScrambleSegmentResult;
+
+function segmentChips(
+  results: Array<{ label: string; result: SegmentResult }>,
+  aId: string,
+  bId: string,
+  mode: 'stroke' | 'match',
+): MpContest['segments'] {
+  return results.map(({ label, result }) => {
+    const map = mode === 'stroke' ? result.teamScores : result.teamHolesWon;
+    const a = result.incomplete || !map ? null : map[aId] ?? null;
+    const b = result.incomplete || !map ? null : map[bId] ?? null;
+    const status = result.incomplete ? 'open' : result.pushed ? 'push' : result.winnerTeamId === aId ? 'a' : result.winnerTeamId === bId ? 'b' : 'open';
+    return { label, a, b, status };
+  });
+}
+
+function panelsFromBestBallAggyResults(results: BestBallAggyResult[], basis: string): MpPanel | null {
+  if (!results.length) return null;
+  return {
+    gameLabel: 'Best Ball + Aggy',
+    basis,
+    matches: results.map((res, mi) => {
+      const [tA, tB] = res.teams;
+      const id = (side: 'a' | 'b') => (side === 'a' ? tA.id : tB.id);
+      return {
+        label: `Match ${mi + 1}`,
+        sideA: tA.players.join(' + '),
+        sideB: tB.players.join(' + '),
+        contests: [
+          buildContest('Best Ball', res.holeResults,
+            (hr, s) => hr.teamScores[id(s)]?.bestBallScore ?? null,
+            (hr) => toSide(hr.bestBallWinnerTeamId, hr.bestBallTied, hr.incomplete, tA.id),
+            segmentChips([
+              { label: 'Front', result: res.segmentResults.bestBall.front },
+              { label: 'Back', result: res.segmentResults.bestBall.back },
+              { label: 'Overall', result: res.segmentResults.bestBall.overall },
+            ], tA.id, tB.id, res.scoringMode)),
+          buildContest('Aggregate', res.holeResults,
+            (hr, s) => hr.teamScores[id(s)]?.aggyScore ?? null,
+            (hr) => toSide(hr.aggyWinnerTeamId, hr.aggyTied, hr.incomplete, tA.id),
+            segmentChips([
+              { label: 'Front', result: res.segmentResults.aggy.front },
+              { label: 'Back', result: res.segmentResults.aggy.back },
+              { label: 'Overall', result: res.segmentResults.aggy.overall },
+            ], tA.id, tB.id, res.scoringMode)),
+        ],
+      };
+    }),
+  };
+}
+
+function panelsFromHighLowResults(results: HighBallLowBallResult[], basis: string): MpPanel | null {
+  if (!results.length) return null;
+  return {
+    gameLabel: 'High Ball / Low Ball',
+    basis,
+    matches: results.map((res, mi) => {
+      const [tA, tB] = res.teams;
+      const id = (side: 'a' | 'b') => (side === 'a' ? tA.id : tB.id);
+      return {
+        label: `Match ${mi + 1}`,
+        sideA: tA.players.join(' + '),
+        sideB: tB.players.join(' + '),
+        contests: [
+          buildContest('Low Ball', res.holeResults,
+            (hr, s) => hr.teamScores[id(s)]?.lowBallScore ?? null,
+            (hr) => toSide(hr.lowBallWinnerTeamId, hr.lowBallTied, hr.incomplete, tA.id),
+            segmentChips([
+              { label: 'Front', result: res.segmentResults.lowBall.front },
+              { label: 'Back', result: res.segmentResults.lowBall.back },
+              { label: 'Overall', result: res.segmentResults.lowBall.overall },
+            ], tA.id, tB.id, res.scoringMode)),
+          buildContest('High Ball', res.holeResults,
+            (hr, s) => hr.teamScores[id(s)]?.highBallScore ?? null,
+            (hr) => toSide(hr.highBallWinnerTeamId, hr.highBallTied, hr.incomplete, tA.id),
+            segmentChips([
+              { label: 'Front', result: res.segmentResults.highBall.front },
+              { label: 'Back', result: res.segmentResults.highBall.back },
+              { label: 'Overall', result: res.segmentResults.highBall.overall },
+            ], tA.id, tB.id, res.scoringMode)),
+        ],
+      };
+    }),
+  };
+}
+
+function panelsFromTwoManScrambleResults(results: TwoManScrambleResult[]): MpPanel | null {
+  if (!results.length) return null;
+  return {
+    gameLabel: 'Two-Man Scramble',
+    basis: 'gross',
+    matches: results.map((res, mi) => {
+      const [tA, tB] = res.teams;
+      const id = (side: 'a' | 'b') => (side === 'a' ? tA.id : tB.id);
+      return {
+        label: `Match ${mi + 1}`,
+        sideA: tA.players.join(' + '),
+        sideB: tB.players.join(' + '),
+        contests: [
+          buildContest('Scramble', res.holeResults,
+            (hr, s) => hr.teamScores[id(s)]?.scrambleScore ?? null,
+            (hr) => toSide(hr.winnerTeamId, hr.tied, hr.incomplete, tA.id),
+            segmentChips([
+              { label: 'Front', result: res.segmentResults.front },
+              { label: 'Back', result: res.segmentResults.back },
+              { label: 'Overall', result: res.segmentResults.overall },
+            ], tA.id, tB.id, res.scoringMode)),
+        ],
+      };
+    }),
   };
 }
 
 const matchPlayPanels = computed<MpPanel[]>(() => {
   const panels: MpPanel[] = [];
+  const eventRound = activeEventRound.value;
+  const eventScoreContext = eventRound && store.round ? buildScoreContext(store.round, store.players) : null;
+
+  if (eventRound && eventScoreContext && store.round) {
+    const games = gamesFromEventRound(eventRound.config);
+    if (eventRound.config.format === 'twoManBestBallAggy') {
+      const panel = panelsFromBestBallAggyResults(
+        eventRound.config.pairMatches.map((match) =>
+          scoreBestBallAggy(buildBestBallAggyConfig(match, games.bestBallAggy), eventScoreContext),
+        ),
+        games.bestBallAggy.scoreBasis,
+      );
+      if (panel) panels.push(panel);
+    } else if (eventRound.config.format === 'twoManHighBallLowBall') {
+      const panel = panelsFromHighLowResults(
+        eventRound.config.pairMatches.map((match) =>
+          scoreHighBallLowBall(buildHighBallLowBallConfig(match, games.highBallLowBall), eventScoreContext),
+        ),
+        games.highBallLowBall.scoreBasis,
+      );
+      if (panel) panels.push(panel);
+    } else if (eventRound.config.format === 'scramble2v2Nassau') {
+      const panel = panelsFromTwoManScrambleResults(
+        eventRound.config.pairMatches.map((match, index) => {
+          const config = buildTwoManScrambleConfig(match, index, games.twoManScramble);
+          return scoreTwoManScramble(config, {
+            [twoManScrambleTeamKey(index, 'a')]: store.round?.teamScores?.[twoManScrambleTeamKey(index, 'a')],
+            [twoManScrambleTeamKey(index, 'b')]: store.round?.teamScores?.[twoManScrambleTeamKey(index, 'b')],
+          });
+        }),
+      );
+      if (panel) panels.push(panel);
+    }
+
+    if (panels.length) return panels;
+  }
 
   const aggy = store.bestBallAggyResults;
-  if (aggy.length) {
-    panels.push({
-      gameLabel: 'Best Ball + Aggy',
-      basis: store.games.bestBallAggy.scoreBasis,
-      matches: aggy.map((res, mi) => {
-        const [tA, tB] = res.teams;
-        const id = (side: 'a' | 'b') => (side === 'a' ? tA.id : tB.id);
-        return {
-          label: `Match ${mi + 1}`,
-          sideA: tA.players.join(' + '),
-          sideB: tB.players.join(' + '),
-          contests: [
-            buildContest('Best Ball', res.holeResults,
-              (hr, s) => hr.teamScores[id(s)]?.bestBallScore ?? null,
-              (hr) => toSide(hr.bestBallWinnerTeamId, hr.bestBallTied, hr.incomplete, tA.id)),
-            buildContest('Aggregate', res.holeResults,
-              (hr, s) => hr.teamScores[id(s)]?.aggyScore ?? null,
-              (hr) => toSide(hr.aggyWinnerTeamId, hr.aggyTied, hr.incomplete, tA.id)),
-          ],
-        };
-      }),
-    });
-  }
+  const aggyPanel = panelsFromBestBallAggyResults(aggy, store.games.bestBallAggy.scoreBasis);
+  if (aggyPanel) panels.push(aggyPanel);
 
   const highLow = store.highBallLowBallResults;
-  if (highLow.length) {
-    panels.push({
-      gameLabel: 'High Ball / Low Ball',
-      basis: store.games.highBallLowBall.scoreBasis,
-      matches: highLow.map((res, mi) => {
-        const [tA, tB] = res.teams;
-        const id = (side: 'a' | 'b') => (side === 'a' ? tA.id : tB.id);
-        return {
-          label: `Match ${mi + 1}`,
-          sideA: tA.players.join(' + '),
-          sideB: tB.players.join(' + '),
-          contests: [
-            buildContest('Low Ball', res.holeResults,
-              (hr, s) => hr.teamScores[id(s)]?.lowBallScore ?? null,
-              (hr) => toSide(hr.lowBallWinnerTeamId, hr.lowBallTied, hr.incomplete, tA.id)),
-            buildContest('High Ball', res.holeResults,
-              (hr, s) => hr.teamScores[id(s)]?.highBallScore ?? null,
-              (hr) => toSide(hr.highBallWinnerTeamId, hr.highBallTied, hr.incomplete, tA.id)),
-          ],
-        };
-      }),
-    });
-  }
+  const highLowPanel = panelsFromHighLowResults(highLow, store.games.highBallLowBall.scoreBasis);
+  if (highLowPanel) panels.push(highLowPanel);
 
   const scramble = store.twoManScrambleResults;
-  if (scramble.length) {
-    panels.push({
-      gameLabel: 'Two-Man Scramble',
-      basis: 'gross',
-      matches: scramble.map((res, mi) => {
-        const [tA, tB] = res.teams;
-        const id = (side: 'a' | 'b') => (side === 'a' ? tA.id : tB.id);
-        return {
-          label: `Match ${mi + 1}`,
-          sideA: tA.players.join(' + '),
-          sideB: tB.players.join(' + '),
-          contests: [
-            buildContest('Scramble', res.holeResults,
-              (hr, s) => hr.teamScores[id(s)]?.scrambleScore ?? null,
-              (hr) => toSide(hr.winnerTeamId, hr.tied, hr.incomplete, tA.id)),
-          ],
-        };
-      }),
-    });
-  }
+  const scramblePanel = panelsFromTwoManScrambleResults(scramble);
+  if (scramblePanel) panels.push(scramblePanel);
 
   return panels;
 });
@@ -905,6 +1001,16 @@ const mobilePlayers = computed(() => {
               <div class="mp-contest-head">
                 <span class="mp-contest-name">{{ contest.name }}</span>
                 <span class="mp-final" :class="{ pending: contest.finalLabel === 'Pending' }">{{ contest.finalLabel }}</span>
+              </div>
+              <div v-if="contest.segments.length" class="mp-segments">
+                <span
+                  v-for="segment in contest.segments"
+                  :key="`${contest.name}-${segment.label}`"
+                  class="mp-segment-chip"
+                  :class="`mp-segment-${segment.status}`"
+                >
+                  {{ segment.label }}: {{ segment.a == null || segment.b == null ? 'open' : `${segment.a}-${segment.b}` }}
+                </span>
               </div>
               <div class="sc-table-wrap">
                 <table class="sc-table mp-table">
@@ -1554,6 +1660,37 @@ const mobilePlayers = computed(() => {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 4px;
+}
+
+.mp-segments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 6px;
+}
+
+.mp-segment-chip {
+  border-radius: 999px;
+  background: #ece8da;
+  color: #6a7a6f;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.mp-segment-a {
+  background: #dfeadc;
+  color: #2f5d43;
+}
+
+.mp-segment-b {
+  background: #f0dfd9;
+  color: #9b3d30;
+}
+
+.mp-segment-push {
+  background: #eadfca;
+  color: #8a672f;
 }
 
 .mp-contest-name {

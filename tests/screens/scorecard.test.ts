@@ -187,6 +187,13 @@ describe('ScorecardScreen', () => {
     expect(wrapper.find('.event-live').text()).toContain('Wes + Aaron vs Tito + Q');
     expect(wrapper.find('.event-live').text()).toContain('Low Ball Front');
     expect(wrapper.find('.event-live').text()).toContain('High Ball Front');
+    expect(wrapper.find('.mp-live').exists()).toBe(true);
+    expect(wrapper.find('.mp-live').text()).toContain('High Ball / Low Ball');
+    expect(wrapper.find('.mp-live').text()).toContain('Low Ball');
+    expect(wrapper.find('.mp-live').text()).toContain('High Ball');
+    expect(wrapper.find('.mp-live').text()).toContain('Front: 9-0');
+    expect(wrapper.find('.mp-table').text()).toContain('Wes + Aaron');
+    expect(wrapper.find('.mp-table').text()).toContain('Tito + Q');
   });
 
   it('renders the putt poker panel and reflects the base pot', () => {
