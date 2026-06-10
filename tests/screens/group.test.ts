@@ -40,7 +40,7 @@ describe('GroupScreen roster', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('Ann');
-    expect(wrapper.text()).toContain('Idx 10.5');
+    expect(wrapper.text()).toContain('Handicap index 10.5');
     expect(store.group?.players.Ann).toEqual({ name: 'Ann', handicapIndex: 10.5 });
 
     await wrapper.find('.roster-row .btn-ghost').trigger('click');
@@ -51,11 +51,11 @@ describe('GroupScreen roster', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('Annie');
-    expect(wrapper.text()).toContain('Idx 9');
+    expect(wrapper.text()).toContain('Handicap index 9');
     expect(store.group?.players.Annie).toEqual({ name: 'Annie', handicapIndex: 9 });
     expect(store.group?.players.Ann).toBeUndefined();
 
-    const remove = wrapper.findAll('.roster-row .btn-ghost').find((button) => button.text() === 'Remove');
+    const remove = wrapper.findAll('.roster-row button').find((button) => button.text() === 'Remove player');
     expect(remove).toBeDefined();
     await remove!.trigger('click');
     await flushPromises();

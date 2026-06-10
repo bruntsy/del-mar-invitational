@@ -127,8 +127,8 @@ describe('summarizeRound', () => {
 
     expect(summary.courseName).toBe('Del Mar — Championship');
     expect(summary.players).toEqual([
-      { name: 'Amy', team: 'T1', net: 72, skins: 18 },
-      { name: 'Bo', team: 'T2', net: 90, skins: 0 },
+      { name: 'Amy', team: 'T1', gross: 72, net: 72, skins: 18 },
+      { name: 'Bo', team: 'T2', gross: 90, net: 90, skins: 0 },
     ]);
   });
 

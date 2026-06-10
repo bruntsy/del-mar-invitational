@@ -61,7 +61,7 @@ function resume() {
 
       <div class="home-actions">
         <button class="btn-primary" type="button" @click="openGroups">Groups</button>
-        <button class="btn-ghost" type="button" @click="newRound">New round</button>
+        <button class="btn-ghost" type="button" @click="newRound">Start new round</button>
         <button class="btn-ghost" type="button" @click="startDemo">Start demo round</button>
       </div>
     </section>

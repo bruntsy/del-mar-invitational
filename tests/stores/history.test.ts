@@ -68,8 +68,8 @@ describe('history store', () => {
       completedAt: '2026-05-01T12:00:00.000Z',
     });
     expect(rounds[0].players).toEqual([
-      { name: 'Amy', team: 'T1', net: 72, skins: 18 },
-      { name: 'Bo', team: 'T2', net: 90, skins: 0 },
+      { name: 'Amy', team: 'T1', gross: 72, net: 72, skins: 18 },
+      { name: 'Bo', team: 'T2', gross: 90, net: 90, skins: 0 },
     ]);
   });
 

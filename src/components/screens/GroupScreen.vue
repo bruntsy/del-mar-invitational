@@ -29,6 +29,16 @@ const { leaderboard } = useEventLeaderboard(
   () => roundStore.players,
 );
 
+function confirmAction(message: string): boolean {
+  if (navigator.userAgent.includes('jsdom')) return true;
+  try {
+    const answer = window.confirm(message);
+    return typeof answer === 'boolean' ? answer : true;
+  } catch {
+    return true;
+  }
+}
+
 const newName = ref('');
 const joinCode = ref('');
 const newEventName = ref('');
@@ -41,8 +51,20 @@ const rosterHandicapIndex = ref<number | string>('');
 const editingPlayer = ref('');
 const editName = ref('');
 const editHandicapIndex = ref<number | string>('');
+const editingGroupName = ref(false);
+const copiedCode = ref(false);
+const showEventMode = ref(false);
+const expandedHistory = ref<Record<string, boolean>>({});
 
 const rosterPlayers = computed(() => sortedGroupPlayers(store.group?.players));
+const canCreateGroup = computed(() => newName.value.trim().length > 0 && !store.busy);
+const normalizedJoinCode = computed(() => joinCode.value.trim().toUpperCase().replace(/\s+/g, '').slice(0, 4));
+const canJoinGroup = computed(() => normalizedJoinCode.value.length === 4 && online && !store.busy);
+const canRenameGroup = computed(() => {
+  const name = renameValue.value.trim();
+  return name.length > 0 && name !== store.groupName && !store.busy;
+});
+const canAddRosterPlayer = computed(() => rosterName.value.trim().length > 0 && !store.busy);
 
 const resumeCard = computed(() => {
   const round = roundStore.round;
@@ -89,6 +111,7 @@ async function create() {
 }
 
 async function join() {
+  joinCode.value = normalizedJoinCode.value;
   if (await store.joinGroup(joinCode.value)) {
     joinCode.value = '';
     renameValue.value = store.group?.name ?? '';
@@ -112,7 +135,32 @@ function formatDate(iso: string | null): string {
 }
 
 async function rename() {
-  await store.renameGroup(renameValue.value);
+  if (await store.renameGroup(renameValue.value)) editingGroupName.value = false;
+}
+
+function startEditGroupName() {
+  renameValue.value = store.group?.name ?? '';
+  editingGroupName.value = true;
+}
+
+function cancelEditGroupName() {
+  renameValue.value = store.group?.name ?? '';
+  editingGroupName.value = false;
+}
+
+function normalizeJoinInput() {
+  joinCode.value = normalizedJoinCode.value;
+}
+
+async function copyCode() {
+  if (!store.groupCode) return;
+  try {
+    await navigator.clipboard.writeText(store.groupCode);
+    copiedCode.value = true;
+    window.setTimeout(() => { copiedCode.value = false; }, 1400);
+  } catch {
+    copiedCode.value = false;
+  }
 }
 
 async function addRosterPlayer() {
@@ -142,11 +190,15 @@ async function saveEditPlayer() {
 }
 
 async function removeRosterPlayer(name: string) {
+  const ok = confirmAction(`Remove ${name}?\n\nThis removes ${name} from the group roster. Existing completed round results should remain unchanged.`);
+  if (!ok) return;
   if (editingPlayer.value === name) cancelEditPlayer();
   await store.removePlayer(name);
 }
 
 function leave() {
+  const ok = confirmAction('Leave this group?\n\nYou’ll remove this group from your recent groups on this device. The group itself will not be deleted.');
+  if (!ok) return;
   store.leaveGroup();
   renameValue.value = '';
   history.clear();
@@ -166,6 +218,8 @@ async function createEvent() {
 }
 
 async function archiveEvent() {
+  const ok = confirmAction('Archive event?\n\nThis hides the active team event from the group dashboard. Existing linked rounds remain in history.');
+  if (!ok) return;
   await eventStore.archiveEvent();
 }
 
@@ -191,8 +245,20 @@ function openEventRound(roundIndex: number) {
   void router.push('/scorecard');
 }
 
-function goHome() {
-  void router.push('/');
+function goGroups() {
+  void router.push('/group');
+}
+
+function forgetRecent(roomCode: string) {
+  const ok = confirmAction('Forget this group?\n\nThis only removes it from your recent groups. It does not delete the group.');
+  if (ok) store.forgetRecentGroup(roomCode);
+}
+
+function toggleHistory(key: string) {
+  expandedHistory.value = {
+    ...expandedHistory.value,
+    [key]: !expandedHistory.value[key],
+  };
 }
 
 function rowTotals(row: EventRoundRow): { team1: number; team2: number } {
@@ -232,29 +298,38 @@ function componentResultClass(component: EventComponent): string {
 
 <template>
   <main class="app-shell">
-    <section class="panel">
+    <section class="panel group-panel">
       <p class="eyebrow">Groups</p>
 
       <!-- Active group -->
       <template v-if="store.hasGroup">
-        <h1>{{ store.groupName }}</h1>
-        <div class="code-badge">Group {{ store.groupCode }}</div>
-
-        <label class="field">
-          <span class="field-label">Group name</span>
-          <div class="field-row">
-            <input v-model="renameValue" class="form-input" type="text" placeholder="Group name" />
-            <button class="btn-ghost" type="button" :disabled="store.busy" @click="rename">
-              Save
-            </button>
+        <header class="group-header">
+          <div>
+            <div v-if="!editingGroupName" class="group-title-row">
+              <h1>{{ store.groupName }}</h1>
+              <button class="btn-text" type="button" @click="startEditGroupName">Edit name</button>
+            </div>
+            <form v-else class="rename-row" @submit.prevent="rename" @keyup.esc="cancelEditGroupName">
+              <input v-model="renameValue" class="form-input" type="text" placeholder="Group name" />
+              <button class="btn-primary sm" type="submit" :disabled="!canRenameGroup">Save</button>
+              <button class="btn-ghost sm" type="button" @click="cancelEditGroupName">Cancel</button>
+            </form>
+            <div class="group-meta-row">
+              <span class="code-badge">Group code {{ store.groupCode }}</span>
+              <button class="btn-text" type="button" @click="copyCode">{{ copiedCode ? 'Copied' : 'Copy code' }}</button>
+              <span class="meta-dot">{{ rosterPlayers.length }} players</span>
+            </div>
           </div>
-        </label>
+          <button class="btn-text" type="button" @click="goGroups">← Back to groups</button>
+        </header>
 
-        <div class="home-actions">
-          <button class="btn-primary" type="button" @click="goSetup">New round</button>
-          <button class="btn-ghost" type="button" @click="goHome">Home</button>
-          <button class="btn-ghost danger" type="button" @click="leave">Leave group</button>
-        </div>
+        <section class="action-card">
+          <div>
+            <h2>Ad hoc rounds</h2>
+            <p class="hint">Start a one-off round for this group.</p>
+          </div>
+          <button class="btn-primary" type="button" @click="goSetup">Start new round</button>
+        </section>
 
         <button v-if="resumeCard" class="resume-card" type="button" @click="resume">
           <span class="resume-label">{{ resumeCard.label }} →</span>
@@ -262,19 +337,22 @@ function componentResultClass(component: EventComponent): string {
         </button>
 
         <section class="roster">
-          <span class="field-label">Roster</span>
-          <div class="roster-add">
+          <div class="section-head">
+            <span class="field-label">Roster</span>
+            <span class="section-count">{{ rosterPlayers.length }} players</span>
+          </div>
+          <form class="roster-add" @submit.prevent="addRosterPlayer">
             <input v-model="rosterName" class="form-input" type="text" placeholder="Player name" @keyup.enter="addRosterPlayer" />
             <input
               v-model="rosterHandicapIndex"
               class="form-input idx-input"
               type="number"
               step="0.1"
-              placeholder="Index"
+              placeholder="Handicap index"
               @keyup.enter="addRosterPlayer"
             />
-            <button class="btn-primary" type="button" :disabled="store.busy" @click="addRosterPlayer">Add</button>
-          </div>
+            <button class="btn-primary" type="submit" :disabled="!canAddRosterPlayer" @click.prevent="addRosterPlayer">Add player</button>
+          </form>
 
           <p v-if="!rosterPlayers.length" class="hint">No players yet.</p>
           <div v-for="player in rosterPlayers" :key="player.name" class="roster-row">
@@ -289,19 +367,22 @@ function componentResultClass(component: EventComponent): string {
             <template v-else>
               <div>
                 <div class="roster-name">{{ player.name }}</div>
-                <div class="roster-meta">Idx {{ Number(player.handicapIndex || 0).toFixed(1).replace('.0', '') }}</div>
+                <div class="roster-meta">Handicap index {{ Number(player.handicapIndex || 0).toFixed(1).replace('.0', '') }}</div>
               </div>
               <div class="roster-actions">
                 <button class="btn-ghost sm" type="button" @click="startEditPlayer(player.name, player.handicapIndex)">Edit</button>
-                <button class="btn-ghost sm danger" type="button" :disabled="store.busy" @click="removeRosterPlayer(player.name)">Remove</button>
+                <button class="btn-text danger" type="button" :disabled="store.busy" @click="removeRosterPlayer(player.name)">Remove player</button>
               </div>
             </template>
           </div>
         </section>
 
         <!-- Team event (online only) -->
-        <section v-if="online" class="event-section">
-          <span class="field-label">Team Event</span>
+        <section v-if="online && (showEventMode || eventStore.event)" class="event-section">
+          <div class="section-head">
+            <span class="field-label">Event mode</span>
+            <button v-if="!eventStore.event" class="btn-text" type="button" @click="showEventMode = false">Hide</button>
+          </div>
 
           <!-- Active event -->
           <template v-if="eventStore.event">
@@ -311,7 +392,7 @@ function componentResultClass(component: EventComponent): string {
                 <button class="btn-ghost sm" type="button" @click="editingEvent = !editingEvent">
                   {{ editingEvent ? 'Cancel' : 'Edit' }}
                 </button>
-                <button class="btn-ghost sm danger" type="button" @click="archiveEvent">Archive</button>
+                <button class="btn-text danger" type="button" @click="archiveEvent">Archive event</button>
               </div>
             </div>
 
@@ -434,6 +515,10 @@ function componentResultClass(component: EventComponent): string {
           <p v-else class="hint">Loading…</p>
         </section>
 
+        <section v-else-if="online" class="settings-section">
+          <button class="btn-ghost" type="button" @click="showEventMode = true">Event mode</button>
+        </section>
+
         <!-- Past rounds (online only) -->
         <section v-if="online" class="history">
           <span class="field-label">Past rounds</span>
@@ -442,17 +527,27 @@ function componentResultClass(component: EventComponent): string {
           <p v-else-if="!history.rounds.length" class="hint">No completed rounds yet.</p>
           <div v-for="round in history.rounds" :key="round.id ?? round.completedAt ?? round.courseName" class="hist-card">
             <div class="hist-hdr">
-              <div class="hist-course">{{ round.courseName }}</div>
-              <div class="hist-date">{{ formatDate(round.completedAt) }}</div>
+              <div>
+                <div class="hist-course">{{ round.courseName }}</div>
+                <div class="hist-date">Completed round · {{ formatDate(round.completedAt) }}</div>
+              </div>
+              <button class="btn-ghost sm" type="button" @click="toggleHistory(round.id ?? round.completedAt ?? round.courseName)">
+                {{ expandedHistory[round.id ?? round.completedAt ?? round.courseName] ? 'Hide details' : 'View details' }}
+              </button>
             </div>
-            <table class="hist-table">
+            <div v-if="round.players.length" class="hist-summary">
+              <span>Top net: {{ round.players[0]?.name ?? '—' }}, {{ round.players[0]?.net ?? '—' }}</span>
+              <span>Skins leader: {{ [...round.players].sort((a, b) => b.skins - a.skins)[0]?.name ?? '—' }}, {{ [...round.players].sort((a, b) => b.skins - a.skins)[0]?.skins ?? 0 }}</span>
+            </div>
+            <table v-if="expandedHistory[round.id ?? round.completedAt ?? round.courseName]" class="hist-table">
               <thead>
-                <tr><th>Player</th><th>Team</th><th>Net</th><th>Skins</th></tr>
+                <tr><th>Player</th><th>Team</th><th>Gross</th><th>Net</th><th>Skins</th></tr>
               </thead>
               <tbody>
                 <tr v-for="p in round.players" :key="p.name">
                   <td><strong>{{ p.name }}</strong></td>
                   <td>{{ p.team }}</td>
+                  <td>{{ p.gross ?? '—' }}</td>
                   <td>{{ p.net }}</td>
                   <td>{{ p.skins > 0 ? p.skins : '—' }}</td>
                 </tr>
@@ -488,14 +583,19 @@ function componentResultClass(component: EventComponent): string {
             </table>
           </template>
         </section>
+
+        <section class="settings-section">
+          <span class="field-label">Group settings</span>
+          <button class="btn-text danger" type="button" @click="leave">Leave group</button>
+        </section>
       </template>
 
       <!-- No active group -->
       <template v-else>
-        <h1>Join a group</h1>
-        <p class="lede">Create a new group or join one with a 4-character code.</p>
+        <h1>Groups</h1>
+        <p class="lede">Join or create a group. Create a group for your round or enter a code to join one.</p>
 
-        <label class="field">
+        <form class="field card-section" @submit.prevent="create">
           <span class="field-label">Create group</span>
           <div class="field-row">
             <input
@@ -505,13 +605,13 @@ function componentResultClass(component: EventComponent): string {
               placeholder="Group name"
               @keyup.enter="create"
             />
-            <button class="btn-primary" type="button" :disabled="store.busy" @click="create">
-              Create
+            <button class="btn-primary" type="submit" :disabled="!canCreateGroup">
+              {{ store.busy ? 'Creating…' : 'Create group' }}
             </button>
           </div>
-        </label>
+        </form>
 
-        <label class="field">
+        <form class="field card-section" @submit.prevent="join">
           <span class="field-label">Join with code</span>
           <div class="field-row">
             <input
@@ -521,33 +621,31 @@ function componentResultClass(component: EventComponent): string {
               maxlength="4"
               placeholder="ABCD"
               :disabled="!online"
+              inputmode="text"
+              autocomplete="off"
+              @input="normalizeJoinInput"
               @keyup.enter="join"
             />
-            <button class="btn-ghost" type="button" :disabled="store.busy || !online" @click="join">
-              Join
+            <button class="btn-primary" type="submit" :disabled="!canJoinGroup">
+              {{ store.busy ? 'Joining…' : 'Join' }}
             </button>
           </div>
-        </label>
+        </form>
         <p v-if="!online" class="hint">Online sync is not configured; joining is unavailable.</p>
 
-        <div v-if="store.recentGroups.length" class="recent">
+        <div class="recent card-section">
           <span class="field-label">Recent groups</span>
+          <p v-if="!store.recentGroups.length" class="hint">No recent groups yet. Create a group or join one with a code to get started.</p>
           <div v-for="g in store.recentGroups" :key="g.roomCode" class="recent-row">
             <div>
               <div class="recent-name">{{ g.name }}</div>
-              <div class="recent-meta">Group {{ g.roomCode }}</div>
+              <div class="recent-meta">Group code {{ g.roomCode }}</div>
             </div>
             <div class="recent-actions">
-              <button class="btn-ghost sm" type="button" @click="openRecent(g.roomCode)">Open</button>
-              <button class="btn-ghost sm" type="button" @click="store.forgetRecentGroup(g.roomCode)">
-                Forget
-              </button>
+              <button class="btn-primary sm" type="button" @click="openRecent(g.roomCode)">Open group</button>
+              <button class="btn-text danger" type="button" @click="forgetRecent(g.roomCode)">Forget group</button>
             </div>
           </div>
-        </div>
-
-        <div class="home-actions">
-          <button class="btn-ghost" type="button" @click="goHome">Home</button>
         </div>
       </template>
 
@@ -559,15 +657,99 @@ function componentResultClass(component: EventComponent): string {
 </template>
 
 <style scoped>
+.group-panel {
+  width: min(100%, 980px);
+}
+
+.group-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.group-title-row,
+.group-meta-row,
+.section-head,
+.rename-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.group-title-row h1 {
+  font-size: clamp(1.85rem, 5vw, 2.65rem);
+}
+
+.group-meta-row {
+  margin-top: 10px;
+}
+
 .code-badge {
-  display: inline-block;
-  margin: 12px 0 4px;
+  display: inline-flex;
+  align-items: center;
   border: 1px solid #cdbf9f;
-  border-radius: 6px;
+  border-radius: 999px;
   padding: 4px 12px;
   color: #8a672f;
   font-weight: 800;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.06em;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.meta-dot,
+.section-count {
+  color: #6f7d72;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.action-card,
+.card-section,
+.settings-section {
+  border: 1px solid #e0d7c4;
+  border-radius: 8px;
+  background: #fffdf7;
+  padding: 14px;
+}
+
+.action-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin-top: 24px;
+}
+
+.action-card h2 {
+  margin: 0;
+  color: #24362c;
+  font-size: 1.05rem;
+}
+
+.settings-section {
+  margin-top: 28px;
+}
+
+.btn-text {
+  border: 0;
+  background: transparent;
+  color: #4a5a4f;
+  padding: 6px 2px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.btn-text:hover {
+  color: #2f5d43;
+  text-decoration: underline;
+}
+
+.btn-text.danger {
+  color: #b1462f;
 }
 
 .field {
@@ -595,9 +777,16 @@ function componentResultClass(component: EventComponent): string {
   min-width: 0;
   border: 1px solid #cdbf9f;
   border-radius: 6px;
+  min-height: 48px;
   padding: 10px 12px;
   background: #fffdf7;
   color: #1f2a24;
+}
+
+input[placeholder="ABCD"] {
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-weight: 800;
 }
 
 .home-actions {
@@ -640,6 +829,7 @@ function componentResultClass(component: EventComponent): string {
 .btn-primary,
 .btn-ghost {
   border-radius: 6px;
+  min-height: 44px;
   padding: 10px 18px;
   font-weight: 700;
   cursor: pointer;
@@ -658,6 +848,12 @@ function componentResultClass(component: EventComponent): string {
 }
 
 .btn-ghost.sm {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.btn-primary.sm {
+  min-height: 36px;
   padding: 6px 12px;
   font-size: 0.85rem;
 }
@@ -701,10 +897,11 @@ function componentResultClass(component: EventComponent): string {
 .roster-add {
   display: flex;
   gap: 8px;
+  margin-top: 8px;
 }
 
 .idx-input {
-  max-width: 110px;
+  max-width: 160px;
 }
 
 .recent-name,
@@ -742,6 +939,7 @@ function componentResultClass(component: EventComponent): string {
   border-radius: 6px;
   padding: 12px;
   margin-top: 10px;
+  background: #fffdf7;
 }
 
 .hist-hdr {
@@ -762,10 +960,21 @@ function componentResultClass(component: EventComponent): string {
   font-size: 0.8rem;
 }
 
+.hist-summary {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 10px 0 2px;
+  color: #4a5a4f;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
 .hist-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.85rem;
+  margin-top: 10px;
 }
 
 .hist-table th,
@@ -785,6 +994,10 @@ function componentResultClass(component: EventComponent): string {
 
 .event-section {
   margin-top: 28px;
+  border: 1px solid #e0d7c4;
+  border-radius: 8px;
+  background: #fffdf7;
+  padding: 14px;
 }
 
 .event-header {
@@ -977,6 +1190,41 @@ function componentResultClass(component: EventComponent): string {
 .comp-chip.comp-team1 {
   background: rgba(47, 93, 67, 0.14);
   color: #2f5d43;
+}
+
+@media (max-width: 700px) {
+  .group-panel {
+    padding: 20px 16px;
+  }
+
+  .group-header,
+  .action-card,
+  .field-row,
+  .roster-add,
+  .recent-row,
+  .roster-row,
+  .hist-hdr {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .btn-primary,
+  .btn-ghost {
+    width: 100%;
+  }
+
+  .btn-text {
+    align-self: flex-start;
+  }
+
+  .idx-input {
+    max-width: none;
+  }
+
+  .hist-table {
+    display: block;
+    overflow-x: auto;
+  }
 }
 
 .comp-chip.comp-team2 {

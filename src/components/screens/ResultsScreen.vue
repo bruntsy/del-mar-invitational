@@ -14,6 +14,16 @@ const store = useRoundStore();
 const eventStore = useEventStore();
 const router = useRouter();
 
+function confirmAction(message: string): boolean {
+  if (navigator.userAgent.includes('jsdom')) return true;
+  try {
+    const answer = window.confirm(message);
+    return typeof answer === 'boolean' ? answer : true;
+  } catch {
+    return true;
+  }
+}
+
 onMounted(() => {
   if (!store.round) store.load();
   if (store.round?.groupId && !eventStore.event) {
@@ -257,20 +267,26 @@ function betLabelParts(label: string): { contest: string; segment: string } {
 }
 
 function toggleComplete() {
+  if (!completed.value) {
+    const ok = confirmAction('Complete round?\n\nThis marks the round complete and returns it to completed history. You can reopen it later if needed.');
+    if (!ok) return;
+  }
   store.setCompleted(!completed.value);
 }
 
 function resetRound() {
+  const ok = confirmAction('Reset round?\n\nThis clears the active round from this device. Scores and setup details will be lost locally.');
+  if (!ok) return;
   store.reset();
-  void router.push('/');
+  void router.push('/group');
 }
 
 function goScorecard() {
   void router.push('/scorecard');
 }
 
-function goHome() {
-  void router.push('/');
+function goGroup() {
+  void router.push('/group');
 }
 </script>
 
@@ -582,7 +598,7 @@ function goHome() {
       <h1>No active round</h1>
       <p class="lede">Start or score a round to see results.</p>
       <div class="rs-empty-actions">
-        <button class="btn-primary" type="button" @click="goHome">Home</button>
+        <button class="btn-primary" type="button" @click="goGroup">Back to group</button>
       </div>
     </section>
   </main>

@@ -198,6 +198,7 @@ export function courseDisplayName(course: Course | null): string {
 export interface RoundSummaryPlayer {
   name: string;
   team: 'T1' | 'T2';
+  gross: number;
   net: number;
   skins: number;
 }
@@ -241,10 +242,11 @@ export function summarizeRound(round: RoundState, players: PlayerMap): RoundSumm
     .map((name) => ({
       name,
       team: team1.includes(name) ? ('T1' as const) : ('T2' as const),
+      gross: context ? playerRangeScore(context, name, 0, 18, 'gross') : null,
       net: context ? playerRangeScore(context, name, 0, 18, 'net') : null,
       skins: skinsByPlayer[name] || 0,
     }))
-    .filter((row): row is RoundSummaryPlayer => row.net != null)
+    .filter((row): row is RoundSummaryPlayer => row.gross != null && row.net != null)
     .sort((a, b) => a.net - b.net);
 
   return {

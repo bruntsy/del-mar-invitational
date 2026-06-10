@@ -23,6 +23,7 @@ onMounted(() => {
   if (store.round?.groupId && !eventStore.event) {
     void eventStore.loadEvent(store.round.groupId).then(() => eventStore.loadLinkedRounds());
   }
+  if (typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 760px)').matches) mobileMode.value = true;
   loadMobileHole();
 });
 
@@ -515,8 +516,8 @@ function loadDemo() {
   });
 }
 
-function goHome() {
-  void router.push('/');
+function goGroup() {
+  void router.push('/group');
 }
 
 function goResults() {
@@ -644,11 +645,11 @@ const mobilePlayers = computed(() => {
         </div>
         <div class="sc-topbar-actions">
           <button class="btn-ghost" :class="{ 'btn-ghost-active': mobileMode }" type="button" @click="mobileMode = !mobileMode">
-            {{ mobileMode ? 'Full card' : 'Mobile' }}
+            {{ mobileMode ? 'Full card' : 'Hole view' }}
           </button>
           <button class="btn-ghost" type="button" @click="goResults">Results →</button>
           <button class="btn-ghost" type="button" @click="router.push('/setup?edit=1')">Edit Round</button>
-          <button class="btn-ghost" type="button" @click="goHome">← Home</button>
+          <button class="btn-ghost" type="button" @click="goGroup">← Back to group</button>
         </div>
       </header>
 
@@ -672,6 +673,13 @@ const mobilePlayers = computed(() => {
 
       <!-- Mobile hole-by-hole card -->
       <div v-if="mobileMode" class="mobile-card">
+        <div class="score-legend" aria-label="Scorecard legend">
+          <span><i class="legend-dot eagle"></i>Eagle or better</span>
+          <span><i class="legend-dot birdie"></i>Birdie</span>
+          <span><i class="legend-dot par"></i>Par</span>
+          <span><i class="legend-dot bogey"></i>Bogey</span>
+          <span><i class="mobile-stroke-dot">●</i> Stroke hole</span>
+        </div>
         <div class="mobile-hole-nav">
           <button class="btn-ghost" type="button" :disabled="mobileHole === 0" @click="prevHole">←</button>
           <div class="mobile-hole-info">
@@ -1210,7 +1218,7 @@ const mobilePlayers = computed(() => {
       <p class="lede">Start a demo round to score live with the new engine.</p>
       <div class="sc-empty-actions">
         <button class="btn-primary" type="button" @click="loadDemo">Load demo round</button>
-        <button class="btn-ghost" type="button" @click="goHome">Home</button>
+        <button class="btn-ghost" type="button" @click="goGroup">Back to group</button>
       </div>
     </section>
   </main>
@@ -2088,6 +2096,35 @@ const mobilePlayers = computed(() => {
   margin-bottom: 16px;
 }
 
+.score-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 14px;
+  color: #5e6d63;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.score-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid #d7cebd;
+  background: #fdfbf4;
+}
+
+.legend-dot.eagle { background: #f6d365; }
+.legend-dot.birdie { background: #cdeccd; }
+.legend-dot.par { background: #fdfbf4; }
+.legend-dot.bogey { background: #ffe4c2; }
+
 .mobile-hole-nav {
   display: flex;
   align-items: center;
@@ -2256,6 +2293,32 @@ const mobilePlayers = computed(() => {
   display: flex;
   gap: 12px;
   margin-top: 20px;
+}
+
+@media (max-width: 760px) {
+  .sc-shell {
+    padding: 16px 16px 40px;
+  }
+
+  .sc-topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sc-title {
+    font-size: 1.55rem;
+    line-height: 1.08;
+  }
+
+  .sc-topbar-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sc-topbar-actions .btn-ghost {
+    width: 100%;
+    min-height: 44px;
+  }
 }
 
 .btn-primary,

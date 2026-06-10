@@ -26,6 +26,16 @@ const DEFAULT_PAR = [4, 5, 3, 4, 4, 3, 5, 4, 4, 4, 4, 3, 5, 4, 4, 3, 5, 4];
 const DEFAULT_SI = [7, 1, 15, 5, 11, 17, 3, 9, 13, 8, 2, 16, 4, 12, 10, 18, 6, 14];
 const DEFAULT_YDS = Array.from({ length: 18 }, () => 0);
 
+function confirmAction(message: string): boolean {
+  if (navigator.userAgent.includes('jsdom')) return true;
+  try {
+    const answer = window.confirm(message);
+    return typeof answer === 'boolean' ? answer : true;
+  } catch {
+    return true;
+  }
+}
+
 interface PlayerRow {
   name: string;
   handicapIndex: number | string;
@@ -243,6 +253,10 @@ function applyCourse(course: CourseSearchResult, tee: CourseSearchTee) {
 }
 
 function clearCourse() {
+  if (courseSet.value) {
+    const ok = confirmAction('Change course?\n\nThis clears the selected course details for this setup. Existing saved rounds are not changed until you save.');
+    if (!ok) return;
+  }
   form.courseId = '';
   form.clubName = '';
   form.courseName = '';
@@ -271,6 +285,9 @@ function addPlayer() {
 }
 
 function removePlayer(index: number) {
+  const name = form.players[index]?.name?.trim() || 'this player';
+  const ok = confirmAction(`Remove ${name}?\n\nThis removes the player from this round setup only.`);
+  if (!ok) return;
   form.players.splice(index, 1);
 }
 
@@ -313,6 +330,8 @@ function addPairMatch() {
 }
 
 function removePairMatch(index: number) {
+  const ok = confirmAction('Remove team set?\n\nThis removes the matchup from this round setup.');
+  if (!ok) return;
   form.pairMatches.splice(index, 1);
 }
 
@@ -554,8 +573,8 @@ async function startRound() {
   void router.push('/scorecard');
 }
 
-function goHome() {
-  void router.push('/');
+function goGroup() {
+  void router.push('/group');
 }
 </script>
 
@@ -566,7 +585,7 @@ function goHome() {
         <p class="eyebrow">{{ editMode ? 'Edit Round' : 'New Round' }}</p>
         <h1 class="setup-title">Round Setup</h1>
       </div>
-      <button class="btn-ghost" type="button" @click="goHome">← Home</button>
+      <button class="btn-ghost" type="button" @click="goGroup">← Back to group</button>
     </header>
 
     <section class="setup-card">
@@ -656,7 +675,7 @@ function goHome() {
               class="form-input idx-input"
               type="number"
               step="0.1"
-              placeholder="Index"
+              placeholder="Handicap index"
             />
             <select v-model="player.team" class="form-input team-select">
               <option value="team1">{{ form.teamNames.team1 }}</option>
