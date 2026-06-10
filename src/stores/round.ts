@@ -25,6 +25,11 @@ import {
   twoManScrambleTeamKey,
   type TwoManScrambleResult,
 } from '@/scoring/twoManScramble';
+import {
+  buildHighBallLowBallConfig,
+  scoreHighBallLowBall,
+  type HighBallLowBallResult,
+} from '@/scoring/highBallLowBall';
 import { computeSkins, type SkinsResult } from '@/scoring/skins';
 import {
   computePlayerPnL,
@@ -252,6 +257,16 @@ export const useRoundStore = defineStore('round', {
       const pairMatches = state.round.pairMatches ?? [];
       return pairMatches.map((match) =>
         scoreBestBallAggy(buildBestBallAggyConfig(match, this.games.bestBallAggy), context),
+      );
+    },
+
+    /** High Ball / Low Ball results, one per pair match (empty if game disabled). */
+    highBallLowBallResults(state): HighBallLowBallResult[] {
+      const context = this.scoreContext;
+      if (!context || !state.round || !this.games.highBallLowBall?.enabled) return [];
+      const pairMatches = state.round.pairMatches ?? [];
+      return pairMatches.map((match) =>
+        scoreHighBallLowBall(buildHighBallLowBallConfig(match, this.games.highBallLowBall), context),
       );
     },
 
