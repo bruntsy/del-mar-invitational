@@ -83,6 +83,7 @@ const selectedCourse = ref<CourseSearchResult | null>(null);
 const selectedTeeKey = ref('');
 const courseSearching = ref(false);
 const courseSearchError = ref('');
+const showCourseScorecard = ref(false);
 // True once a real course is in the form (prefilled from edit/event, or picked
 // from search). Drives whether we show the read-only scorecard + "Change course"
 // or the search UI — applies in every mode so a missing/wrong course is fixable.
@@ -275,6 +276,7 @@ function clearCourse() {
   courseResults.value = [];
   courseSearchError.value = '';
   courseSet.value = false;
+  showCourseScorecard.value = false;
 }
 
 function addPlayer() {
@@ -300,16 +302,33 @@ const duplicateNames = computed(() => {
   return names.length !== new Set(names).size;
 });
 
+const selectedGameCount = computed(() => {
+  const games = form.games;
+  return [
+    games.skins.enabled,
+    games.bestBall.enabled,
+    games.bestBallAggy.enabled,
+    games.twoManScramble.enabled,
+    games.highBallLowBall.enabled,
+    games.scramble4.enabled,
+    games.wolf.enabled,
+    games.puttPoker.enabled,
+  ].filter(Boolean).length;
+});
+
 const errors = computed(() => {
   const list: string[] = [];
   if (form.par.some((value) => !Number(value))) list.push('Every hole needs a par value.');
+  if (!selectedGameCount.value && !hasEventContext.value) list.push('Select at least one game.');
   if (!team1.value.length) list.push(`${form.teamNames.team1} needs at least one player.`);
   if (!team2.value.length) list.push(`${form.teamNames.team2} needs at least one player.`);
   if (duplicateNames.value) list.push('Player names must be unique.');
+  if (showPairMatches.value && !cleanedPairMatches.value.length) list.push('Team games need at least one valid team set.');
   return list;
 });
 
 const canStart = computed(() => errors.value.length === 0);
+const firstBlockingIssue = computed(() => errors.value[0] ?? '');
 
 const hasEventContext = computed(() => event.pendingRoundLink != null);
 const rosterReadOnly = computed(() => hasEventContext.value);
@@ -335,24 +354,20 @@ function removePairMatch(index: number) {
   form.pairMatches.splice(index, 1);
 }
 
-function togglePairSide(matchIndex: number, side: 'a' | 'b', player: string) {
+function setPairSide(matchIndex: number, player: string, side: 'a' | 'b' | 'sit') {
   const match = form.pairMatches[matchIndex];
   if (!match) return;
-  const list = match[side];
-  const at = list.indexOf(player);
-  if (at >= 0) {
-    list.splice(at, 1);
-    return;
-  }
-  // A player can only be on one side of a given match.
-  const other = side === 'a' ? match.b : match.a;
-  const otherAt = other.indexOf(player);
-  if (otherAt >= 0) other.splice(otherAt, 1);
-  list.push(player);
+  match.a = match.a.filter((p) => p !== player);
+  match.b = match.b.filter((p) => p !== player);
+  if (side !== 'sit') match[side].push(player);
 }
 
-function inPairSide(matchIndex: number, side: 'a' | 'b', player: string) {
-  return form.pairMatches[matchIndex]?.[side].includes(player) ?? false;
+function pairSide(matchIndex: number, player: string): 'a' | 'b' | 'sit' {
+  const match = form.pairMatches[matchIndex];
+  if (!match) return 'sit';
+  if (match.a.includes(player)) return 'a';
+  if (match.b.includes(player)) return 'b';
+  return 'sit';
 }
 
 // Seed a sensible default match (whole team1 vs whole team2) the first time a
@@ -383,31 +398,20 @@ const matchSummaries = computed(() =>
       const cfg = form.games[g.key] as { scoringMode: 'stroke' | 'match'; scoreBasis?: ScoreType; stake: { front: number; back: number; overall: number } };
       return {
         label: g.label,
-        basis: g.hasBasis ? cfg.scoreBasis ?? 'net' : 'gross',
-        mode: cfg.scoringMode === 'match' ? 'match' : 'stroke',
-        bet: `$${cfg.stake.front}/$${cfg.stake.back}/$${cfg.stake.overall}`,
+        basis: g.hasBasis ? capitalize(cfg.scoreBasis ?? 'net') : 'Gross',
+        mode: cfg.scoringMode === 'match' ? 'match play' : 'stroke play',
+        bet: `Front $${cfg.stake.front} · Back $${cfg.stake.back} · Overall $${cfg.stake.overall}`,
       };
     }),
   })),
 );
-
-const playerPartnerLabels = computed(() => {
-  const labels: Record<string, string> = {};
-  for (const match of cleanedPairMatches.value) {
-    const a = match.a.join(' + ');
-    const b = match.b.join(' + ');
-    const label = `${a || 'TBD'} vs ${b || 'TBD'}`;
-    [...match.a, ...match.b].forEach((player) => { labels[player] = label; });
-  }
-  return labels;
-});
 
 // Prompt before clobbering manually-edited playing groups when matches change.
 watch(
   () => JSON.stringify(form.pairMatches),
   () => {
     if (form.playingGroupCustom) {
-      const ok = window.confirm('Team sets changed. Regenerate playing groups from team sets? Cancel keeps your manual groups.');
+      const ok = confirmAction('Team sets changed. Regenerate playing groups from team sets? Cancel keeps your manual groups.');
       if (ok) form.playingGroupCustom = null;
     }
   },
@@ -447,6 +451,51 @@ function resetCustomGroups() {
 }
 
 const courseParTotal = computed(() => form.par.reduce((total, value) => total + Number(value || 0), 0));
+const courseYardsTotal = computed(() => Number(form.teeYards) || form.yds.reduce((total, value) => total + Number(value || 0), 0));
+const frontPar = computed(() => form.par.slice(0, 9).reduce((total, value) => total + Number(value || 0), 0));
+const backPar = computed(() => form.par.slice(9).reduce((total, value) => total + Number(value || 0), 0));
+const frontYards = computed(() => form.yds.slice(0, 9).reduce((total, value) => total + Number(value || 0), 0));
+const backYards = computed(() => form.yds.slice(9).reduce((total, value) => total + Number(value || 0), 0));
+
+const courseSummaryName = computed(() => (
+  [form.clubName, form.courseName && form.courseName !== form.clubName ? form.courseName : '']
+    .filter(Boolean)
+    .join(' — ') || form.courseName || form.clubName || 'Course'
+));
+
+const courseMeta = computed(() => [
+  form.teeGender || '',
+  form.teeName ? `${form.teeName} tees` : '',
+  `Rating ${Number(form.rating || 0).toFixed(1).replace('.0', '')}`,
+  `Slope ${Number(form.slope || 0)}`,
+  `Par ${courseParTotal.value}`,
+  courseYardsTotal.value ? `${Number(courseYardsTotal.value).toLocaleString()} yards` : '',
+].filter(Boolean));
+
+function capitalize(value: string) {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
+function strokeSummary(row: { strokes: number }) {
+  if (row.strokes <= 0) return 'Low / no strokes';
+  return `Gets +${row.strokes}`;
+}
+
+function assignmentLabel(team: 'team1' | 'team2') {
+  return team === 'team1' ? form.teamNames.team1 : form.teamNames.team2;
+}
+
+function setPlayerTeam(player: PlayerRow, team: 'team1' | 'team2') {
+  player.team = team;
+}
+
+function groupMatchup(players: string[]) {
+  const set = new Set(players);
+  const match = matchSummaries.value.find((m) =>
+    [...m.a.split(' / '), ...m.b.split(' / ')].filter(Boolean).some((player) => set.has(player)),
+  );
+  return match ? `${match.a || 'TBD'} vs ${match.b || 'TBD'}` : '';
+}
 
 const formCourse = computed<Course>(() => ({
   id: form.courseId || undefined,
@@ -584,18 +633,47 @@ function goGroup() {
       <div>
         <p class="eyebrow">{{ editMode ? 'Edit Round' : 'New Round' }}</p>
         <h1 class="setup-title">Round Setup</h1>
+        <p class="setup-lede">Configure the course, players, games, and teams before starting.</p>
       </div>
       <button class="btn-ghost" type="button" @click="goGroup">← Back to group</button>
     </header>
 
-    <section class="setup-card">
-      <h2 class="setup-hdr">Course</h2>
+    <section class="setup-card checklist-card">
+      <div class="setup-section-head">
+        <div>
+          <span class="step-pill">{{ courseSet ? 'Complete' : 'Needed' }}</span>
+          <h2 class="setup-hdr">Course</h2>
+        </div>
+      </div>
 
       <!-- A course is set (prefilled from edit/event or picked from search):
            show the read-only scorecard with a Change action available in every mode. -->
       <template v-if="courseSet">
-        <CourseScorecard :course="formCourse" />
-        <button class="btn-ghost sm" type="button" style="margin-top: 8px;" @click="clearCourse">Change course</button>
+        <div class="course-summary-card">
+          <div>
+            <h3 class="course-summary-name">{{ courseSummaryName }}</h3>
+            <p class="course-summary-meta">{{ courseMeta.join(' · ') }}</p>
+            <div class="course-nine-grid">
+              <div>
+                <strong>Front 9</strong>
+                <span>Par {{ frontPar }} · {{ Number(frontYards).toLocaleString() }} yds</span>
+              </div>
+              <div>
+                <strong>Back 9</strong>
+                <span>Par {{ backPar }} · {{ Number(backYards).toLocaleString() }} yds</span>
+              </div>
+            </div>
+          </div>
+          <div class="course-summary-actions">
+            <button class="btn-ghost sm" type="button" @click="clearCourse">Change course</button>
+            <button class="btn-ghost sm" type="button" @click="showCourseScorecard = !showCourseScorecard">
+              {{ showCourseScorecard ? 'Hide scorecard' : 'View scorecard' }}
+            </button>
+          </div>
+        </div>
+        <div v-if="showCourseScorecard" class="contained-scorecard">
+          <CourseScorecard :course="formCourse" />
+        </div>
       </template>
 
       <!-- No course yet: show search (works for new, edit, and event rounds). -->
@@ -642,8 +720,13 @@ function goGroup() {
       </template>
     </section>
 
-    <section class="setup-card">
-      <h2 class="setup-hdr">Teams &amp; Players</h2>
+    <section class="setup-card checklist-card">
+      <div class="setup-section-head">
+        <div>
+          <span class="step-pill">{{ namedPlayers.length ? `${namedPlayers.length} players` : 'Needed' }}</span>
+          <h2 class="setup-hdr">Players</h2>
+        </div>
+      </div>
       <div v-if="rosterReadOnly" class="event-roster-preview">
         <div class="event-roster-team">
           <div class="event-roster-team-name">{{ form.teamNames.team1 }}</div>
@@ -663,71 +746,78 @@ function goGroup() {
         </div>
       </div>
       <template v-else>
-        <div class="team-name-grid">
-          <label>Team 1 name<input v-model="form.teamNames.team1" class="form-input" /></label>
-          <label>Team 2 name<input v-model="form.teamNames.team2" class="form-input" /></label>
-        </div>
         <div class="player-list">
           <div v-for="(player, index) in form.players" :key="index" class="player-row">
-            <input v-model="player.name" class="form-input" placeholder="Player name" />
-            <input
-              v-model="player.handicapIndex"
-              class="form-input idx-input"
-              type="number"
-              step="0.1"
-              placeholder="Handicap index"
-            />
-            <select v-model="player.team" class="form-input team-select">
-              <option value="team1">{{ form.teamNames.team1 }}</option>
-              <option value="team2">{{ form.teamNames.team2 }}</option>
-            </select>
-            <button class="btn-remove" type="button" title="Remove" @click="removePlayer(index)">✕</button>
+            <div class="player-fields">
+              <input v-model="player.name" class="form-input" placeholder="Player name" />
+              <input
+                v-model="player.handicapIndex"
+                class="form-input idx-input"
+                type="number"
+                step="0.1"
+                inputmode="decimal"
+                placeholder="Handicap index"
+              />
+            </div>
+            <div class="player-row-actions">
+              <span class="team-chip">{{ player.name ? assignmentLabel(player.team) : 'Team later' }}</span>
+              <button class="btn-text-danger" type="button" @click="removePlayer(index)">Remove</button>
+            </div>
           </div>
         </div>
         <button class="btn-ghost" type="button" @click="addPlayer">+ Add player</button>
       </template>
 
       <div v-if="handicapPreviewRows.length" class="hcp-preview">
-        <h3 class="sub-hdr">Course Handicap Preview</h3>
+        <h3 class="sub-hdr">Course handicaps</h3>
         <div class="hcp-preview-list">
           <div v-for="row in handicapPreviewRows" :key="row.name" class="hcp-preview-row">
             <div>
               <strong>{{ row.name }}</strong>
-              <small>Idx {{ row.index.toFixed(1).replace('.0', '') }} / Course {{ row.courseHandicap }}</small>
+              <small>Index {{ row.index.toFixed(1).replace('.0', '') }} → Course {{ row.courseHandicap }}</small>
             </div>
             <div class="hcp-preview-strokes">
-              <strong>{{ row.strokes > 0 ? `+${row.strokes}` : 'Low' }}</strong>
-              <small>{{ row.holes }}</small>
+              <strong>{{ strokeSummary(row) }}</strong>
+              <small>{{ row.strokes > 0 ? `Stroke holes: ${row.holes.replace('Holes ', '')}` : row.holes }}</small>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <section v-if="!hasEventContext" class="setup-card">
-      <h2 class="setup-hdr">Games</h2>
+    <section v-if="!hasEventContext" class="setup-card checklist-card">
+      <div class="setup-section-head">
+        <div>
+          <span class="step-pill">{{ selectedGameCount ? `${selectedGameCount} selected` : 'Needed' }}</span>
+          <h2 class="setup-hdr">Games</h2>
+        </div>
+      </div>
       <div class="games-list">
-        <div class="game-row">
-          <label class="game-toggle"><input v-model="form.games.skins.enabled" type="checkbox" /> Skins</label>
-          <label class="bet-field">Buy-in per player<input v-model.number="form.games.skins.pot" class="form-input sm" type="number" min="0" /></label>
-          <select v-model="form.games.skins.type" class="form-input sm"><option>net</option><option>gross</option></select>
+        <div class="game-row game-card" :class="{ active: form.games.skins.enabled }">
+          <label class="game-toggle"><input v-model="form.games.skins.enabled" type="checkbox" /> <span><strong>Skins</strong><small>Optional individual skins game.</small></span></label>
+          <div v-if="form.games.skins.enabled" class="game-inline-settings">
+            <label class="bet-field">Buy-in $ / player<input v-model.number="form.games.skins.pot" class="form-input sm" type="number" min="0" /></label>
+            <select v-model="form.games.skins.type" class="form-input sm"><option>net</option><option>gross</option></select>
+          </div>
         </div>
 
-        <div class="game-row">
-          <label class="game-toggle"><input v-model="form.games.bestBall.enabled" type="checkbox" /> Best Ball</label>
-          <label class="bet-field">Front 9 ($/person)<input v-model.number="form.games.bestBall.front" class="form-input sm" type="number" min="0" /></label>
-          <label class="bet-field">Back 9 ($/person)<input v-model.number="form.games.bestBall.back" class="form-input sm" type="number" min="0" /></label>
-          <label class="bet-field">Overall ($/person)<input v-model.number="form.games.bestBall.total" class="form-input sm" type="number" min="0" /></label>
-          <select v-model="form.games.bestBall.type" class="form-input sm"><option>net</option><option>gross</option></select>
-          <select v-model="form.games.bestBall.scoringMode" class="form-input sm">
-            <option value="stroke">stroke</option>
-            <option value="match">match</option>
-          </select>
+        <div class="game-row game-card" :class="{ active: form.games.bestBall.enabled }">
+          <label class="game-toggle"><input v-model="form.games.bestBall.enabled" type="checkbox" /> <span><strong>Best Ball</strong><small>Team game using each side’s best ball.</small></span></label>
+          <div v-if="form.games.bestBall.enabled" class="game-inline-settings">
+            <label class="bet-field">Front 9 $ / player<input v-model.number="form.games.bestBall.front" class="form-input sm" type="number" min="0" /></label>
+            <label class="bet-field">Back 9 $ / player<input v-model.number="form.games.bestBall.back" class="form-input sm" type="number" min="0" /></label>
+            <label class="bet-field">Overall $ / player<input v-model.number="form.games.bestBall.total" class="form-input sm" type="number" min="0" /></label>
+            <select v-model="form.games.bestBall.type" class="form-input sm"><option>net</option><option>gross</option></select>
+            <select v-model="form.games.bestBall.scoringMode" class="form-input sm">
+              <option value="stroke">stroke</option>
+              <option value="match">match</option>
+            </select>
+            <p v-if="!form.games.bestBall.front && !form.games.bestBall.back && !form.games.bestBall.total" class="game-helper">This game will be tracked with no money attached.</p>
+          </div>
         </div>
 
-        <div class="game-row">
-          <label class="game-toggle"><input v-model="form.games.bestBallAggy.enabled" type="checkbox" /> Best Ball + Aggy</label>
-        </div>
+        <div class="game-row game-card" :class="{ active: form.games.bestBallAggy.enabled }">
+          <label class="game-toggle"><input v-model="form.games.bestBallAggy.enabled" type="checkbox" /> <span><strong>Best Ball + Aggy</strong><small>Scores both the team’s best ball and combined aggregate score.</small></span></label>
         <div v-if="form.games.bestBallAggy.enabled" class="game-subconfig">
           <div class="sub-row">
             <span class="sub-label">Score basis</span>
@@ -749,11 +839,12 @@ function goGroup() {
             <label class="bet-field">Back 9 ($/person)<input v-model.number="form.games.bestBallAggy.stake.back" class="form-input sm" type="number" min="0" /></label>
             <label class="bet-field">Overall ($/person)<input v-model.number="form.games.bestBallAggy.stake.overall" class="form-input sm" type="number" min="0" /></label>
           </div>
+          <p v-if="!form.games.bestBallAggy.stake.front && !form.games.bestBallAggy.stake.back && !form.games.bestBallAggy.stake.overall" class="game-helper">This game will be tracked with no money attached.</p>
+        </div>
         </div>
 
-        <div class="game-row">
-          <label class="game-toggle"><input v-model="form.games.twoManScramble.enabled" type="checkbox" /> Two-Man Scramble <span class="game-note">(gross)</span></label>
-        </div>
+        <div class="game-row game-card" :class="{ active: form.games.twoManScramble.enabled }">
+          <label class="game-toggle"><input v-model="form.games.twoManScramble.enabled" type="checkbox" /> <span><strong>Two-Man Scramble</strong><small>Two-player teams post one gross scramble score.</small></span></label>
         <div v-if="form.games.twoManScramble.enabled" class="game-subconfig">
           <div class="sub-row">
             <span class="sub-label">Scoring mode</span>
@@ -769,10 +860,10 @@ function goGroup() {
             <label class="bet-field">Overall ($/person)<input v-model.number="form.games.twoManScramble.stake.overall" class="form-input sm" type="number" min="0" /></label>
           </div>
         </div>
-
-        <div class="game-row">
-          <label class="game-toggle"><input v-model="form.games.highBallLowBall.enabled" type="checkbox" /> High Ball / Low Ball</label>
         </div>
+
+        <div class="game-row game-card" :class="{ active: form.games.highBallLowBall.enabled }">
+          <label class="game-toggle"><input v-model="form.games.highBallLowBall.enabled" type="checkbox" /> <span><strong>High Ball / Low Ball</strong><small>Scores both low-ball and high-ball team contests.</small></span></label>
         <div v-if="form.games.highBallLowBall.enabled" class="game-subconfig">
           <div class="sub-row">
             <span class="sub-label">Score basis</span>
@@ -795,57 +886,75 @@ function goGroup() {
             <label class="bet-field">Overall ($/person)<input v-model.number="form.games.highBallLowBall.stake.overall" class="form-input sm" type="number" min="0" /></label>
           </div>
         </div>
-
-        <div class="game-row">
-          <label class="game-toggle"><input v-model="form.games.scramble4.enabled" type="checkbox" /> 4-Man Scramble</label>
-          <label class="bet-field">Front 9 ($/person)<input v-model.number="form.games.scramble4.front" class="form-input sm" type="number" min="0" /></label>
-          <label class="bet-field">Back 9 ($/person)<input v-model.number="form.games.scramble4.back" class="form-input sm" type="number" min="0" /></label>
-          <label class="bet-field">Overall ($/person)<input v-model.number="form.games.scramble4.total" class="form-input sm" type="number" min="0" /></label>
-          <span class="game-note">Stroke play</span>
         </div>
 
-        <div class="game-row">
-          <label class="game-toggle"><input v-model="form.games.wolf.enabled" type="checkbox" /> Wolf</label>
-          <label class="bet-field">{{ form.games.wolf.nassau ? 'Overall ($/person)' : 'Full round ($/person)' }}<input v-model.number="form.games.wolf.amount" class="form-input sm" type="number" min="0" /></label>
-          <select v-model="form.games.wolf.type" class="form-input sm"><option>net</option><option>gross</option></select>
-          <label class="game-toggle sm"><input v-model="form.games.wolf.nassau" type="checkbox" /> Nassau</label>
+        <div class="game-row game-card" :class="{ active: form.games.scramble4.enabled }">
+          <label class="game-toggle"><input v-model="form.games.scramble4.enabled" type="checkbox" /> <span><strong>4-Man Scramble</strong><small>Team scramble scored as gross stroke play.</small></span></label>
+          <div v-if="form.games.scramble4.enabled" class="game-inline-settings">
+            <label class="bet-field">Front 9 $ / player<input v-model.number="form.games.scramble4.front" class="form-input sm" type="number" min="0" /></label>
+            <label class="bet-field">Back 9 $ / player<input v-model.number="form.games.scramble4.back" class="form-input sm" type="number" min="0" /></label>
+            <label class="bet-field">Overall $ / player<input v-model.number="form.games.scramble4.total" class="form-input sm" type="number" min="0" /></label>
+            <span class="game-note">Gross stroke play</span>
+          </div>
         </div>
 
-        <div class="game-row">
-          <label class="game-toggle"><input v-model="form.games.puttPoker.enabled" type="checkbox" /> Putt Poker</label>
-          <label class="bet-field">Buy-in per player<input v-model.number="form.games.puttPoker.pot" class="form-input sm" type="number" min="0" /></label>
+        <div class="game-row game-card" :class="{ active: form.games.wolf.enabled }">
+          <label class="game-toggle"><input v-model="form.games.wolf.enabled" type="checkbox" /> <span><strong>Wolf</strong><small>Rotating individual/team side game.</small></span></label>
+          <div v-if="form.games.wolf.enabled" class="game-inline-settings">
+            <label class="bet-field">{{ form.games.wolf.nassau ? 'Overall $ / player' : 'Full round $ / player' }}<input v-model.number="form.games.wolf.amount" class="form-input sm" type="number" min="0" /></label>
+            <select v-model="form.games.wolf.type" class="form-input sm"><option>net</option><option>gross</option></select>
+            <label class="game-toggle sm"><input v-model="form.games.wolf.nassau" type="checkbox" /> Nassau</label>
+          </div>
+        </div>
+
+        <div class="game-row game-card" :class="{ active: form.games.puttPoker.enabled }">
+          <label class="game-toggle"><input v-model="form.games.puttPoker.enabled" type="checkbox" /> <span><strong>Putt Poker</strong><small>Putting-card side pot by playing group.</small></span></label>
+          <div v-if="form.games.puttPoker.enabled" class="game-inline-settings">
+            <label class="bet-field">Buy-in $ / player<input v-model.number="form.games.puttPoker.pot" class="form-input sm" type="number" min="0" /></label>
+          </div>
         </div>
       </div>
     </section>
 
-    <section v-if="!hasEventContext && showPairMatches" class="setup-card">
+    <section v-if="!hasEventContext && namedPlayers.length" class="setup-card checklist-card">
       <div class="pg-header">
-        <h2 class="setup-hdr">Teams</h2>
-        <button class="btn-ghost sm" type="button" @click="addPairMatch">+ Add team set</button>
+        <div>
+          <span class="step-pill">{{ team1.length }} vs {{ team2.length }}</span>
+          <h2 class="setup-hdr">Teams &amp; matchups</h2>
+        </div>
+        <button v-if="showPairMatches" class="btn-ghost sm" type="button" @click="addPairMatch">+ Add team set</button>
       </div>
-      <p class="pg-hint">Set sides for each team game. These teams drive Best Ball, Best Ball + Aggy, High/Low and Two-Man Scramble scoring.</p>
+      <p class="pg-hint">Assign round teams first. Team sets appear when a selected game needs a specific matchup.</p>
 
-      <div class="pm-list">
+      <div class="team-name-grid">
+        <label>Team 1 name<input v-model="form.teamNames.team1" class="form-input" /></label>
+        <label>Team 2 name<input v-model="form.teamNames.team2" class="form-input" /></label>
+      </div>
+
+      <div class="team-assignment-list">
+        <div v-for="player in namedPlayers" :key="`assign-${player.name}`" class="team-assignment-row">
+          <strong>{{ player.name }}</strong>
+          <div class="team-toggle">
+            <button class="seg-btn" :class="{ active: player.team === 'team1' }" type="button" @click="setPlayerTeam(player, 'team1')">{{ form.teamNames.team1 }}</button>
+            <button class="seg-btn" :class="{ active: player.team === 'team2' }" type="button" @click="setPlayerTeam(player, 'team2')">{{ form.teamNames.team2 }}</button>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="showPairMatches" class="pm-list">
         <div v-for="(_match, mi) in form.pairMatches" :key="mi" class="pair-match-builder">
           <div class="pm-builder-head">
             <strong>Team Set {{ mi + 1 }}</strong>
             <button class="btn-remove" type="button" title="Remove team set" @click="removePairMatch(mi)">✕</button>
           </div>
-          <div class="pm-sides">
-            <div class="pm-side">
-              <span class="pm-side-label">Team A</span>
-              <label v-for="p in namedPlayers" :key="`a-${mi}-${p.name}`" class="pm-chk">
-                <input type="checkbox" :checked="inPairSide(mi, 'a', p.name.trim())" @change="togglePairSide(mi, 'a', p.name.trim())" />
-                {{ p.name }}
-              </label>
-            </div>
-            <span class="pair-match-vs">vs</span>
-            <div class="pm-side">
-              <span class="pm-side-label">Team B</span>
-              <label v-for="p in namedPlayers" :key="`b-${mi}-${p.name}`" class="pm-chk">
-                <input type="checkbox" :checked="inPairSide(mi, 'b', p.name.trim())" @change="togglePairSide(mi, 'b', p.name.trim())" />
-                {{ p.name }}
-              </label>
+          <div class="pm-assign-list">
+            <div v-for="p in namedPlayers" :key="`pm-${mi}-${p.name}`" class="pm-assign-row">
+              <strong>{{ p.name }}</strong>
+              <div class="team-toggle three">
+                <button class="seg-btn" :class="{ active: pairSide(mi, p.name.trim()) === 'a' }" type="button" @click="setPairSide(mi, p.name.trim(), 'a')">Team A</button>
+                <button class="seg-btn" :class="{ active: pairSide(mi, p.name.trim()) === 'b' }" type="button" @click="setPairSide(mi, p.name.trim(), 'b')">Team B</button>
+                <button class="seg-btn" :class="{ active: pairSide(mi, p.name.trim()) === 'sit' }" type="button" @click="setPairSide(mi, p.name.trim(), 'sit')">Sit</button>
+              </div>
             </div>
           </div>
         </div>
@@ -872,12 +981,15 @@ function goGroup() {
       </div>
     </section>
 
-    <section v-if="namedPlayers.length >= 2" class="setup-card">
+    <section v-if="namedPlayers.length >= 2" class="setup-card checklist-card">
       <div class="pg-header">
-        <h2 class="setup-hdr">Playing Groups</h2>
+        <div>
+          <span class="step-pill">{{ displayPlayingGroups.length }} group{{ displayPlayingGroups.length === 1 ? '' : 's' }}</span>
+          <h2 class="setup-hdr">Playing groups</h2>
+        </div>
         <button v-if="form.playingGroupCustom" class="btn-ghost sm" type="button" @click="resetCustomGroups">Reset to auto</button>
       </div>
-      <p class="pg-hint">{{ form.playingGroupCustom ? 'Manually assigned.' : 'Auto-assigned from team sets or team order.' }} Rename groups or move players between groups.</p>
+      <p class="pg-hint">Set who is playing together on the course. {{ form.playingGroupCustom ? 'Manually assigned.' : 'Auto-assigned from team sets or team order.' }}</p>
       <div class="pg-list">
         <div v-for="(group, gi) in displayPlayingGroups" :key="gi" class="pg-group">
           <input
@@ -889,7 +1001,6 @@ function goGroup() {
           <div class="pg-players">
             <span v-for="player in group.players" :key="player" class="pg-player-chip">
               <span>{{ player }}</span>
-              <small v-if="playerPartnerLabels[player]" class="pg-partner-label">{{ playerPartnerLabels[player] }}</small>
               <select
                 v-if="displayPlayingGroups.length > 1"
                 class="pg-move-select"
@@ -902,6 +1013,7 @@ function goGroup() {
               </select>
             </span>
           </div>
+          <p v-if="groupMatchup(group.players)" class="pg-matchup">Matchup: {{ groupMatchup(group.players) }}</p>
         </div>
       </div>
     </section>
@@ -910,8 +1022,10 @@ function goGroup() {
       <li v-for="(err, i) in errors" :key="i">{{ err }}</li>
     </ul>
 
-    <div class="setup-actions">
+    <div class="setup-actions sticky-actions">
       <p v-if="store.syncError" class="sync-error">{{ store.syncError }}</p>
+      <p v-else-if="firstBlockingIssue" class="sync-error">{{ firstBlockingIssue }}</p>
+      <button class="btn-ghost" type="button" @click="goGroup">Back to group</button>
       <button class="btn-primary" type="button" :disabled="!canStart || store.starting" @click="startRound">
         {{ store.starting ? (editMode ? 'Saving...' : 'Starting...') : (editMode ? 'Save changes →' : 'Start round →') }}
       </button>
@@ -923,13 +1037,14 @@ function goGroup() {
 .setup-shell {
   max-width: 900px;
   margin: 0 auto;
-  padding: 20px 16px 64px;
+  padding: 20px 16px 132px;
 }
 
 .setup-topbar {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  gap: 16px;
   margin-bottom: 16px;
 }
 
@@ -944,20 +1059,53 @@ function goGroup() {
 
 .setup-title {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   color: #24362c;
+}
+
+.setup-lede {
+  margin: 8px 0 0;
+  color: #607067;
+  line-height: 1.45;
 }
 
 .setup-card {
   border: 1px solid #d7cebd;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #f8f4ea;
   padding: 18px 20px;
   margin-bottom: 18px;
 }
 
+.checklist-card {
+  box-shadow: 0 8px 22px rgb(31 42 36 / 6%);
+}
+
+.setup-section-head,
+.pg-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.step-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border: 1px solid #d7cebd;
+  border-radius: 999px;
+  background: #fdfbf4;
+  color: #7c693d;
+  padding: 3px 9px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .setup-hdr {
-  margin: 0 0 14px;
+  margin: 5px 0 0;
   font-size: 1rem;
   color: #2f5d43;
 }
@@ -984,6 +1132,72 @@ function goGroup() {
   font-size: 0.82rem;
   color: #7a8a7f;
   margin-top: 2px;
+}
+
+.course-summary-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 14px;
+}
+
+.course-summary-name {
+  margin: 0;
+  color: #24362c;
+  font-size: 1.12rem;
+}
+
+.course-summary-meta {
+  margin: 5px 0 0;
+  color: #607067;
+  line-height: 1.45;
+}
+
+.course-summary-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.course-nine-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.course-nine-grid div {
+  border: 1px solid #ece3d2;
+  border-radius: 6px;
+  padding: 9px 10px;
+  background: #fbf7ed;
+}
+
+.course-nine-grid strong,
+.course-nine-grid span {
+  display: block;
+}
+
+.course-nine-grid strong {
+  color: #2f5d43;
+  font-size: 0.8rem;
+}
+
+.course-nine-grid span {
+  margin-top: 2px;
+  color: #607067;
+  font-size: 0.8rem;
+}
+
+.contained-scorecard {
+  margin-top: 12px;
+  overflow-x: auto;
 }
 
 .course-search {
@@ -1137,21 +1351,58 @@ label {
 }
 
 .player-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 10px;
 }
 
-.player-row .form-input {
-  flex: 1;
+.player-fields {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(130px, 180px);
+  gap: 8px;
+}
+
+.player-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
 .idx-input {
-  max-width: 90px;
+  max-width: none;
 }
 
 .team-select {
   max-width: 140px;
+}
+
+.team-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  border-radius: 999px;
+  background: #eef2ec;
+  color: #4d6255;
+  padding: 3px 10px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.btn-text-danger {
+  border: 0;
+  background: transparent;
+  color: #b1462f;
+  padding: 6px 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 .event-roster-preview {
@@ -1244,18 +1495,103 @@ label {
 
 .games-list {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .game-row {
-  display: grid;
-  grid-template-columns: minmax(170px, 1.2fr) repeat(auto-fit, minmax(104px, max-content));
-  gap: 12px;
-  align-items: end;
+  display: block;
   border: 1px solid #e4ddcd;
   border-radius: 8px;
   background: #fdfbf4;
   padding: 12px;
+}
+
+.game-card.active {
+  border-color: #9fb5a7;
+  background: #f3f8f1;
+  box-shadow: 0 0 0 1px rgb(47 93 67 / 12%) inset;
+}
+
+.game-toggle {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.game-toggle input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.game-toggle span {
+  display: grid;
+  gap: 2px;
+}
+
+.game-toggle strong {
+  color: #24362c;
+  font-size: 0.95rem;
+}
+
+.game-toggle small {
+  color: #65756a;
+  font-size: 0.78rem;
+}
+
+.game-inline-settings,
+.game-subconfig {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+  border-top: 1px solid #dfe6dc;
+  padding-top: 12px;
+}
+
+.game-subconfig .sub-row {
+  display: contents;
+}
+
+.game-helper {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #607067;
+  font-size: 0.78rem;
+}
+
+.team-assignment-list,
+.pm-assign-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.team-assignment-row,
+.pm-assign-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(220px, 1.4fr);
+  gap: 12px;
+  align-items: center;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 10px;
+}
+
+.team-assignment-row strong,
+.pm-assign-row strong {
+  color: #24362c;
+}
+
+.team-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.team-toggle.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .game-toggle {
@@ -1584,6 +1920,18 @@ label {
   flex-wrap: wrap;
 }
 
+.sticky-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  margin: 22px -16px -132px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid #d7cebd;
+  background: rgb(238 240 232 / 94%);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 -12px 28px rgb(31 42 36 / 10%);
+}
+
 .sync-error {
   margin: 0;
   color: #b4473a;
@@ -1622,6 +1970,50 @@ label {
 }
 
 @media (max-width: 640px) {
+  .setup-shell {
+    padding: 16px 12px 148px;
+  }
+
+  .setup-topbar,
+  .course-summary-card,
+  .player-row,
+  .team-assignment-row,
+  .pm-assign-row {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .setup-card {
+    padding: 16px;
+  }
+
+  .setup-section-head,
+  .pg-header {
+    align-items: flex-start;
+  }
+
+  .course-summary-actions,
+  .player-row-actions,
+  .setup-actions {
+    justify-content: stretch;
+  }
+
+  .course-summary-actions .btn-ghost,
+  .setup-actions .btn-primary,
+  .setup-actions .btn-ghost {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .course-nine-grid,
+  .player-fields,
+  .team-name-grid,
+  .game-inline-settings,
+  .game-subconfig {
+    grid-template-columns: 1fr;
+  }
+
   .course-search {
     flex-direction: column;
   }
@@ -1637,6 +2029,72 @@ label {
 
   .hcp-preview-strokes {
     text-align: left;
+  }
+
+  .team-toggle,
+  .team-toggle.three {
+    grid-template-columns: 1fr;
+  }
+
+  .pg-player-chip {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .sticky-actions {
+    margin: 22px -12px -148px;
+    align-items: stretch;
+  }
+}
+
+/* Final overrides for the guided setup card pattern. */
+.game-subconfig {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid #dfe6dc;
+  border-radius: 0;
+  background: transparent;
+}
+
+.game-subconfig .sub-row {
+  display: contents;
+}
+
+.pg-header {
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.pg-group {
+  grid-template-columns: minmax(130px, 160px) 1fr;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 10px;
+}
+
+.pg-player-chip {
+  flex-direction: row;
+  min-width: auto;
+}
+
+.pg-matchup {
+  grid-column: 2;
+  margin: 4px 0 0;
+  color: #607067;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .pg-group,
+  .pg-matchup {
+    grid-template-columns: 1fr;
+    grid-column: 1;
   }
 }
 </style>

@@ -56,6 +56,10 @@ async function fillDefaultPlayers(wrapper: ReturnType<typeof mountSetup>) {
   await setRow(rows[1], 'Bea', '12');
   await setRow(rows[2], 'Cal', '6');
   await setRow(rows[3], 'Dan', '20');
+  const skinsRow = wrapper.findAll('.game-row').find((row) => row.text().includes('Skins'));
+  if (skinsRow && !(skinsRow.find('input[type="checkbox"]').element as HTMLInputElement).checked) {
+    await skinsRow.find('input[type="checkbox"]').setValue(true);
+  }
 }
 
 beforeEach(() => {
@@ -80,9 +84,9 @@ describe('SetupScreen', () => {
 
   it('flags duplicate player names', async () => {
     const wrapper = mountSetup();
-    const names = wrapper.findAll('.player-row .form-input');
-    await names[0].setValue('Sam');
-    await names[3].setValue('Sam'); // second row's name field (index 3 = 4th input pair start)
+    const rows = wrapper.findAll('.player-row');
+    await rows[0].findAll('input')[0].setValue('Sam');
+    await rows[1].findAll('input')[0].setValue('Sam');
 
     expect(wrapper.text()).toContain('unique');
   });
@@ -104,8 +108,8 @@ describe('SetupScreen', () => {
     expect(inputValue(rows[1].findAll('input')[0])).toBe('Bea');
     expect(inputValue(rows[2].findAll('input')[0])).toBe('Cal');
     expect(inputValue(rows[3].findAll('input')[0])).toBe('Dan');
-    expect((wrapper.findAll('.team-select')[0].element as HTMLSelectElement).value).toBe('team1');
-    expect((wrapper.findAll('.team-select')[2].element as HTMLSelectElement).value).toBe('team2');
+    expect(wrapper.findAll('.team-assignment-row')[0].text()).toContain('Team 1');
+    expect(wrapper.findAll('.team-assignment-row')[2].text()).toContain('Team 2');
   });
 
   it('allows round-local roster edits after group prefill', async () => {
@@ -122,6 +126,7 @@ describe('SetupScreen', () => {
     const firstRow = wrapper.findAll('.player-row')[0];
     await firstRow.findAll('input')[0].setValue('Avery');
     await firstRow.findAll('input')[1].setValue('8.5');
+    await wrapper.findAll('.game-row').find((row) => row.text().includes('Skins'))!.find('input[type="checkbox"]').setValue(true);
     await wrapper.find('.setup-actions .btn-primary').trigger('click');
     await flushPromises();
 
@@ -136,7 +141,7 @@ describe('SetupScreen', () => {
 
     await fillDefaultPlayers(wrapper);
 
-    await wrapper.find('.btn-primary').trigger('click');
+    await wrapper.find('.setup-actions .btn-primary').trigger('click');
 
     expect(store.round).not.toBeNull();
     expect(store.round?.team1).toEqual(['Ann', 'Bea']);
@@ -160,10 +165,10 @@ describe('SetupScreen', () => {
     const rows = wrapper.findAll('.hcp-preview-row');
     expect(rows).toHaveLength(4);
     expect(rows[0].text()).toContain('Ann');
-    expect(rows[0].text()).toContain('Idx 10');
+    expect(rows[0].text()).toContain('Index 10');
     expect(rows[0].text()).toContain('Course 10');
     expect(rows[0].text()).toContain('+4');
-    expect(rows[0].text()).toContain('Holes 2, 11, 7, 13');
+    expect(rows[0].text()).toContain('Stroke holes: 2, 11, 7, 13');
     expect(rows[2].text()).toContain('Low');
     expect(rows[2].text()).toContain('No strokes');
   });
@@ -204,7 +209,7 @@ describe('SetupScreen', () => {
     await wrapper.find('.tee-result').trigger('click');
 
     await fillDefaultPlayers(wrapper);
-    await wrapper.find('.btn-primary').trigger('click');
+    await wrapper.find('.setup-actions .btn-primary').trigger('click');
 
     expect(mockSearchCourses).toHaveBeenCalledWith('Del Mar');
     expect(store.round?.course).toMatchObject({
@@ -258,7 +263,7 @@ describe('SetupScreen', () => {
 
     expect(wrapper.findAll('.hcp-preview-row')[0].text()).toContain('Course 14');
     expect(wrapper.findAll('.hcp-preview-row')[3].text()).toContain('+17');
-    expect(wrapper.findAll('.hcp-preview-row')[3].text()).toContain('Holes 1, 2, 3');
+    expect(wrapper.findAll('.hcp-preview-row')[3].text()).toContain('Stroke holes: 1, 2, 3');
   });
 
   it('keeps manual course setup available when search fails', async () => {
@@ -289,7 +294,7 @@ describe('SetupScreen', () => {
     await money[1].setValue('5');
     await money[2].setValue('10');
 
-    await wrapper.find('.btn-primary').trigger('click');
+    await wrapper.find('.setup-actions .btn-primary').trigger('click');
 
     expect(store.round?.games.scramble4).toMatchObject({
       enabled: true,
@@ -317,7 +322,7 @@ describe('SetupScreen', () => {
     const store = useRoundStore();
     const wrapper = mountSetup();
     await fillDefaultPlayers(wrapper);
-    await wrapper.find('.btn-primary').trigger('click');
+    await wrapper.find('.setup-actions .btn-primary').trigger('click');
 
     expect(store.round?.playingGroups).toBeDefined();
     expect(store.round!.playingGroups.length).toBeGreaterThan(0);
@@ -334,7 +339,7 @@ describe('SetupScreen', () => {
     const nameInput = wrapper.find('.pg-name-input');
     await nameInput.setValue('Bay Boys');
 
-    await wrapper.find('.btn-primary').trigger('click');
+    await wrapper.find('.setup-actions .btn-primary').trigger('click');
 
     expect(store.round?.playingGroups[0].name).toBe('Bay Boys');
   });
@@ -568,9 +573,11 @@ describe('SetupScreen', () => {
     // Prefill must run to completion past the reactive games clone, so the
     // read-only scorecard + Change action appear (regression: structuredClone
     // on the reactive games proxy used to throw and abort the prefill).
-    expect(wrapper.find('.cs-card').exists()).toBe(true);
+    expect(wrapper.find('.cs-card').exists()).toBe(false);
     expect(wrapper.text()).toContain('Pebble Beach — Links');
     expect(wrapper.text()).toContain('Change course');
+    await wrapper.findAll('button').find((button) => button.text() === 'View scorecard')!.trigger('click');
+    expect(wrapper.find('.cs-card').exists()).toBe(true);
     const names = wrapper.findAll('.player-row input').map((i) => (i.element as HTMLInputElement).value);
     expect(names).toContain('Al');
     expect(names).toContain('Bo');
@@ -583,7 +590,7 @@ describe('SetupScreen', () => {
     await wrapper.find('.setup-card:nth-of-type(2) .btn-ghost').trigger('click');
     expect(wrapper.findAll('.player-row')).toHaveLength(5);
 
-    await wrapper.findAll('.btn-remove')[0].trigger('click');
+    await wrapper.findAll('.player-row button').find((button) => button.text() === 'Remove')!.trigger('click');
     expect(wrapper.findAll('.player-row')).toHaveLength(4);
   });
 });
