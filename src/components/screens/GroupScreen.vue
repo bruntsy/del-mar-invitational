@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { sortedGroupPlayers } from '@/domain/players';
 import { courseDisplayName } from '@/domain/round';
 import { hasSupabase } from '@/services/supabase';
@@ -21,6 +21,7 @@ const stats = useStatsStore();
 const eventStore = useEventStore();
 const roundStore = useRoundStore();
 const router = useRouter();
+const route = useRoute();
 
 const { leaderboard } = useEventLeaderboard(
   () => eventStore.event?.config,
@@ -65,6 +66,7 @@ const canRenameGroup = computed(() => {
   return name.length > 0 && name !== store.groupName && !store.busy;
 });
 const canAddRosterPlayer = computed(() => rosterName.value.trim().length > 0 && !store.busy);
+const showGroupsList = computed(() => !store.hasGroup || route.query.view === 'groups');
 
 const resumeCard = computed(() => {
   const round = roundStore.round;
@@ -123,6 +125,7 @@ async function openRecent(code: string) {
   if (await store.switchToRecentGroup(code)) {
     renameValue.value = store.group?.name ?? '';
     refreshHistory();
+    void router.push('/group');
   }
 }
 
@@ -246,7 +249,7 @@ function openEventRound(roundIndex: number) {
 }
 
 function goGroups() {
-  void router.push('/group');
+  void router.push({ path: '/group', query: { view: 'groups' } });
 }
 
 function forgetRecent(roomCode: string) {
@@ -302,7 +305,7 @@ function componentResultClass(component: EventComponent): string {
       <p class="eyebrow">Groups</p>
 
       <!-- Active group -->
-      <template v-if="store.hasGroup">
+      <template v-if="store.hasGroup && !showGroupsList">
         <header class="group-header">
           <div>
             <div v-if="!editingGroupName" class="group-title-row">
@@ -594,6 +597,15 @@ function componentResultClass(component: EventComponent): string {
       <template v-else>
         <h1>Groups</h1>
         <p class="lede">Join or create a group. Create a group for your round or enter a code to join one.</p>
+
+        <section v-if="store.hasGroup" class="current-group card-section">
+          <div>
+            <span class="field-label">Current group</span>
+            <div class="recent-name">{{ store.groupName }}</div>
+            <div class="recent-meta">Group code {{ store.groupCode }}</div>
+          </div>
+          <button class="btn-primary sm" type="button" @click="router.push('/group')">Open group</button>
+        </section>
 
         <form class="field card-section" @submit.prevent="create">
           <span class="field-label">Create group</span>

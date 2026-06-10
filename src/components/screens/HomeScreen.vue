@@ -30,7 +30,7 @@ function startDemo() {
 }
 
 function openGroups() {
-  void router.push('/group');
+  void router.push({ path: '/group', query: { view: 'groups' } });
 }
 
 function newRound() {

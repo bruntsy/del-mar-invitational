@@ -623,7 +623,7 @@ async function startRound() {
 }
 
 function goGroup() {
-  void router.push('/group');
+  void router.push({ path: '/group', query: { view: 'groups' } });
 }
 </script>
 
@@ -635,7 +635,7 @@ function goGroup() {
         <h1 class="setup-title">Round Setup</h1>
         <p class="setup-lede">Configure the course, players, games, and teams before starting.</p>
       </div>
-      <button class="btn-ghost" type="button" @click="goGroup">← Back to group</button>
+      <button class="btn-ghost" type="button" @click="goGroup">← Back to groups</button>
     </header>
 
     <section class="setup-card checklist-card">
@@ -1025,7 +1025,7 @@ function goGroup() {
     <div class="setup-actions sticky-actions">
       <p v-if="store.syncError" class="sync-error">{{ store.syncError }}</p>
       <p v-else-if="firstBlockingIssue" class="sync-error">{{ firstBlockingIssue }}</p>
-      <button class="btn-ghost" type="button" @click="goGroup">Back to group</button>
+      <button class="btn-ghost" type="button" @click="goGroup">Back to groups</button>
       <button class="btn-primary" type="button" :disabled="!canStart || store.starting" @click="startRound">
         {{ store.starting ? (editMode ? 'Saving...' : 'Starting...') : (editMode ? 'Save changes →' : 'Start round →') }}
       </button>

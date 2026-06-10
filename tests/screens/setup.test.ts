@@ -73,6 +73,16 @@ beforeEach(() => {
 });
 
 describe('SetupScreen', () => {
+  it('returns to the groups list from setup', async () => {
+    const wrapper = mountSetup();
+    const back = wrapper.findAll('.btn-ghost').find((button) => button.text().includes('Back to groups'));
+
+    expect(back).toBeDefined();
+    await back!.trigger('click');
+
+    expect(push).toHaveBeenCalledWith({ path: '/group', query: { view: 'groups' } });
+  });
+
   it('blocks starting until both teams have a player', () => {
     const wrapper = mountSetup();
     const start = wrapper.find('.btn-primary');

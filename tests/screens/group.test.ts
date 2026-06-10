@@ -5,9 +5,13 @@ import GroupScreen from '@/components/screens/GroupScreen.vue';
 import { useGroupStore } from '@/stores/group';
 import { emptyRound, useRoundStore } from '@/stores/round';
 
+const { routeQuery } = vi.hoisted(() => ({
+  routeQuery: { value: {} as Record<string, string> },
+}));
 const push = vi.fn();
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push }),
+  useRoute: () => ({ query: routeQuery.value }),
 }));
 vi.mock('@/services/supabase', () => ({
   supabase: null,
@@ -25,6 +29,7 @@ beforeEach(() => {
   setActivePinia(pinia);
   localStorage.clear();
   push.mockClear();
+  routeQuery.value = {};
 });
 
 describe('GroupScreen roster', () => {
@@ -87,5 +92,32 @@ describe('GroupScreen roster', () => {
 
     expect(wrapper.find('.resume-card').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('Wrong Course');
+  });
+
+  it('shows the groups list when requested even with an active group', async () => {
+    const store = useGroupStore();
+    await store.createGroup('Current Group');
+    routeQuery.value = { view: 'groups' };
+
+    const wrapper = mountGroup();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Current group');
+    expect(wrapper.text()).toContain('Create group');
+    expect(wrapper.text()).toContain('Recent groups');
+    expect(wrapper.text()).not.toContain('Ad hoc rounds');
+  });
+
+  it('opens the groups list from the active group dashboard', async () => {
+    const store = useGroupStore();
+    await store.createGroup('Current Group');
+    const wrapper = mountGroup();
+    await flushPromises();
+
+    const back = wrapper.findAll('button').find((button) => button.text().includes('Back to groups'));
+    expect(back).toBeDefined();
+    await back!.trigger('click');
+
+    expect(push).toHaveBeenCalledWith({ path: '/group', query: { view: 'groups' } });
   });
 });
