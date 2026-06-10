@@ -160,8 +160,11 @@ describe('ResultsScreen', () => {
     await nextTick();
 
     expect(wrapper.text()).not.toContain('Team Scores');
+    expect(wrapper.text()).toContain('Round points');
+    expect(wrapper.text()).toContain('Round 1');
     expect(wrapper.text()).toContain('High Ball / Low Ball');
     expect(wrapper.text()).toContain('Match play');
+    expect(wrapper.find('.hbl-match-summary').text()).toContain('event points');
     expect(wrapper.text()).toContain('Low Ball');
     expect(wrapper.text()).toContain('High Ball');
     expect(wrapper.text()).toContain('Front');
@@ -178,6 +181,33 @@ describe('ResultsScreen', () => {
     expect(wrapper.findAll('.hbl-hole')).toHaveLength(18);
     expect(wrapper.find('.hbl-legend').text()).toContain('AS = all square');
     expect(wrapper.find('.hbl-hole').text()).toContain('Hole 1');
+  });
+
+  it('deduplicates course names and shows tied leaderboard ranks', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    const baseCourse = round.course!;
+    round.course = {
+      ...baseCourse,
+      clubName: 'Alderbrook Golf & Yacht Club',
+      courseName: 'Alderbrook Golf & Yacht Club',
+      location: 'Union, WA',
+      tee: { ...baseCourse.tee, name: 'Black' },
+    };
+    for (const player of Object.values(players)) {
+      if (typeof player !== 'string') player.handicapIndex = 0;
+    }
+    store.setRound(round, players);
+    for (const player of ['Wes', 'Aaron']) fillCard(store, player, 4);
+    for (const player of ['Tito', 'Q']) fillCard(store, player, 5);
+
+    const wrapper = mountResults();
+    await nextTick();
+
+    expect(wrapper.find('.rs-course-title').text()).toBe('Alderbrook Golf & Yacht Club');
+    expect(wrapper.find('.rs-course-meta').text()).toContain('Black tees');
+    expect(wrapper.findAll('.rs-rank').map((cell) => cell.text())).toEqual(['T1', 'T1', 'T3', 'T3']);
+    expect(wrapper.text()).toContain('Strokes are course strokes received');
   });
 
   it('renders wolf standings and Nassau segments', async () => {
@@ -217,10 +247,34 @@ describe('ResultsScreen', () => {
 
     expect(wrapper.text()).toContain('Putt Poker');
     expect(wrapper.find('.pp-groups').exists()).toBe(true);
-    // coin holder is shown
+    expect(wrapper.text()).toContain('Current 3-putt marker');
+    expect(wrapper.text()).toContain('Cards remaining');
+    // marker holder is shown
     expect(wrapper.find('.pp-coin strong').text()).toBe('Wes');
     // pot line is present
     expect(wrapper.find('.pp-pot').text()).toContain('$');
+  });
+
+  it('summarizes skins before the hole grid and explains tied holes', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.games = cloneDefaultGames();
+    round.games.skins.enabled = true;
+    round.games.skins.type = 'gross';
+    store.setRound(round, players);
+    store.setScore('Wes', 0, 3);
+    store.setScore('Aaron', 0, 4);
+    store.setScore('Tito', 0, 4);
+    store.setScore('Q', 0, 4);
+    for (const player of ['Wes', 'Aaron', 'Tito', 'Q']) store.setScore(player, 1, 4);
+
+    const wrapper = mountResults();
+    await nextTick();
+
+    expect(wrapper.text()).toContain('Skins Breakdown · gross');
+    expect(wrapper.find('.skins-summary').text()).toContain('Wes 1');
+    expect(wrapper.find('.skins-note').text()).toContain('Tied holes do not pay a skin here: 2');
+    expect(wrapper.findAll('.skin-chip')).toHaveLength(2);
   });
 
   it('toggles round completion through the store', async () => {

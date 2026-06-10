@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { gamesFromEventRound } from '@/domain/events';
 import { buildScoreContext } from '@/composables/useEventLeaderboard';
 import { buildBestBallAggyConfig, scoreBestBallAggy } from '@/scoring/bestBallAggy';
+import { computeEventRoundResult } from '@/scoring/eventRound';
 import { buildHighBallLowBallConfig, scoreHighBallLowBall } from '@/scoring/highBallLowBall';
 import { finalMatchStatus, runningMatchStatus, type HoleWinner } from '@/scoring/matchStatus';
 import { buildTwoManScrambleConfig, scoreTwoManScramble, twoManScrambleTeamKey } from '@/scoring/twoManScramble';
@@ -37,7 +38,14 @@ const course = computed(() => store.course);
 const courseTitle = computed(() => {
   const c = course.value;
   if (!c) return '';
-  return [c.clubName, c.courseName].filter(Boolean).join(' — ') || c.courseName || c.clubName || 'Course';
+  const names = [c.clubName, c.courseName].filter(Boolean);
+  const deduped = names.filter((name, index) => names.findIndex((other) => other?.trim() === name?.trim()) === index);
+  return deduped.join(' — ') || c.courseName || c.clubName || 'Course';
+});
+const courseMeta = computed(() => {
+  const c = course.value;
+  if (!c) return '';
+  return [c.tee?.name ? `${c.tee.name} tees` : '', c.location].filter(Boolean).join(' · ');
 });
 
 const teamNames = computed(() => store.round?.teamNames ?? { team1: 'Team 1', team2: 'Team 2' });
@@ -61,6 +69,36 @@ const activeEventRound = computed(() => {
 const activeEventGames = computed(() => {
   const eventRound = activeEventRound.value;
   return eventRound ? gamesFromEventRound(eventRound.config) : null;
+});
+
+const eventRoundResult = computed(() => {
+  const eventRound = activeEventRound.value;
+  const games = activeEventGames.value;
+  const scoreContext = store.round ? buildScoreContext(store.round, store.players) : null;
+  if (!eventRound || !games || !scoreContext) return null;
+  return computeEventRoundResult({
+    round: eventRound.config,
+    roundIndex: eventRound.index,
+    scoreContext,
+    games,
+    pairMatches: eventRound.config.pairMatches,
+    team1: eventRound.eventConfig.team1,
+    team2: eventRound.eventConfig.team2,
+    teamScores: store.round?.teamScores,
+  });
+});
+
+const eventRoundSummary = computed(() => {
+  const eventRound = activeEventRound.value;
+  const result = eventRoundResult.value;
+  if (!eventRound || !result) return null;
+  return {
+    name: eventRound.config.name || `Event Round ${eventRound.index + 1}`,
+    team1Name: eventRound.eventConfig.teamNames.team1,
+    team2Name: eventRound.eventConfig.teamNames.team2,
+    team1: result.team1,
+    team2: result.team2,
+  };
 });
 
 const activeEventIsPrimaryMatchPlay = computed(() => {
@@ -112,6 +150,12 @@ const teamOutcome = computed(() => {
 
 const skinsEnabled = computed(() => store.games.skins.enabled);
 const skinHoles = computed(() => store.skins.holeResults);
+const skinsSummary = computed(() =>
+  Object.entries(store.skins.skinsByPlayer)
+    .filter(([, skins]) => skins > 0)
+    .sort(([, a], [, b]) => b - a),
+);
+const tiedSkinHoles = computed(() => skinHoles.value.filter((hole) => hole.tied).map((hole) => hole.hole));
 const completed = computed(() => store.round?.completed ?? false);
 const expandedHblDetails = ref<Record<string, boolean>>({});
 
@@ -378,7 +422,7 @@ function dash(value: number | null | undefined): string {
 }
 
 function money(value: number): string {
-  if (value === 0) return '—';
+  if (value === 0) return '$0';
   return `${value > 0 ? '+' : '-'}$${Math.abs(value)}`;
 }
 
@@ -389,19 +433,42 @@ function betLabelParts(label: string): { contest: string; segment: string } {
 
 function toggleComplete() {
   if (!completed.value) {
-    const ok = confirmAction('Complete this round?\n\nThis moves the round to completed history. Scores and settlement will be kept, and you can reopen it later if needed.');
+    const ok = confirmAction('Complete this round?\n\nThis will save the final results to the event and group history.');
     if (!ok) return;
   }
   store.setCompleted(!completed.value);
 }
 
 function resetRound() {
-  const firstOk = confirmAction('Reset this round?\n\nThis removes the active round from this device and clears local scores, games, teams, and setup details.');
+  const firstOk = confirmAction('Reset this round?\n\nThis will clear entered scores and calculated results for this round. This cannot be undone.');
   if (!firstOk) return;
-  const finalOk = confirmAction('Final reset confirmation\n\nOnly reset if you are sure you no longer need this active round on this device.');
+  const finalOk = confirmAction('Type-level confirmation\n\nChoose OK only if you intentionally want to reset this round and lose the current scores.');
   if (!finalOk) return;
   store.reset();
   void router.push('/group');
+}
+
+function rankLabel(index: number): string {
+  const row = leaderboard.value[index];
+  if (!row || row.net == null) return String(index + 1);
+  const firstTie = leaderboard.value.findIndex((candidate) => candidate.net === row.net);
+  const tied = leaderboard.value.filter((candidate) => candidate.net === row.net).length > 1;
+  return tied ? `T${firstTie + 1}` : String(index + 1);
+}
+
+function isLeader(index: number): boolean {
+  const row = leaderboard.value[index];
+  const first = leaderboard.value.find((candidate) => candidate.net != null);
+  return row?.net != null && first?.net === row.net;
+}
+
+function hblMatchPointSummary(matchIndex: number, aName: string, bName: string): string {
+  const row = eventRoundResult.value?.rows[matchIndex];
+  if (!row) return 'Event points pending';
+  const a = row.components.reduce((total, component) => total + component.team1, 0);
+  const b = row.components.reduce((total, component) => total + component.team2, 0);
+  if (a === b) return `Push ${a}-${b} event points`;
+  return `${a > b ? aName : bName} wins ${a}-${b} event points`;
 }
 
 function goScorecard() {
@@ -420,12 +487,25 @@ function goGroup() {
         <div>
           <p class="rs-eyebrow">{{ completed ? '✓ Round Complete' : 'Final Results' }}</p>
           <h1 class="rs-title">Final Results</h1>
+          <p v-if="eventRoundSummary" class="rs-event-round">{{ eventRoundSummary.name }}</p>
           <p class="rs-course-title">{{ courseTitle }}</p>
+          <p v-if="courseMeta" class="rs-course-meta">{{ courseMeta }}</p>
+        </div>
+        <div v-if="eventRoundSummary" class="round-points-card" aria-label="Round points">
+          <span>Round points</span>
+          <div>
+            <strong>{{ eventRoundSummary.team1Name }}</strong>
+            <b>{{ eventRoundSummary.team1 }}</b>
+          </div>
+          <div>
+            <strong>{{ eventRoundSummary.team2Name }}</strong>
+            <b>{{ eventRoundSummary.team2 }}</b>
+          </div>
         </div>
         <div class="rs-actions">
-          <button class="btn-ghost" type="button" @click="goScorecard">← Scorecard</button>
+          <button class="btn-ghost" type="button" @click="goScorecard">Back to scorecard</button>
           <button class="btn-complete" type="button" @click="toggleComplete">
-            {{ completed ? 'Reopen round' : 'Complete round ✓' }}
+            {{ completed ? 'Reopen round' : 'Complete round' }}
           </button>
           <button class="btn-reset-secondary" type="button" @click="resetRound">Reset round</button>
         </div>
@@ -456,20 +536,21 @@ function goGroup() {
 
       <section class="rs-section">
         <h2 class="rs-section-hdr">Individual Leaderboard</h2>
+        <p class="rs-section-note">Strokes are course strokes received. Tied net scores share the same rank.</p>
         <div class="rs-table-wrap">
           <table class="rs-table leaderboard-table">
             <thead>
-              <tr><th>#</th><th class="col-left">Player</th><th class="col-left">Team</th><th>Gross</th><th>Strokes</th><th>Net</th><th>Skins</th></tr>
+              <tr><th>Rank</th><th class="col-left">Player</th><th class="col-left">Team</th><th>Gross</th><th>Strokes received</th><th>Net</th><th>Skins</th></tr>
             </thead>
             <tbody>
-              <tr v-for="(row, i) in leaderboard" :key="row.player">
-                <td class="rs-rank" data-label="Rank">{{ i + 1 }}</td>
+              <tr v-for="(row, i) in leaderboard" :key="row.player" :class="{ 'leader-row': isLeader(i) }">
+                <td class="rs-rank" data-label="Rank">{{ rankLabel(i) }}</td>
                 <td class="col-left" data-label="Player">
-                  <span :class="{ 'rs-winner': i === 0 && row.net != null }">{{ row.player }}</span>
+                  <span :class="{ 'rs-winner': isLeader(i) }">{{ row.player }}</span>
                 </td>
                 <td class="col-left" data-label="Team">{{ row.team }}</td>
                 <td data-label="Gross">{{ dash(row.gross) }}</td>
-                <td data-label="Strokes">{{ row.strokes > 0 ? `+${row.strokes}` : '—' }}</td>
+                <td data-label="Strokes received">{{ row.strokes > 0 ? `+${row.strokes}` : '—' }}</td>
                 <td class="rs-net" data-label="Net">{{ dash(row.net) }}</td>
                 <td class="rs-skins" data-label="Skins">{{ row.skins > 0 ? row.skins : '—' }}</td>
               </tr>
@@ -481,13 +562,14 @@ function goGroup() {
       <section v-if="store.hasBets" class="rs-section">
         <h2 class="rs-section-hdr">Settlement</h2>
         <div v-if="settlementTransfers.length" class="settle-list" aria-label="Payments">
-          <h3 class="settle-subhead">Payments</h3>
+          <h3 class="settle-subhead">Payments due</h3>
           <div v-for="(t, i) in settlementTransfers" :key="i" class="settle-row">
             <span>{{ t.from }} <span class="settle-arrow">pays</span> {{ t.to }}</span>
             <span class="settle-amount">${{ t.amount }}</span>
           </div>
         </div>
-        <p v-else class="settle-square">All square.</p>
+        <p v-else class="settle-square">No payments due. All selected money games were played for $0 or settled evenly.</p>
+        <h3 class="settle-subhead net-subhead">Net by player</h3>
         <table class="pnl-table" aria-label="Net by player">
           <thead>
             <tr><th>Player</th><th>Net</th></tr>
@@ -567,8 +649,11 @@ function goGroup() {
         <h2 class="rs-section-hdr">High Ball / Low Ball</h2>
         <div v-for="match in highBallLowBallResults" :key="`hbl-${match.index}`" class="hbl-match">
           <div class="bba-head">
-            <span class="bba-vs">{{ match.aName }} <span class="bba-vs-sep">vs</span> {{ match.bName }}</span>
-            <span class="bba-meta">{{ match.mode === 'match' ? 'Match play' : 'Stroke play' }} · {{ match.basis }}</span>
+            <div>
+              <span class="bba-vs">{{ match.aName }} <span class="bba-vs-sep">vs</span> {{ match.bName }}</span>
+              <p class="hbl-match-summary">{{ hblMatchPointSummary(match.index, match.aName, match.bName) }}</p>
+            </div>
+            <span class="bba-meta">{{ match.mode === 'match' ? 'Match play' : 'Stroke play' }} · {{ match.basis }} · event points</span>
           </div>
           <p v-if="!match.valid" class="bba-error">{{ match.validationError }}</p>
           <div v-else class="hbl-contests">
@@ -588,7 +673,7 @@ function goGroup() {
                   class="hbl-segment"
                   :class="`status-${segment.status}`"
                 >
-                  <span>{{ segment.label }}</span>
+                  <span>Segment · {{ segment.label }}</span>
                   <strong>{{ segmentSummaryLabel(segment, match.aName, match.bName) }}</strong>
                 </div>
               </div>
@@ -711,15 +796,17 @@ function goGroup() {
         <div class="pp-groups">
           <div v-for="group in puttPokerGroups" :key="group.name" class="pp-group">
             <div class="pp-group-hdr">{{ group.name }}</div>
+            <div class="pp-pot">Pot: <strong>${{ group.result.pot }}</strong></div>
             <div class="pp-coin">
-              Coin:
+              Current 3-putt marker:
               <strong v-if="group.result.coinHolder">{{ group.result.coinHolder }}</strong>
               <em v-else class="pp-coin-none">no 3-putts yet</em>
             </div>
+            <div class="pp-token-label">Cards remaining</div>
             <div class="pp-cards">
               <div v-for="player in group.players" :key="player" class="pp-player">
                 <div class="pp-player-name">{{ player }}</div>
-                <div class="pp-card-count">🃏 × {{ group.result.cards[player] }}</div>
+                <div class="pp-card-count">{{ group.result.cards[player] }}</div>
                 <div
                   v-if="puttPenaltyNote(group.result.threePuttCount[player], group.result.fourPuttCount[player])"
                   class="pp-note"
@@ -728,20 +815,32 @@ function goGroup() {
                 </div>
               </div>
             </div>
-            <div class="pp-pot">Pot: <strong>${{ group.result.pot }}</strong></div>
+            <p class="pp-final-note">No final pot winner yet unless your group has declared one.</p>
           </div>
         </div>
       </section>
 
       <section v-if="skinsEnabled" class="rs-section">
-        <h2 class="rs-section-hdr">Skins Breakdown</h2>
+        <h2 class="rs-section-hdr">Skins Breakdown · {{ store.games.skins.type }}</h2>
         <p v-if="!skinHoles.length" class="rs-empty-note">No completed holes yet.</p>
-        <div v-else class="skins-grid">
-          <div v-for="h in skinHoles" :key="h.hole" class="skin-chip" :class="{ tied: h.tied }">
-            <span class="skin-hole">{{ h.hole }}</span>
-            <span class="skin-winner">{{ h.tied ? 'Tied' : h.winner }}</span>
+        <template v-else>
+          <div class="skins-summary">
+            <h3>Skins won</h3>
+            <div v-if="skinsSummary.length" class="skins-summary-list">
+              <span v-for="[player, skins] in skinsSummary" :key="player">{{ player }} {{ skins }}</span>
+            </div>
+            <p v-else>No skins won yet.</p>
           </div>
-        </div>
+          <p v-if="tiedSkinHoles.length" class="skins-note">
+            Tied holes do not pay a skin here: {{ tiedSkinHoles.join(', ') }}.
+          </p>
+          <div class="skins-grid" aria-label="Hole-by-hole skins">
+            <div v-for="h in skinHoles" :key="h.hole" class="skin-chip" :class="{ tied: h.tied }">
+              <span class="skin-hole">Hole {{ h.hole }}</span>
+              <span class="skin-winner">{{ h.tied ? 'Tied' : h.winner }}</span>
+            </div>
+          </div>
+        </template>
       </section>
     </template>
 
@@ -794,6 +893,50 @@ function goGroup() {
   font-weight: 700;
 }
 
+.rs-event-round {
+  margin: 4px 0 0;
+  color: #24362c;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.rs-course-meta {
+  margin: 2px 0 0;
+  color: #7a8a7e;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.round-points-card {
+  min-width: 180px;
+  border: 1px solid #d7cebd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 10px 12px;
+}
+
+.round-points-card > span {
+  display: block;
+  margin-bottom: 6px;
+  color: #8a672f;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.round-points-card div {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  color: #24362c;
+  font-size: 0.86rem;
+}
+
+.round-points-card b {
+  color: #2f5d43;
+}
+
 .rs-actions {
   display: flex;
   gap: 8px;
@@ -813,6 +956,13 @@ function goGroup() {
   margin: 0 0 14px;
   font-size: 0.95rem;
   color: #24362c;
+}
+
+.rs-section-note {
+  margin: -6px 0 12px;
+  color: #6a7a6f;
+  font-size: 0.76rem;
+  font-weight: 700;
 }
 
 .rs-section > .rs-table-wrap,
@@ -912,6 +1062,9 @@ function goGroup() {
 }
 
 .col-left { text-align: left; }
+.leader-row {
+  background: #fcf6e6;
+}
 .rs-rank { color: #9aa49a; font-weight: 700; }
 .rs-winner { color: #b08416; font-weight: 700; }
 .rs-net { color: #2f5d43; font-weight: 700; }
@@ -951,6 +1104,13 @@ function goGroup() {
   font-size: 0.78rem;
   color: #7a8a7e;
   text-transform: capitalize;
+}
+
+.hbl-match-summary {
+  margin: 3px 0 0;
+  color: #2f5d43;
+  font-size: 0.86rem;
+  font-weight: 900;
 }
 
 .bba-table .bba-bet {
@@ -1218,7 +1378,7 @@ function goGroup() {
 
 .settle-list {
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
 .settle-subhead {
@@ -1227,19 +1387,25 @@ function goGroup() {
   font-size: 0.82rem;
 }
 
+.net-subhead {
+  margin-top: 14px;
+}
+
 .settle-row {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  padding: 8px 12px;
+  padding: 10px 12px;
   background: #fdfbf4;
   border: 1px solid #e4ddcd;
   border-radius: 6px;
-  max-width: 360px;
+  max-width: 420px;
+  font-size: 0.9rem;
+  font-weight: 800;
 }
 
 .settle-arrow { color: #9aa49a; font-size: 0.78rem; }
-.settle-amount { font-weight: 700; color: #2f5d43; }
+.settle-amount { font-weight: 900; color: #2f5d43; }
 .settle-square { color: #6a7a6f; }
 
 .fc-game {
@@ -1410,18 +1576,55 @@ function goGroup() {
   gap: 8px;
 }
 
+.skins-summary {
+  margin-bottom: 12px;
+}
+
+.skins-summary h3 {
+  margin: 0 0 8px;
+  color: #24362c;
+  font-size: 0.82rem;
+}
+
+.skins-summary p,
+.skins-note {
+  margin: 0 0 12px;
+  color: #6a7a6f;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.skins-summary-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.skins-summary-list span {
+  border: 1px solid #d7cebd;
+  border-radius: 6px;
+  background: #fdfbf4;
+  padding: 6px 10px;
+  color: #2f5d43;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
 .skin-chip {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 48px;
+  min-width: 70px;
   border: 1px solid #e4ddcd;
   border-radius: 6px;
   background: #fdfbf4;
   padding: 6px 8px;
 }
 
-.skin-chip.tied { opacity: 0.55; }
+.skin-chip.tied {
+  opacity: 0.68;
+  background: #f4efe4;
+}
 
 .skin-hole {
   font-size: 0.6rem;
@@ -1446,12 +1649,14 @@ function goGroup() {
 .pp-group-hdr { font-weight: 800; color: #2f5d43; margin-bottom: 8px; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em; }
 .pp-coin { font-size: 0.82rem; color: #4a5a4f; margin-bottom: 8px; }
 .pp-coin-none { color: #9aa49a; font-style: italic; }
+.pp-token-label { margin-bottom: 6px; color: #8a672f; font-size: 0.68rem; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; }
 .pp-cards { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
-.pp-player { text-align: center; min-width: 54px; }
+.pp-player { text-align: center; min-width: 54px; border: 1px solid #e4ddcd; border-radius: 6px; background: #fffdf7; padding: 6px 8px; }
 .pp-player-name { font-size: 0.72rem; color: #6a7a6f; font-weight: 700; }
-.pp-card-count { font-size: 0.88rem; font-weight: 700; color: #2f5d43; }
+.pp-card-count { font-size: 1rem; font-weight: 900; color: #2f5d43; }
 .pp-note { font-size: 0.68rem; color: #b1462f; }
-.pp-pot { font-size: 0.82rem; color: #24362c; border-top: 1px solid #e4ddcd; padding-top: 8px; }
+.pp-pot { font-size: 0.9rem; color: #24362c; border-bottom: 1px solid #e4ddcd; padding-bottom: 8px; margin-bottom: 8px; }
+.pp-final-note { margin: 0; color: #6a7a6f; font-size: 0.74rem; font-weight: 700; }
 
 .rs-empty-note { color: #6a7a6f; }
 
@@ -1519,6 +1724,11 @@ function goGroup() {
   .rs-actions,
   .rs-actions button {
     width: 100%;
+  }
+
+  .round-points-card {
+    width: 100%;
+    order: 2;
   }
 
   .rs-actions button,
@@ -1598,6 +1808,20 @@ function goGroup() {
     font-size: 1rem;
   }
 
+  .leaderboard-table .rs-rank::before {
+    padding-top: 2px;
+  }
+
+  .settle-row {
+    display: grid;
+    gap: 4px;
+    max-width: none;
+  }
+
+  .settle-amount {
+    font-size: 1.2rem;
+  }
+
   .hbl-segments {
     grid-template-columns: 1fr;
   }
@@ -1614,6 +1838,10 @@ function goGroup() {
   .hbl-hole-scores {
     display: grid;
     gap: 4px;
+  }
+
+  .pp-groups {
+    display: grid;
   }
 }
 </style>
