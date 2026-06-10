@@ -24,6 +24,7 @@ function fillCard(store: ReturnType<typeof useRoundStore>, player: string, gross
 }
 
 beforeEach(() => {
+  vi.restoreAllMocks();
   pinia = createPinia();
   setActivePinia(pinia);
   localStorage.clear();
@@ -57,6 +58,40 @@ describe('ResultsScreen', () => {
 
     // demo round has bets -> settlement section
     expect(wrapper.text()).toContain('Settlement');
+  });
+
+  it('emphasizes settlement payments and shows losses with a minus sign', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    store.setRound(round, players);
+    fillCard(store, 'Wes', 4);
+    fillCard(store, 'Aaron', 4);
+    fillCard(store, 'Tito', 7);
+    fillCard(store, 'Q', 7);
+
+    const wrapper = mountResults();
+    await nextTick();
+
+    const payments = wrapper.find('.settle-list');
+    const netSummary = wrapper.find('.pnl-table');
+    expect(payments.exists()).toBe(true);
+    expect(payments.text()).toContain('pays');
+    expect(payments.element.compareDocumentPosition(netSummary.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(netSummary.text()).toContain('-$');
+  });
+
+  it('keeps reset visually secondary to completion', () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    store.setRound(round, players);
+
+    const wrapper = mountResults();
+
+    expect(wrapper.find('.btn-complete').text()).toContain('Complete round');
+    expect(wrapper.find('.btn-reset-secondary').text()).toContain('Reset round');
+    expect(wrapper.find('.rs-actions').text().indexOf('Reset round')).toBeGreaterThan(
+      wrapper.find('.rs-actions').text().indexOf('Complete round'),
+    );
   });
 
   it('highlights the winning team once both are complete', async () => {
@@ -200,5 +235,18 @@ describe('ResultsScreen', () => {
     expect(store.round?.completed).toBe(true);
     expect(wrapper.find('.btn-complete').text()).toContain('Reopen round');
     expect(wrapper.text()).toContain('Round Complete');
+  });
+
+  it('does not complete the round when completion confirmation is canceled', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    store.setRound(round, players);
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    const wrapper = mountResults();
+    await wrapper.find('.btn-complete').trigger('click');
+
+    expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('Complete this round?'));
+    expect(store.round?.completed).toBe(false);
   });
 });

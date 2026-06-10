@@ -16,7 +16,8 @@ const eventStore = useEventStore();
 const router = useRouter();
 
 function confirmAction(message: string): boolean {
-  if (navigator.userAgent.includes('jsdom')) return true;
+  const confirmMock = window.confirm as typeof window.confirm & { mock?: unknown };
+  if (navigator.userAgent.includes('jsdom') && !confirmMock.mock) return true;
   try {
     const answer = window.confirm(message);
     return typeof answer === 'boolean' ? answer : true;
@@ -87,6 +88,12 @@ const puttPokerGroups = computed(() => store.puttPokerGroups);
 const settlement = computed(() => store.settlement);
 const settlementRows = computed(() =>
   store.playerNames.map((player) => ({ player, pnl: Math.round(settlement.value.pnl[player] || 0) })),
+);
+const settlementTransfers = computed(() =>
+  settlement.value.transfers.map((transfer) => ({
+    ...transfer,
+    amount: Math.round(transfer.amount),
+  })),
 );
 
 // Team-score winner highlighting (lower net wins), only once both teams are complete.
@@ -370,6 +377,11 @@ function dash(value: number | null | undefined): string {
   return value == null ? '—' : String(value);
 }
 
+function money(value: number): string {
+  if (value === 0) return '—';
+  return `${value > 0 ? '+' : '-'}$${Math.abs(value)}`;
+}
+
 function betLabelParts(label: string): { contest: string; segment: string } {
   const [contest, segment] = label.split(' — ');
   return { contest, segment: segment ?? '' };
@@ -377,15 +389,17 @@ function betLabelParts(label: string): { contest: string; segment: string } {
 
 function toggleComplete() {
   if (!completed.value) {
-    const ok = confirmAction('Complete round?\n\nThis marks the round complete and returns it to completed history. You can reopen it later if needed.');
+    const ok = confirmAction('Complete this round?\n\nThis moves the round to completed history. Scores and settlement will be kept, and you can reopen it later if needed.');
     if (!ok) return;
   }
   store.setCompleted(!completed.value);
 }
 
 function resetRound() {
-  const ok = confirmAction('Reset round?\n\nThis clears the active round from this device. Scores and setup details will be lost locally.');
-  if (!ok) return;
+  const firstOk = confirmAction('Reset this round?\n\nThis removes the active round from this device and clears local scores, games, teams, and setup details.');
+  if (!firstOk) return;
+  const finalOk = confirmAction('Final reset confirmation\n\nOnly reset if you are sure you no longer need this active round on this device.');
+  if (!finalOk) return;
   store.reset();
   void router.push('/group');
 }
@@ -405,14 +419,15 @@ function goGroup() {
       <header class="rs-topbar">
         <div>
           <p class="rs-eyebrow">{{ completed ? '✓ Round Complete' : 'Final Results' }}</p>
-          <h1 class="rs-title">{{ courseTitle }}</h1>
+          <h1 class="rs-title">Final Results</h1>
+          <p class="rs-course-title">{{ courseTitle }}</p>
         </div>
         <div class="rs-actions">
+          <button class="btn-ghost" type="button" @click="goScorecard">← Scorecard</button>
           <button class="btn-complete" type="button" @click="toggleComplete">
             {{ completed ? 'Reopen round' : 'Complete round ✓' }}
           </button>
-          <button class="btn-ghost" type="button" @click="goScorecard">← Scorecard</button>
-          <button class="btn-danger" type="button" @click="resetRound">Reset round</button>
+          <button class="btn-reset-secondary" type="button" @click="resetRound">Reset round</button>
         </div>
       </header>
 
@@ -442,21 +457,21 @@ function goGroup() {
       <section class="rs-section">
         <h2 class="rs-section-hdr">Individual Leaderboard</h2>
         <div class="rs-table-wrap">
-          <table class="rs-table">
+          <table class="rs-table leaderboard-table">
             <thead>
               <tr><th>#</th><th class="col-left">Player</th><th class="col-left">Team</th><th>Gross</th><th>Strokes</th><th>Net</th><th>Skins</th></tr>
             </thead>
             <tbody>
               <tr v-for="(row, i) in leaderboard" :key="row.player">
-                <td class="rs-rank">{{ i + 1 }}</td>
-                <td class="col-left">
+                <td class="rs-rank" data-label="Rank">{{ i + 1 }}</td>
+                <td class="col-left" data-label="Player">
                   <span :class="{ 'rs-winner': i === 0 && row.net != null }">{{ row.player }}</span>
                 </td>
-                <td class="col-left">{{ row.team }}</td>
-                <td>{{ dash(row.gross) }}</td>
-                <td>{{ row.strokes > 0 ? `+${row.strokes}` : '—' }}</td>
-                <td class="rs-net">{{ dash(row.net) }}</td>
-                <td class="rs-skins">{{ row.skins > 0 ? row.skins : '—' }}</td>
+                <td class="col-left" data-label="Team">{{ row.team }}</td>
+                <td data-label="Gross">{{ dash(row.gross) }}</td>
+                <td data-label="Strokes">{{ row.strokes > 0 ? `+${row.strokes}` : '—' }}</td>
+                <td class="rs-net" data-label="Net">{{ dash(row.net) }}</td>
+                <td class="rs-skins" data-label="Skins">{{ row.skins > 0 ? row.skins : '—' }}</td>
               </tr>
             </tbody>
           </table>
@@ -465,7 +480,15 @@ function goGroup() {
 
       <section v-if="store.hasBets" class="rs-section">
         <h2 class="rs-section-hdr">Settlement</h2>
-        <table class="pnl-table">
+        <div v-if="settlementTransfers.length" class="settle-list" aria-label="Payments">
+          <h3 class="settle-subhead">Payments</h3>
+          <div v-for="(t, i) in settlementTransfers" :key="i" class="settle-row">
+            <span>{{ t.from }} <span class="settle-arrow">pays</span> {{ t.to }}</span>
+            <span class="settle-amount">${{ t.amount }}</span>
+          </div>
+        </div>
+        <p v-else class="settle-square">All square.</p>
+        <table class="pnl-table" aria-label="Net by player">
           <thead>
             <tr><th>Player</th><th>Net</th></tr>
           </thead>
@@ -473,18 +496,11 @@ function goGroup() {
             <tr v-for="row in settlementRows" :key="row.player">
               <td>{{ row.player }}</td>
               <td :class="row.pnl > 0 ? 'pnl-pos' : row.pnl < 0 ? 'pnl-neg' : ''">
-                {{ row.pnl === 0 ? '—' : `${row.pnl > 0 ? '+' : ''}$${Math.abs(row.pnl)}` }}
+                {{ money(row.pnl) }}
               </td>
             </tr>
           </tbody>
         </table>
-        <div v-if="settlement.transfers.length" class="settle-list">
-          <div v-for="(t, i) in settlement.transfers" :key="i" class="settle-row">
-            <span>{{ t.from }} <span class="settle-arrow">pays</span> {{ t.to }}</span>
-            <span class="settle-amount">${{ Math.round(t.amount) }}</span>
-          </div>
-        </div>
-        <p v-else class="settle-square">All square.</p>
       </section>
 
       <section v-if="teamGameResults.length" class="rs-section">
@@ -771,10 +787,18 @@ function goGroup() {
   color: #24362c;
 }
 
+.rs-course-title {
+  margin: 4px 0 0;
+  color: #6a7a6f;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
 .rs-actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .rs-section {
@@ -1166,6 +1190,7 @@ function goGroup() {
 .pnl-table {
   border-collapse: collapse;
   min-width: 260px;
+  margin-top: 14px;
   background: #fdfbf4;
   border: 1px solid #e4ddcd;
   border-radius: 8px;
@@ -1192,9 +1217,14 @@ function goGroup() {
 .pnl-neg { color: #b1462f; font-weight: 700; }
 
 .settle-list {
-  margin-top: 14px;
   display: grid;
   gap: 6px;
+}
+
+.settle-subhead {
+  margin: 0 0 2px;
+  color: #24362c;
+  font-size: 0.82rem;
 }
 
 .settle-row {
@@ -1469,6 +1499,18 @@ function goGroup() {
   color: #b1462f;
 }
 
+.btn-reset-secondary {
+  border: 0;
+  background: transparent;
+  color: #8f5b54;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 8px 4px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 @media (max-width: 760px) {
   .rs-shell {
     padding: 16px 14px 40px;
@@ -1483,12 +1525,77 @@ function goGroup() {
   .btn-primary,
   .btn-ghost,
   .btn-complete,
-  .btn-danger {
+  .btn-danger,
+  .btn-reset-secondary {
     min-height: 44px;
+  }
+
+  .btn-reset-secondary {
+    border: 1px solid #eadbd7;
+    border-radius: 6px;
+    padding: 8px 16px;
+    text-decoration: none;
   }
 
   .rs-section {
     padding: 14px;
+  }
+
+  .leaderboard-table,
+  .leaderboard-table tbody,
+  .leaderboard-table tr,
+  .leaderboard-table td {
+    display: block;
+  }
+
+  .leaderboard-table {
+    border: 0;
+    background: transparent;
+  }
+
+  .leaderboard-table thead {
+    display: none;
+  }
+
+  .leaderboard-table tbody tr {
+    border: 1px solid #e4ddcd;
+    border-radius: 8px;
+    background: #fdfbf4;
+    padding: 10px 12px;
+  }
+
+  .leaderboard-table tbody tr + tr {
+    margin-top: 10px;
+  }
+
+  .leaderboard-table tbody tr:nth-child(even) {
+    background: #fdfbf4;
+  }
+
+  .leaderboard-table td {
+    border-bottom: 0;
+    padding: 5px 0;
+    text-align: right;
+    white-space: normal;
+  }
+
+  .leaderboard-table td::before {
+    content: attr(data-label);
+    float: left;
+    color: #7a8a7e;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .leaderboard-table .col-left {
+    text-align: right;
+  }
+
+  .leaderboard-table .rs-rank {
+    color: #24362c;
+    font-size: 1rem;
   }
 
   .hbl-segments {
