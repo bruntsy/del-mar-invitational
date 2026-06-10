@@ -127,8 +127,9 @@ describe('ResultsScreen', () => {
     expect(wrapper.text()).not.toContain('Team Scores');
     expect(wrapper.text()).toContain('High Ball / Low Ball');
     expect(wrapper.text()).toContain('Match play');
-    expect(wrapper.text()).toContain('Low Ball — Front');
-    expect(wrapper.text()).toContain('High Ball — Front');
+    expect(wrapper.text()).toContain('Low Ball');
+    expect(wrapper.text()).toContain('High Ball');
+    expect(wrapper.text()).toContain('Front');
   });
 
   it('renders wolf standings and Nassau segments', async () => {

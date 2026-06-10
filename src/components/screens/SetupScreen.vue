@@ -388,7 +388,7 @@ watch(
   () => JSON.stringify(form.pairMatches),
   () => {
     if (form.playingGroupCustom) {
-      const ok = window.confirm('Pair matches changed. Regenerate playing groups from matches? Cancel keeps your manual groups.');
+      const ok = window.confirm('Team sets changed. Regenerate playing groups from team sets? Cancel keeps your manual groups.');
       if (ok) form.playingGroupCustom = null;
     }
   },
@@ -802,19 +802,19 @@ function goHome() {
     <section v-if="!hasEventContext && showPairMatches" class="setup-card">
       <div class="pg-header">
         <h2 class="setup-hdr">Teams</h2>
-        <button class="btn-ghost sm" type="button" @click="addPairMatch">+ Add match</button>
+        <button class="btn-ghost sm" type="button" @click="addPairMatch">+ Add team set</button>
       </div>
-      <p class="pg-hint">Set sides for each team game. These drive Best Ball, Best Ball + Aggy, High/Low and Two-Man Scramble scoring.</p>
+      <p class="pg-hint">Set sides for each team game. These teams drive Best Ball, Best Ball + Aggy, High/Low and Two-Man Scramble scoring.</p>
 
       <div class="pm-list">
         <div v-for="(_match, mi) in form.pairMatches" :key="mi" class="pair-match-builder">
           <div class="pm-builder-head">
-            <strong>Match {{ mi + 1 }}</strong>
-            <button class="btn-remove" type="button" title="Remove match" @click="removePairMatch(mi)">✕</button>
+            <strong>Team Set {{ mi + 1 }}</strong>
+            <button class="btn-remove" type="button" title="Remove team set" @click="removePairMatch(mi)">✕</button>
           </div>
           <div class="pm-sides">
             <div class="pm-side">
-              <span class="pm-side-label">Side A</span>
+              <span class="pm-side-label">Team A</span>
               <label v-for="p in namedPlayers" :key="`a-${mi}-${p.name}`" class="pm-chk">
                 <input type="checkbox" :checked="inPairSide(mi, 'a', p.name.trim())" @change="togglePairSide(mi, 'a', p.name.trim())" />
                 {{ p.name }}
@@ -822,7 +822,7 @@ function goHome() {
             </div>
             <span class="pair-match-vs">vs</span>
             <div class="pm-side">
-              <span class="pm-side-label">Side B</span>
+              <span class="pm-side-label">Team B</span>
               <label v-for="p in namedPlayers" :key="`b-${mi}-${p.name}`" class="pm-chk">
                 <input type="checkbox" :checked="inPairSide(mi, 'b', p.name.trim())" @change="togglePairSide(mi, 'b', p.name.trim())" />
                 {{ p.name }}
@@ -833,10 +833,10 @@ function goHome() {
       </div>
 
       <div v-if="matchSummaries.length" class="pm-summaries">
-        <h3 class="sub-hdr">Match summary</h3>
+        <h3 class="sub-hdr">Team Summary</h3>
         <div v-for="m in matchSummaries" :key="m.index" class="pm-summary">
           <div class="pm-summary-head">
-            <strong>Match {{ m.index + 1 }}</strong>
+            <strong>Team Set {{ m.index + 1 }}</strong>
             <span class="pm-summary-group">{{ m.group }}</span>
           </div>
           <div class="pm-summary-vs">
@@ -858,7 +858,7 @@ function goHome() {
         <h2 class="setup-hdr">Playing Groups</h2>
         <button v-if="form.playingGroupCustom" class="btn-ghost sm" type="button" @click="resetCustomGroups">Reset to auto</button>
       </div>
-      <p class="pg-hint">{{ form.playingGroupCustom ? 'Manually assigned.' : 'Auto-assigned from pair matches or team order.' }} Rename groups or move players between groups.</p>
+      <p class="pg-hint">{{ form.playingGroupCustom ? 'Manually assigned.' : 'Auto-assigned from team sets or team order.' }} Rename groups or move players between groups.</p>
       <div class="pg-list">
         <div v-for="(group, gi) in displayPlayingGroups" :key="gi" class="pg-group">
           <input
@@ -1230,13 +1230,13 @@ label {
 
 .game-row {
   display: grid;
-  grid-template-columns: minmax(150px, 1.2fr) repeat(auto-fit, minmax(112px, max-content));
-  gap: 10px;
-  align-items: center;
+  grid-template-columns: minmax(170px, 1.2fr) repeat(auto-fit, minmax(104px, max-content));
+  gap: 12px;
+  align-items: end;
   border: 1px solid #e4ddcd;
   border-radius: 8px;
   background: #fdfbf4;
-  padding: 10px 12px;
+  padding: 12px;
 }
 
 .game-toggle {
@@ -1246,6 +1246,7 @@ label {
   min-width: 0;
   font-weight: 700;
   color: #283b30;
+  min-height: 34px;
 }
 
 .game-toggle.sm {
@@ -1323,6 +1324,7 @@ label {
   font-size: 0.7rem;
   font-weight: 600;
   color: #6a7a6f;
+  justify-content: end;
 }
 
 .pair-match-builder {
@@ -1388,6 +1390,7 @@ label {
   flex-direction: column;
   gap: 4px;
   min-width: 160px;
+  flex: 1;
   border: 1px solid #eee5d5;
   border-radius: 8px;
   background: #fffdf7;
@@ -1460,10 +1463,10 @@ label {
 }
 
 .pg-group {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(130px, 160px) 1fr;
+  align-items: start;
   gap: 10px;
-  flex-wrap: wrap;
 }
 
 .pg-name-input {
@@ -1492,15 +1495,15 @@ label {
   display: inline-flex;
   align-items: center;
   flex-direction: column;
-  gap: 1px;
+  gap: 3px;
   background: #e8f0e8;
   border: 1px solid #b8d4c0;
   border-radius: 8px;
-  padding: 6px 8px;
+  padding: 7px 9px;
   font-size: 0.78rem;
   font-weight: 700;
   color: #2f5d43;
-  min-width: 96px;
+  min-width: 132px;
   align-items: flex-start;
 }
 
@@ -1509,6 +1512,7 @@ label {
   font-size: 0.7rem;
   font-weight: 700;
   line-height: 1.2;
+  max-width: 180px;
 }
 
 .pg-move-select {
@@ -1537,6 +1541,20 @@ label {
   border-radius: 8px;
   color: #a23b28;
   font-size: 0.85rem;
+}
+
+@media (max-width: 620px) {
+  .game-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .game-toggle {
+    grid-column: 1 / -1;
+  }
+
+  .pg-group {
+    grid-template-columns: 1fr;
+  }
 }
 
 .setup-actions {

@@ -3,9 +3,10 @@ import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SetupScreen from '@/components/screens/SetupScreen.vue';
 import { cloneDefaultGames } from '@/domain/games';
-import { defaultEventConfig } from '@/domain/events';
+import { defaultEventConfig, gamesFromEventRound } from '@/domain/events';
 import { useEventStore } from '@/stores/event';
 import { useRoundStore } from '@/stores/round';
+import type { EventRoundFormat } from '@/types/event';
 
 const { mockSearchCourses, routeQuery } = vi.hoisted(() => ({
   mockSearchCourses: vi.fn(),
@@ -61,6 +62,7 @@ beforeEach(() => {
   pinia = createPinia();
   setActivePinia(pinia);
   localStorage.clear();
+  vi.stubGlobal('confirm', vi.fn(() => true));
   push.mockClear();
   mockSearchCourses.mockReset();
   routeQuery.value = {};
@@ -347,15 +349,44 @@ describe('SetupScreen', () => {
     await aggyRow!.find('input[type="checkbox"]').setValue(true);
     await flushPromises();
 
-    // Match builder appears and a default match is seeded (whole team1 vs team2).
+    // Team builder appears and a default side assignment is seeded (whole team1 vs team2).
     expect(wrapper.find('.pair-match-builder').exists()).toBe(true);
-    expect(wrapper.find('.pm-summary').text()).toContain('Match 1');
+    expect(wrapper.find('.pm-summary').text()).toContain('Team Set 1');
     expect(wrapper.find('.pm-summary').text()).toContain('Ann / Bea');
     expect(wrapper.find('.pm-summary').text()).toContain('Cal / Dan');
 
     await wrapper.find('.btn-primary').trigger('click');
 
     expect(store.round?.pairMatches).toEqual([{ a: ['Ann', 'Bea'], b: ['Cal', 'Dan'] }]);
+  });
+
+  it('persists regular Best Ball setup options', async () => {
+    const store = useRoundStore();
+    const wrapper = mountSetup();
+    await fillDefaultPlayers(wrapper);
+
+    const bestBallRow = wrapper.findAll('.game-row').find((row) => row.text().includes('Best Ball') && !row.text().includes('Aggy'));
+    expect(bestBallRow).toBeDefined();
+    await bestBallRow!.find('input[type="checkbox"]').setValue(true);
+    const inputs = bestBallRow!.findAll('input[type="number"]');
+    await inputs[0].setValue('5');
+    await inputs[1].setValue('6');
+    await inputs[2].setValue('10');
+    const selects = bestBallRow!.findAll('select');
+    await selects[0].setValue('gross');
+    await selects[1].setValue('match');
+
+    await wrapper.find('.setup-actions .btn-primary').trigger('click');
+    await flushPromises();
+
+    expect(store.round?.games.bestBall).toMatchObject({
+      enabled: true,
+      front: 5,
+      back: 6,
+      total: 10,
+      type: 'gross',
+      scoringMode: 'match',
+    });
   });
 
   it('uses event round config as read-only launch source and preserves the main game', async () => {
@@ -396,6 +427,100 @@ describe('SetupScreen', () => {
       stake: { front: 5, back: 5, overall: 10 },
     });
     expect(roundStore.round?.games.skins).toMatchObject({ enabled: true, pot: 3, type: 'net' });
+  });
+
+  it.each([
+    ['bestBallNassau', 'bestBall'],
+    ['twoManBestBallAggy', 'bestBallAggy'],
+    ['twoManHighBallLowBall', 'highBallLowBall'],
+    ['scramble2v2Nassau', 'twoManScramble'],
+  ] as const)('preserves %s as the event launch main game', async (format, gameKey) => {
+    persistGroup({
+      Ann: { name: 'Ann', handicapIndex: 10 },
+      Bea: { name: 'Bea', handicapIndex: 12 },
+      Cal: { name: 'Cal', handicapIndex: 6 },
+      Dan: { name: 'Dan', handicapIndex: 20 },
+    });
+    const eventStore = useEventStore();
+    const roundStore = useRoundStore();
+    const config = defaultEventConfig(['Ann', 'Bea', 'Cal', 'Dan']);
+    const roundConfig = {
+      ...config.rounds[0],
+      format: format as EventRoundFormat,
+      scoringMode: 'matchPlay' as const,
+      bestBallBet: { front: 4, back: 5, total: 9, type: 'gross' as const },
+      scrambleBet: { front: 6, back: 7, total: 13, type: 'gross' as const },
+    };
+    config.rounds[0] = roundConfig;
+    eventStore.event = { id: 'e1', groupId: 'g1', name: 'Cup', status: 'active', config };
+    eventStore.setPendingRoundLink(0);
+
+    const wrapper = mountSetup();
+    await flushPromises();
+    await wrapper.find('.setup-actions .btn-primary').trigger('click');
+    await flushPromises();
+
+    const expectedGames = gamesFromEventRound(roundConfig);
+    expect(roundStore.round?.games[gameKey]).toMatchObject(expectedGames[gameKey]);
+  });
+
+  it('preserves a linked event round main game when editing and saving', async () => {
+    routeQuery.value = { edit: '1' };
+    const store = useRoundStore();
+    const games = cloneDefaultGames();
+    games.highBallLowBall = {
+      enabled: true,
+      scoreBasis: 'gross',
+      scoringMode: 'match',
+      stake: { front: 5, back: 5, overall: 10 },
+    };
+    store.setRound(
+      {
+        id: 'event-round-1',
+        groupId: 'g1',
+        course: {
+          id: 'c1',
+          clubName: 'Alderbrook',
+          courseName: 'Black',
+          location: 'WA',
+          tee: { name: 'Black', gender: 'Men', rating: 72, slope: 130, parTotal: 72, yards: 6600 },
+          par: Array(18).fill(4),
+          si: Array.from({ length: 18 }, (_, i) => i + 1),
+          yds: Array(18).fill(360),
+        },
+        team1: ['Ann', 'Bea'],
+        team2: ['Cal', 'Dan'],
+        teamNames: { team1: 'Seattle', team2: 'Cali' },
+        pairMatches: [{ a: ['Ann', 'Bea'], b: ['Cal', 'Dan'] }],
+        playingGroups: [{ name: 'Group 1', players: ['Ann', 'Bea', 'Cal', 'Dan'] }],
+        matchups: [],
+        games,
+        scores: {},
+        putts: {},
+        teamScores: {},
+        wolf: { holes: {} },
+        completed: false,
+      } as Parameters<typeof store.setRound>[0],
+      {
+        Ann: { name: 'Ann', handicapIndex: 10 },
+        Bea: { name: 'Bea', handicapIndex: 12 },
+        Cal: { name: 'Cal', handicapIndex: 6 },
+        Dan: { name: 'Dan', handicapIndex: 20 },
+      },
+    );
+
+    const wrapper = mountSetup();
+    await flushPromises();
+    await wrapper.find('.setup-actions .btn-primary').trigger('click');
+    await flushPromises();
+
+    expect(store.round?.games.highBallLowBall).toMatchObject({
+      enabled: true,
+      scoreBasis: 'gross',
+      scoringMode: 'match',
+      stake: { front: 5, back: 5, overall: 10 },
+    });
+    expect(store.round?.pairMatches).toEqual([{ a: ['Ann', 'Bea'], b: ['Cal', 'Dan'] }]);
   });
 
   it('no longer renders a global scoring-mode toggle', async () => {

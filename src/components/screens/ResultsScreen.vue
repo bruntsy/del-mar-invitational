@@ -251,6 +251,11 @@ function dash(value: number | null | undefined): string {
   return value == null ? '—' : String(value);
 }
 
+function betLabelParts(label: string): { contest: string; segment: string } {
+  const [contest, segment] = label.split(' — ');
+  return { contest, segment: segment ?? '' };
+}
+
 function toggleComplete() {
   store.setCompleted(!completed.value);
 }
@@ -404,7 +409,10 @@ function goHome() {
             </thead>
             <tbody>
               <tr v-for="row in match.rows" :key="row.label" :class="`status-${row.status}`">
-                <td class="bba-bet">{{ row.label }}</td>
+                <td class="bba-bet">
+                  <span class="bba-contest">{{ betLabelParts(row.label).contest }}</span>
+                  <span v-if="betLabelParts(row.label).segment" class="bba-segment">{{ betLabelParts(row.label).segment }}</span>
+                </td>
                 <td :class="{ 'bba-win': row.winnerSide === 'a' }">{{ dash(row.a) }}</td>
                 <td :class="{ 'bba-win': row.winnerSide === 'b' }">{{ dash(row.b) }}</td>
                 <td class="bba-result">{{ outcomeLabel(row, match.aName, match.bName) }}</td>
@@ -433,7 +441,10 @@ function goHome() {
             </thead>
             <tbody>
               <tr v-for="row in match.rows" :key="row.label" :class="`status-${row.status}`">
-                <td class="bba-bet">{{ row.label }}</td>
+                <td class="bba-bet">
+                  <span class="bba-contest">{{ betLabelParts(row.label).contest }}</span>
+                  <span v-if="betLabelParts(row.label).segment" class="bba-segment">{{ betLabelParts(row.label).segment }}</span>
+                </td>
                 <td :class="{ 'bba-win': row.winnerSide === 'a' }">{{ dash(row.a) }}</td>
                 <td :class="{ 'bba-win': row.winnerSide === 'b' }">{{ dash(row.b) }}</td>
                 <td class="bba-result">{{ outcomeLabel(row, match.aName, match.bName) }}</td>
@@ -772,12 +783,30 @@ function goHome() {
   color: #3a4a40;
 }
 
-.bba-table tbody tr:nth-child(3),
-.bba-table tbody tr:nth-child(6) {
-  border-bottom: 2px solid #d7cebd;
+.bba-contest,
+.bba-segment {
+  display: block;
 }
 
-.bba-table tbody tr:nth-child(4) .bba-bet {
+.bba-contest {
+  font-weight: 800;
+  color: #283b30;
+}
+
+.bba-segment {
+  margin-top: 1px;
+  color: #7a8a7e;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.bba-table tbody tr:nth-child(3) td,
+.bba-table tbody tr:nth-child(6) td {
+  border-bottom-width: 2px;
+  border-bottom-color: #cfc4b0;
+}
+
+.bba-table tbody tr:nth-child(4) .bba-contest {
   color: #8a672f;
 }
 
