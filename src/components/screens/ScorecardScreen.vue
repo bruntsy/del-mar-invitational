@@ -23,7 +23,7 @@ onMounted(() => {
   if (store.round?.groupId && !eventStore.event) {
     void eventStore.loadEvent(store.round.groupId).then(() => eventStore.loadLinkedRounds());
   }
-  if (typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 760px)').matches) mobileMode.value = true;
+  if (typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 760px)').matches) holeView.value = true;
   loadMobileHole();
 });
 
@@ -45,12 +45,35 @@ const inPar = computed(() => par.value.slice(9).reduce((a, b) => a + b, 0));
 const courseTitle = computed(() => {
   const c = course.value;
   if (!c) return '';
-  return [c.clubName, c.courseName].filter(Boolean).join(' — ') || c.courseName || c.clubName || 'Course';
+  const club = c.clubName?.trim();
+  const courseName = c.courseName?.trim();
+  if (club && courseName && club.toLowerCase() !== courseName.toLowerCase()) return `${club} — ${courseName}`;
+  return courseName || club || 'Course';
 });
 const courseSub = computed(() => {
   const c = course.value;
   if (!c) return '';
-  return [c.location, c.tee?.name].filter(Boolean).join(' / ');
+  return [c.location, c.tee?.name ? `${c.tee.name} tees` : '', roundTypeLabel.value].filter(Boolean).join(' · ');
+});
+
+const enabledGameLabels = computed(() => {
+  const games = store.games;
+  const labels: string[] = [];
+  if (games.bestBall.enabled) labels.push('Best Ball');
+  if (games.bestBallAggy.enabled) labels.push('Best Ball + Aggy');
+  if (games.highBallLowBall.enabled) labels.push('High Ball / Low Ball');
+  if (games.twoManScramble.enabled) labels.push('Two-Man Scramble');
+  if (games.scramble4.enabled) labels.push('4-Man Scramble');
+  if (games.skins.enabled) labels.push('Skins');
+  if (games.wolf.enabled) labels.push('Wolf');
+  if (games.puttPoker.enabled) labels.push('Putt Poker');
+  return labels;
+});
+
+const roundTypeLabel = computed(() => {
+  const eventRound = activeEventRound.value;
+  if (eventRound) return eventFormatLabel(eventRound.config.format);
+  return enabledGameLabels.value.slice(0, 2).join(' / ') || 'Ad hoc round';
 });
 
 interface TeamRow {
@@ -598,7 +621,8 @@ const displaySections = computed<DisplaySection[]>(() => {
 // ── Mobile hole-by-hole mode ──────────────────────────────────────────────────
 
 const mobileHoleKey = computed(() => `dmi_mobile_hole_${store.round?.id ?? 'local'}`);
-const mobileMode = ref(false);
+const holeView = ref(false);
+const fullScorecardOpen = ref(false);
 const mobileHole = ref(0);
 
 function loadMobileHole() {
@@ -633,6 +657,22 @@ const mobilePlayers = computed(() => {
   }
   return store.playerNames;
 });
+
+const mobileMatchSummaries = computed(() =>
+  matchPlayPanels.value.flatMap((panel) =>
+    panel.matches.flatMap((match) =>
+      match.contests.map((contest) => {
+        const hole = contest.holes.find((h) => h.hole === mobileHole.value + 1);
+        return {
+          key: `${panel.gameLabel}-${match.label}-${contest.name}`,
+          game: contest.name,
+          match: `${match.sideA} vs ${match.sideB}`,
+          status: hole?.status && hole.status !== 'Pending' ? hole.status : contest.finalLabel,
+        };
+      }),
+    ),
+  ).filter((summary) => summary.status && summary.status !== 'Pending'),
+);
 </script>
 
 <template>
@@ -644,10 +684,7 @@ const mobilePlayers = computed(() => {
           <p class="sc-sub">{{ courseSub }}</p>
         </div>
         <div class="sc-topbar-actions">
-          <button class="btn-ghost" :class="{ 'btn-ghost-active': mobileMode }" type="button" @click="mobileMode = !mobileMode">
-            {{ mobileMode ? 'Full card' : 'Hole view' }}
-          </button>
-          <button class="btn-ghost" type="button" @click="goResults">Results →</button>
+          <button class="btn-primary" type="button" @click="goResults">Results →</button>
           <button class="btn-ghost" type="button" @click="router.push('/setup?edit=1')">Edit Round</button>
           <button class="btn-ghost" type="button" @click="goGroup">← Back to group</button>
         </div>
@@ -672,22 +709,30 @@ const mobilePlayers = computed(() => {
       </div>
 
       <!-- Mobile hole-by-hole card -->
-      <div v-if="mobileMode" class="mobile-card">
-        <div class="score-legend" aria-label="Scorecard legend">
-          <span><i class="legend-dot eagle"></i>Eagle or better</span>
-          <span><i class="legend-dot birdie"></i>Birdie</span>
-          <span><i class="legend-dot par"></i>Par</span>
-          <span><i class="legend-dot bogey"></i>Bogey</span>
-          <span><i class="mobile-stroke-dot">●</i> Stroke hole</span>
-        </div>
+      <div v-if="holeView" class="mobile-card">
         <div class="mobile-hole-nav">
           <button class="btn-ghost" type="button" :disabled="mobileHole === 0" @click="prevHole">←</button>
           <div class="mobile-hole-info">
             <span class="mobile-hole-num">Hole {{ mobileHole + 1 }}</span>
             <span class="mobile-hole-par">Par {{ par[mobileHole] }}</span>
-            <span class="mobile-hole-si">SI {{ si[mobileHole] }}</span>
+            <span class="mobile-hole-si">Hcp {{ si[mobileHole] }}</span>
+            <span class="mobile-hole-course">{{ courseTitle }} · {{ course?.tee?.name ?? 'Tee' }} tees</span>
           </div>
           <button class="btn-ghost" type="button" :disabled="mobileHole === 17" @click="nextHole">→</button>
+        </div>
+
+        <div v-if="mobileMatchSummaries.length" class="mobile-match-status">
+          <div v-for="summary in mobileMatchSummaries" :key="summary.key" class="mobile-match-row">
+            <span>{{ summary.game }}</span>
+            <strong>{{ summary.status }}</strong>
+            <em>{{ summary.match }}</em>
+          </div>
+        </div>
+
+        <div class="mobile-score-key">
+          <span><i class="mobile-stroke-dot">●</i> Stroke hole</span>
+          <span>Green = birdie</span>
+          <span>Red = bogey or worse</span>
         </div>
 
         <div class="mobile-players">
@@ -715,6 +760,7 @@ const mobilePlayers = computed(() => {
                 />
                 <button class="stepper-btn" type="button" @click="adjustScore(player, 1)">+</button>
               </div>
+              <div v-if="store.readScore(player, mobileHole) == null" class="mobile-field-error">Missing</div>
             </div>
             <div v-if="puttPokerEnabled" class="mobile-score-block">
               <div class="mobile-field-label">Putts</div>
@@ -747,9 +793,22 @@ const mobilePlayers = computed(() => {
             @click="mobileHole = h"
           >{{ h + 1 }}</button>
         </div>
+
+        <button class="btn-ghost mobile-full-toggle" type="button" @click="fullScorecardOpen = !fullScorecardOpen">
+          {{ fullScorecardOpen ? 'Hide full scorecard' : 'View full scorecard' }}
+        </button>
       </div>
 
-      <div v-if="!mobileMode" class="sc-table-wrap">
+      <div v-if="!holeView || fullScorecardOpen" class="score-legend" aria-label="Scorecard key">
+        <span><i class="legend-dot eagle"></i>Eagle or better</span>
+        <span><i class="legend-dot birdie"></i>Green = birdie</span>
+        <span><i class="legend-dot bogey"></i>Red = bogey or worse</span>
+        <span><i class="legend-best-ball">U</i> Underline = best ball contributor</span>
+        <span><i class="mobile-stroke-dot">●</i> Dot = stroke received</span>
+        <span><strong>SKN</strong> = skins won</span>
+      </div>
+
+      <div v-if="!holeView || fullScorecardOpen" class="sc-table-wrap">
         <table class="sc-table">
           <thead>
             <tr class="row-holes">
@@ -948,7 +1007,7 @@ const mobilePlayers = computed(() => {
             </template><!-- end displaySections loop -->
           </tbody>
         </table>
-      </div><!-- end sc-table-wrap / v-if="!mobileMode" -->
+      </div><!-- end sc-table-wrap -->
 
       <section v-if="activeEventResult" class="event-live">
         <div class="event-live-head">
@@ -1210,6 +1269,10 @@ const mobilePlayers = computed(() => {
         </div>
       </section>
 
+      <div v-if="holeView" class="mobile-sticky-results">
+        <button class="btn-primary" type="button" @click="goResults">Results →</button>
+      </div>
+
     </template>
 
     <section v-else class="panel sc-empty">
@@ -1237,12 +1300,15 @@ const mobilePlayers = computed(() => {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 16px;
+  border-bottom: 1px solid #e4ddcd;
+  padding-bottom: 14px;
 }
 
 .sc-topbar-actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .sc-title {
@@ -1259,9 +1325,12 @@ const mobilePlayers = computed(() => {
 
 .sc-table-wrap {
   overflow-x: auto;
+  overflow-y: auto;
+  max-height: min(72vh, 760px);
   border: 1px solid #d7cebd;
   border-radius: 8px;
   background: #fdfbf4;
+  max-width: 100%;
 }
 
 .sc-table {
@@ -1273,9 +1342,15 @@ const mobilePlayers = computed(() => {
 .sc-table th,
 .sc-table td {
   border: 1px solid #e4ddcd;
-  padding: 2px 4px;
+  padding: 2px 5px;
   text-align: center;
   white-space: nowrap;
+}
+
+.sc-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
 }
 
 .row-holes th,
@@ -1293,6 +1368,10 @@ const mobilePlayers = computed(() => {
 }
 
 .col-name {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  background: #fdfbf4;
   text-align: left;
 }
 
@@ -1312,7 +1391,8 @@ const mobilePlayers = computed(() => {
   text-align: left;
   font-weight: 700;
   letter-spacing: 0.04em;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
+  padding: 4px 8px;
 }
 
 .row-team-divider-sub td {
@@ -1330,8 +1410,17 @@ const mobilePlayers = computed(() => {
 }
 
 .name-cell {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #fdfbf4;
   text-align: left;
   min-width: 120px;
+}
+
+.row-format .name-cell,
+.row-putts .name-cell {
+  background: #fbf7ed;
 }
 
 .fmt-row-label {
@@ -1438,6 +1527,7 @@ const mobilePlayers = computed(() => {
   padding: 6px 0;
   font-weight: 700;
   color: inherit;
+  cursor: pointer;
 }
 
 .sc-cell-inner input:focus {
@@ -2082,11 +2172,6 @@ const mobilePlayers = computed(() => {
   color: #f3efe2;
 }
 
-.btn-ghost-active {
-  background: #ece8da;
-  border-color: #b8a97a;
-}
-
 /* Mobile hole card */
 .mobile-card {
   border: 1px solid #d7cebd;
@@ -2100,7 +2185,11 @@ const mobilePlayers = computed(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 12px;
-  margin-bottom: 14px;
+  margin: 0 0 14px;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fffdf7;
+  padding: 9px 10px;
   color: #5e6d63;
   font-size: 0.72rem;
   font-weight: 700;
@@ -2124,6 +2213,19 @@ const mobilePlayers = computed(() => {
 .legend-dot.birdie { background: #cdeccd; }
 .legend-dot.par { background: #fdfbf4; }
 .legend-dot.bogey { background: #ffe4c2; }
+
+.legend-best-ball {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  color: #2f5d43;
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 900;
+  text-decoration: underline;
+}
 
 .mobile-hole-nav {
   display: flex;
@@ -2151,6 +2253,64 @@ const mobilePlayers = computed(() => {
   color: #6a7a6f;
   margin: 4px 6px 0;
   font-weight: 600;
+}
+
+.mobile-hole-course {
+  display: block;
+  margin-top: 5px;
+  color: #8a672f;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.mobile-match-status {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.mobile-match-row {
+  display: grid;
+  gap: 2px;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fffdf7;
+  padding: 9px 10px;
+}
+
+.mobile-match-row span {
+  color: #8a672f;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mobile-match-row strong {
+  color: #2f5d43;
+  font-size: 1rem;
+}
+
+.mobile-match-row em {
+  color: #5a6a5f;
+  font-size: 0.78rem;
+  font-style: normal;
+}
+
+.mobile-score-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 0 0 12px;
+  color: #6a7a6f;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.mobile-score-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .mobile-players {
@@ -2224,6 +2384,8 @@ const mobilePlayers = computed(() => {
   color: #2f5d43;
   font-size: 1.2rem;
   font-weight: 700;
+  min-width: 44px;
+  min-height: 44px;
   padding: 6px 12px;
   cursor: pointer;
   line-height: 1;
@@ -2234,7 +2396,8 @@ const mobilePlayers = computed(() => {
 }
 
 .mobile-score-input {
-  width: 44px;
+  width: 48px;
+  min-height: 44px;
   border: none;
   background: transparent;
   text-align: center;
@@ -2244,16 +2407,22 @@ const mobilePlayers = computed(() => {
   padding: 4px 0;
 }
 
+.mobile-field-error {
+  color: #b1462f;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
 .mobile-score-input:focus {
   outline: 2px solid #2f8f58;
   outline-offset: -2px;
 }
 
 /* Inherit score color classes on stepper */
-.score-eagle .mobile-score-input { color: #8a672f; }
-.score-birdie .mobile-stepper { background: #cdeccd; }
-.score-bogey .mobile-stepper { background: #f3dede; }
-.score-double .mobile-stepper { background: #e6c4c4; }
+.mobile-stepper.score-eagle .mobile-score-input { color: #8a672f; }
+.mobile-stepper.score-birdie { background: #cdeccd; }
+.mobile-stepper.score-bogey { background: #f3dede; }
+.mobile-stepper.score-double { background: #e6c4c4; }
 
 .mobile-hole-strip {
   display: flex;
@@ -2269,8 +2438,9 @@ const mobilePlayers = computed(() => {
   color: #6a7a6f;
   font-size: 0.72rem;
   font-weight: 700;
+  min-width: 44px;
+  min-height: 44px;
   padding: 4px 6px;
-  min-width: 30px;
   cursor: pointer;
 }
 
@@ -2283,6 +2453,29 @@ const mobilePlayers = computed(() => {
 .strip-btn.filled {
   border-color: #8a9489;
   color: #283b30;
+}
+
+.mobile-full-toggle {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 14px;
+}
+
+.mobile-sticky-results {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: none;
+  margin: 18px -16px -40px;
+  border-top: 1px solid #d7cebd;
+  background: rgb(248 244 234 / 96%);
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  backdrop-filter: blur(8px);
+}
+
+.mobile-sticky-results .btn-primary {
+  width: 100%;
+  min-height: 44px;
 }
 
 .sc-empty {
@@ -2312,12 +2505,18 @@ const mobilePlayers = computed(() => {
 
   .sc-topbar-actions {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
+    width: 100%;
   }
 
+  .sc-topbar-actions .btn-primary,
   .sc-topbar-actions .btn-ghost {
     width: 100%;
     min-height: 44px;
+  }
+
+  .mobile-sticky-results {
+    display: block;
   }
 }
 
@@ -2325,6 +2524,7 @@ const mobilePlayers = computed(() => {
 .btn-ghost {
   border-radius: 6px;
   padding: 8px 16px;
+  min-height: 40px;
   font-weight: 700;
   cursor: pointer;
 }

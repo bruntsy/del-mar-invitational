@@ -9,8 +9,9 @@ import { demoRound } from '@/fixtures/demoRound';
 import { useEventStore } from '@/stores/event';
 import { useRoundStore } from '@/stores/round';
 
+const push = vi.fn();
 vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push }),
 }));
 
 let pinia: ReturnType<typeof createPinia>;
@@ -23,7 +24,22 @@ beforeEach(() => {
   pinia = createPinia();
   setActivePinia(pinia);
   localStorage.clear();
+  vi.unstubAllGlobals();
+  push.mockClear();
 });
+
+function stubMobileViewport() {
+  vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
+    matches: query.includes('max-width: 760px'),
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })));
+}
 
 describe('ScorecardScreen', () => {
   it('shows an empty state with no active round', () => {
@@ -46,8 +62,44 @@ describe('ScorecardScreen', () => {
     expect(wrapper.text()).toContain('Wes');
     expect(wrapper.text()).toContain('Q');
     expect(wrapper.text()).toContain('Best Ball');
+    expect(wrapper.find('.sc-topbar-actions').text()).not.toContain('Mobile');
+    expect(wrapper.find('.sc-topbar-actions').text()).not.toContain('Hole view');
+    expect(wrapper.find('.sc-topbar-actions .btn-primary').text()).toContain('Results');
     // one score input per player per hole = 4 players * 18 holes
     expect(wrapper.findAll('.score-cell input')).toHaveLength(72);
+  });
+
+  it('does not duplicate identical club and course names in the header', () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.course = {
+      ...round.course!,
+      clubName: 'Salish Cliffs Golf Club',
+      courseName: 'Salish Cliffs Golf Club',
+      location: 'Shelton, WA',
+    };
+    store.setRound(round, players);
+
+    const wrapper = mountScorecard();
+
+    expect(wrapper.find('.sc-title').text()).toBe('Salish Cliffs Golf Club');
+    expect(wrapper.find('.sc-title').text()).not.toContain(' — ');
+    expect(wrapper.find('.sc-sub').text()).toContain('Shelton, WA');
+    expect(wrapper.find('.sc-sub').text()).toContain('Blue tees');
+  });
+
+  it('shows a scorecard legend for the full scorecard table', () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    store.setRound(round, players);
+
+    const wrapper = mountScorecard();
+    const legend = wrapper.find('.score-legend');
+
+    expect(legend.exists()).toBe(true);
+    expect(legend.text()).toContain('Green = birdie');
+    expect(legend.text()).toContain('Dot = stroke received');
+    expect(legend.text()).toContain('SKN');
   });
 
   it('writes scores through the store and updates totals', async () => {
@@ -268,51 +320,56 @@ describe('ScorecardScreen', () => {
     expect(wrapper.findAll('.row-player')).toHaveLength(4);
   });
 
-  it('mobile mode toggle hides the table and shows the hole card', async () => {
+  it('mobile viewport uses hole-by-hole scoring and keeps the full scorecard secondary', async () => {
+    stubMobileViewport();
     const store = useRoundStore();
     const { round, players } = demoRound();
     store.setRound(round, players);
 
     const wrapper = mountScorecard();
-    expect(wrapper.find('.mobile-card').exists()).toBe(false);
-    expect(wrapper.find('.sc-table-wrap').exists()).toBe(true);
-
-    await wrapper.find('button.btn-ghost').trigger('click'); // Mobile button is first
-    await wrapper.vm.$nextTick();
+    await nextTick();
 
     expect(wrapper.find('.mobile-card').exists()).toBe(true);
     expect(wrapper.find('.sc-table-wrap').exists()).toBe(false);
+    expect(wrapper.text()).toContain('View full scorecard');
+
+    await wrapper.find('.mobile-full-toggle').trigger('click');
+    await nextTick();
+
+    expect(wrapper.find('.sc-table-wrap').exists()).toBe(true);
+    expect(wrapper.text()).toContain('Hide full scorecard');
   });
 
   it('mobile hole card shows players, score steppers, and hole navigation', async () => {
+    stubMobileViewport();
     const store = useRoundStore();
     const { round, players } = demoRound();
     store.setRound(round, players);
 
     const wrapper = mountScorecard();
-    // toggle to mobile mode
-    await wrapper.find('button.btn-ghost').trigger('click');
-    await wrapper.vm.$nextTick();
+    await nextTick();
 
     expect(wrapper.find('.mobile-hole-num').text()).toBe('Hole 1');
     expect(wrapper.findAll('.mobile-player-row')).toHaveLength(4);
+    expect(wrapper.find('.mobile-score-key').text()).toContain('Stroke hole');
+    expect(wrapper.find('.mobile-field-error').text()).toContain('Missing');
 
     // navigate to hole 2
     const navBtns = wrapper.find('.mobile-hole-nav').findAll('button');
     await navBtns[1].trigger('click'); // → next
-    await wrapper.vm.$nextTick();
+    await nextTick();
 
     expect(wrapper.find('.mobile-hole-num').text()).toBe('Hole 2');
   });
 
   it('mobile score stepper increments the score via the store', async () => {
+    stubMobileViewport();
     const store = useRoundStore();
     const { round, players } = demoRound();
     store.setRound(round, players);
 
     const wrapper = mountScorecard();
-    await wrapper.find('button.btn-ghost').trigger('click');
-    await wrapper.vm.$nextTick();
+    await nextTick();
 
     // The first player is Wes (Bay Cats team1[0])
     const firstRow = wrapper.find('.mobile-player-row');
@@ -327,14 +384,14 @@ describe('ScorecardScreen', () => {
   });
 
   it('mobile hole strip marks filled holes and allows quick navigation', async () => {
+    stubMobileViewport();
     const store = useRoundStore();
     const { round, players } = demoRound();
     store.setRound(round, players);
     store.setScore('Wes', 4, 5); // hole 5 has a score
 
     const wrapper = mountScorecard();
-    await wrapper.find('button.btn-ghost').trigger('click');
-    await wrapper.vm.$nextTick();
+    await nextTick();
 
     const strip = wrapper.find('.mobile-hole-strip');
     expect(strip.exists()).toBe(true);
