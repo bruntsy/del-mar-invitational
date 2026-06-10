@@ -12,7 +12,7 @@ import { useRoundStore } from '@/stores/round';
 import { eventFormatLabel } from '@/domain/events';
 import { useEventLeaderboard } from '@/composables/useEventLeaderboard';
 import EventConfigEditor from '@/components/EventConfigEditor.vue';
-import type { EventConfig } from '@/types/event';
+import type { EventConfig, EventRoundConfig } from '@/types/event';
 import type { EventComponent, EventRoundRow } from '@/scoring/eventRound';
 
 const store = useGroupStore();
@@ -56,6 +56,7 @@ const editingGroupName = ref(false);
 const copiedCode = ref(false);
 const showEventMode = ref(false);
 const expandedHistory = ref<Record<string, boolean>>({});
+const expandedEventDetails = ref<Record<string, boolean>>({});
 
 const rosterPlayers = computed(() => sortedGroupPlayers(store.group?.players));
 const canCreateGroup = computed(() => newName.value.trim().length > 0 && !store.busy);
@@ -221,7 +222,7 @@ async function createEvent() {
 }
 
 async function archiveEvent() {
-  const ok = confirmAction('Archive event?\n\nThis hides the active team event from the group dashboard. Existing linked rounds remain in history.');
+  const ok = confirmAction('Archive this event?\n\nThis will remove the event from the active event view. Completed round history should remain available if supported.');
   if (!ok) return;
   await eventStore.archiveEvent();
 }
@@ -237,8 +238,16 @@ async function saveEventConfig(config: EventConfig, name: string) {
 }
 
 function launchEventRound(roundIndex: number) {
+  if (roundReadinessIssue(eventStore.event?.config.rounds[roundIndex])) {
+    editingEvent.value = true;
+    return;
+  }
   eventStore.setPendingRoundLink(roundIndex);
   void router.push('/setup');
+}
+
+function finishEventRoundSetup() {
+  editingEvent.value = true;
 }
 
 function openEventRound(roundIndex: number) {
@@ -262,6 +271,60 @@ function toggleHistory(key: string) {
     ...expandedHistory.value,
     [key]: !expandedHistory.value[key],
   };
+}
+
+function toggleEventDetails(key: string) {
+  expandedEventDetails.value = {
+    ...expandedEventDetails.value,
+    [key]: !expandedEventDetails.value[key],
+  };
+}
+
+function eventScoreState() {
+  const team1 = leaderboard.value.team1Total;
+  const team2 = leaderboard.value.team2Total;
+  const target = leaderboard.value.winPoints;
+  if (team1 >= target && team1 > team2) return `${leaderboard.value.team1Name} wins`;
+  if (team2 >= target && team2 > team1) return `${leaderboard.value.team2Name} wins`;
+  return `${target} points to win`;
+}
+
+function roundReadinessIssue(round: EventRoundConfig | null | undefined): string {
+  if (!round) return 'Missing round configuration';
+  if (!round.course) return 'Missing course';
+  if (!round.pairMatches?.length) return 'Missing pair matches';
+  if (!round.format || round.format === 'custom') return 'No games selected';
+  return '';
+}
+
+function roundStateLabel(roundIndex: number, hasData: boolean): string {
+  const status = eventStore.roundsWithStatus[roundIndex];
+  const round = eventStore.event?.config.rounds[roundIndex];
+  if (!status?.linked) return roundReadinessIssue(round) ? 'Finish setup' : 'Ready to launch';
+  const cached = round?.roundId ? eventStore.cachedRounds[round.roundId] : null;
+  if (cached?.round.completed) return 'Completed';
+  return hasData ? 'Live' : 'Active';
+}
+
+function roundActionLabel(roundIndex: number): string {
+  const status = eventStore.roundsWithStatus[roundIndex];
+  const round = eventStore.event?.config.rounds[roundIndex];
+  if (status?.linked) return 'Open round';
+  return roundReadinessIssue(round) ? 'Finish setup' : 'Launch round';
+}
+
+function roundScoreLabel(team1: number, team2: number): string {
+  return `${leaderboard.value.team1Name} ${team1} – ${team2} ${leaderboard.value.team2Name}`;
+}
+
+function roundDeltaLabel(team1: number, team2: number): string {
+  if (team1 === team2) return 'All square';
+  const leader = team1 > team2 ? leaderboard.value.team1Name : leaderboard.value.team2Name;
+  return `${leader} +${Math.abs(team1 - team2)} pts`;
+}
+
+function eventDetailKey(roundIndex: number, row: EventRoundRow): string {
+  return `${roundIndex}-${row.label}`;
 }
 
 function rowTotals(row: EventRoundRow): { team1: number; team2: number } {
@@ -296,6 +359,12 @@ function componentResultClass(component: EventComponent): string {
   if (component.winner === 'team1') return 'comp-team1';
   if (component.winner === 'team2') return 'comp-team2';
   return 'comp-tie';
+}
+
+function componentResultLabel(component: EventComponent): string {
+  if (component.winner === 'team1') return `${leaderboard.value.team1Name} ${component.team1}–${component.team2}`;
+  if (component.winner === 'team2') return `${leaderboard.value.team2Name} ${component.team1}–${component.team2}`;
+  return `Push ${component.team1}–${component.team2}`;
 }
 </script>
 
@@ -390,12 +459,15 @@ function componentResultClass(component: EventComponent): string {
           <!-- Active event -->
           <template v-if="eventStore.event">
             <div class="event-header">
-              <div class="event-name">{{ eventStore.event.name }}</div>
+              <div>
+                <div class="event-kicker">Team event</div>
+                <div class="event-name">{{ eventStore.event.name }}</div>
+                <div class="event-title-sub">{{ leaderboard.team1Name }} vs {{ leaderboard.team2Name }}</div>
+              </div>
               <div class="event-header-actions">
                 <button class="btn-ghost sm" type="button" @click="editingEvent = !editingEvent">
-                  {{ editingEvent ? 'Cancel' : 'Edit' }}
+                  {{ editingEvent ? 'Cancel' : 'Edit event' }}
                 </button>
-                <button class="btn-text danger" type="button" @click="archiveEvent">Archive event</button>
               </div>
             </div>
 
@@ -408,55 +480,62 @@ function componentResultClass(component: EventComponent): string {
               @cancel="editingEvent = false"
             />
 
-            <!-- Team rosters (hidden while editing) -->
-            <div v-if="!editingEvent" class="event-teams">
-              <div class="event-team">
-                <div class="event-team-name">{{ leaderboard.team1Name }}</div>
-                <div class="event-team-players">{{ eventStore.event.config.team1.join(', ') || '—' }}</div>
-              </div>
-              <div class="event-vs">vs</div>
-              <div class="event-team">
-                <div class="event-team-name">{{ leaderboard.team2Name }}</div>
-                <div class="event-team-players">{{ eventStore.event.config.team2.join(', ') || '—' }}</div>
-              </div>
-            </div>
-
             <template v-if="!editingEvent">
-              <!-- Live standings -->
-              <div class="event-standings">
-                <span class="event-score" :class="{ leading: leaderboard.team1Total > leaderboard.team2Total }">
-                  {{ leaderboard.team1Total }}
-                </span>
-                <span class="event-score-sep">–</span>
-                <span class="event-score" :class="{ leading: leaderboard.team2Total > leaderboard.team1Total }">
-                  {{ leaderboard.team2Total }}
-                </span>
-                <span class="event-score-label">({{ leaderboard.winPoints }} to win)</span>
+              <div class="event-scoreboard">
+                <div class="event-scoreboard-title">Event score</div>
+                <div class="event-score-grid">
+                  <div class="event-score-team" :class="{ leading: leaderboard.team1Total > leaderboard.team2Total }">
+                    <span>{{ leaderboard.team1Name }}</span>
+                    <strong>{{ leaderboard.team1Total }}</strong>
+                  </div>
+                  <div class="event-score-team" :class="{ leading: leaderboard.team2Total > leaderboard.team1Total }">
+                    <span>{{ leaderboard.team2Name }}</span>
+                    <strong>{{ leaderboard.team2Total }}</strong>
+                  </div>
+                </div>
+                <p class="event-score-note">{{ eventScoreState() }}</p>
+              </div>
+
+              <!-- Team rosters -->
+              <div class="event-teams">
+                <div class="event-team">
+                  <div class="event-team-name">{{ leaderboard.team1Name }}</div>
+                  <div class="event-team-players">{{ eventStore.event.config.team1.join(' · ') || '—' }}</div>
+                </div>
+                <div class="event-vs">vs</div>
+                <div class="event-team">
+                  <div class="event-team-name">{{ leaderboard.team2Name }}</div>
+                  <div class="event-team-players">{{ eventStore.event.config.team2.join(' · ') || '—' }}</div>
+                </div>
               </div>
 
               <!-- Per-round breakdown -->
+              <div class="event-rounds-head">Rounds</div>
               <div class="event-rounds">
                 <div
                   v-for="r in leaderboard.rounds"
                   :key="r.roundIndex"
                   class="event-round-card"
+                  :class="`round-state-${roundStateLabel(r.roundIndex, r.hasData).toLowerCase().replaceAll(' ', '-')}`"
                 >
                   <div class="event-round-hdr">
                     <div>
                       <div class="event-round-name">{{ r.result.round.name }}</div>
                       <div class="event-round-meta">{{ eventFormatLabel(r.result.round.format) }}</div>
+                      <span class="event-round-state">{{ roundStateLabel(r.roundIndex, r.hasData) }}</span>
                     </div>
                     <div class="event-round-actions">
-                      <div v-if="r.hasData" class="event-round-pts">
-                        {{ r.result.team1 }} – {{ r.result.team2 }} pts
+                      <div v-if="r.hasData" class="event-round-score">
+                        <strong>{{ roundScoreLabel(r.result.team1, r.result.team2) }}</strong>
+                        <span>{{ roundDeltaLabel(r.result.team1, r.result.team2) }}</span>
                       </div>
                       <button
                         v-if="!eventStore.roundsWithStatus[r.roundIndex]?.linked"
                         class="btn-ghost sm"
                         type="button"
-                        @click="launchEventRound(r.roundIndex)"
+                        @click="roundReadinessIssue(eventStore.event?.config.rounds[r.roundIndex]) ? finishEventRoundSetup() : launchEventRound(r.roundIndex)"
                       >
-                        Launch
+                        {{ roundActionLabel(r.roundIndex) }}
                       </button>
                       <button
                         v-else
@@ -464,10 +543,13 @@ function componentResultClass(component: EventComponent): string {
                         type="button"
                         @click="openEventRound(r.roundIndex)"
                       >
-                        Open
+                        {{ roundActionLabel(r.roundIndex) }}
                       </button>
                     </div>
                   </div>
+                  <p v-if="!eventStore.roundsWithStatus[r.roundIndex]?.linked && roundReadinessIssue(eventStore.event?.config.rounds[r.roundIndex])" class="event-blocker">
+                    {{ roundReadinessIssue(eventStore.event?.config.rounds[r.roundIndex]) }}
+                  </p>
 
                   <!-- Match rows when data is present -->
                   <template v-if="r.hasData && r.result.rows.length">
@@ -480,20 +562,33 @@ function componentResultClass(component: EventComponent): string {
                           <span class="match-players" :class="{ 'match-winner': overallWinner(row) === 'team2' }">{{ row.bPlayers.join(' / ') }}</span>
                           <span class="match-result">{{ matchResultLabel(row) }}</span>
                         </div>
-                        <div v-if="scoredComponents(row).length" class="comp-breakdown">
+                        <button
+                          v-if="scoredComponents(row).length"
+                          class="btn-text event-detail-toggle"
+                          type="button"
+                          @click="toggleEventDetails(eventDetailKey(r.roundIndex, row))"
+                        >
+                          {{ expandedEventDetails[eventDetailKey(r.roundIndex, row)] ? 'Hide match details' : 'View match details' }}
+                        </button>
+                        <div v-if="expandedEventDetails[eventDetailKey(r.roundIndex, row)] && scoredComponents(row).length" class="comp-breakdown">
                           <span
                             v-for="component in scoredComponents(row)"
                             :key="`${row.label}-${component.label}`"
                             class="comp-chip"
                             :class="componentResultClass(component)"
-                          >{{ component.label }}: {{ component.team1 }}–{{ component.team2 }}</span>
+                          >{{ component.label }}: {{ componentResultLabel(component) }}</span>
                         </div>
                       </template>
                     </div>
                   </template>
-                  <p v-else-if="!r.hasData" class="hint">No scores yet.</p>
+                  <p v-else-if="!r.hasData && !roundReadinessIssue(eventStore.event?.config.rounds[r.roundIndex])" class="hint">Ready to launch.</p>
                 </div>
               </div>
+
+              <section class="event-settings">
+                <span class="field-label">Event settings</span>
+                <button class="btn-text danger" type="button" @click="archiveEvent">Archive event</button>
+              </section>
 
               <p v-if="eventStore.error" class="status error">{{ eventStore.error }}</p>
             </template>
@@ -527,7 +622,9 @@ function componentResultClass(component: EventComponent): string {
           <span class="field-label">Past rounds</span>
           <p v-if="history.loading" class="hint">Loading…</p>
           <p v-else-if="history.error" class="status error">{{ history.error }}</p>
-          <p v-else-if="!history.rounds.length" class="hint">No completed rounds yet.</p>
+          <p v-else-if="!history.rounds.length" class="hint">
+            {{ eventStore.event ? 'No completed event rounds yet. Completed rounds will appear here after they are finished.' : 'No completed rounds yet.' }}
+          </p>
           <div v-for="round in history.rounds" :key="round.id ?? round.completedAt ?? round.courseName" class="hist-card">
             <div class="hist-hdr">
               <div>
@@ -1009,12 +1106,12 @@ input[placeholder="ABCD"] {
   border: 1px solid #e0d7c4;
   border-radius: 8px;
   background: #fffdf7;
-  padding: 14px;
+  padding: 16px;
 }
 
 .event-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   margin-top: 6px;
@@ -1026,67 +1123,124 @@ input[placeholder="ABCD"] {
   align-items: center;
 }
 
+.event-kicker,
+.event-rounds-head {
+  color: #4a5a4f;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .event-name {
-  font-weight: 700;
+  margin-top: 3px;
+  font-weight: 800;
   color: #24362c;
-  font-size: 1rem;
+  font-size: 1.28rem;
+}
+
+.event-title-sub {
+  margin-top: 2px;
+  color: #6f7d72;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.event-scoreboard {
+  margin-top: 14px;
+  border: 1px solid #d8e2d7;
+  border-radius: 8px;
+  background: #f3faf2;
+  padding: 14px;
+}
+
+.event-scoreboard-title {
+  color: #2f5d43;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.event-score-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.event-score-team {
+  border: 1px solid #d8e2d7;
+  border-radius: 8px;
+  background: #fffdf7;
+  padding: 12px;
+}
+
+.event-score-team span {
+  display: block;
+  color: #4a5a4f;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.event-score-team strong {
+  display: block;
+  margin-top: 4px;
+  color: #24362c;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.event-score-team.leading {
+  border-color: #b7d1b9;
+  box-shadow: inset 0 0 0 1px #b7d1b9;
+}
+
+.event-score-team.leading strong {
+  color: #2f5d43;
+}
+
+.event-score-note {
+  margin: 10px 0 0;
+  color: #5a6a5f;
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
 .event-teams {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: flex-start;
   gap: 12px;
-  margin-top: 10px;
-  padding: 10px 12px;
+  margin-top: 12px;
+  padding: 12px;
   border: 1px solid #e0d7c4;
-  border-radius: 6px;
+  border-radius: 8px;
+  background: #fffdf7;
 }
 
 .event-team {
-  flex: 1;
+  min-width: 0;
 }
 
 .event-team-name {
-  font-weight: 700;
+  font-weight: 800;
   color: #24362c;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
 }
 
 .event-team-players {
   color: #7a8a7f;
-  font-size: 0.8rem;
-  margin-top: 2px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-top: 4px;
+  line-height: 1.35;
 }
 
 .event-vs {
   color: #7a8a7f;
-  font-weight: 700;
-  padding-top: 2px;
-}
-
-.event-standings {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  margin-top: 10px;
-  font-size: 1.4rem;
   font-weight: 800;
-  color: #24362c;
-}
-
-.event-score-sep {
-  color: #7a8a7f;
-}
-
-.event-score-label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: #7a8a7f;
-  margin-left: 4px;
-}
-
-.event-score.leading {
-  color: #2f5d43;
+  padding-top: 4px;
 }
 
 .event-rounds {
@@ -1096,10 +1250,21 @@ input[placeholder="ABCD"] {
   gap: 10px;
 }
 
+.event-rounds-head {
+  margin-top: 18px;
+}
+
 .event-round-card {
   border: 1px solid #e0d7c4;
-  border-radius: 6px;
-  padding: 10px 12px;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fffdf7;
+}
+
+.event-round-card.round-state-completed,
+.event-round-card.round-state-live,
+.event-round-card.round-state-active {
+  border-color: #cddfcf;
 }
 
 .event-round-hdr {
@@ -1111,38 +1276,64 @@ input[placeholder="ABCD"] {
 
 .event-round-actions {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
   flex-shrink: 0;
+  text-align: right;
 }
 
 .event-round-name {
-  font-weight: 700;
+  font-weight: 800;
   color: #24362c;
-  font-size: 0.9rem;
+  font-size: 0.98rem;
 }
 
 .event-round-meta {
   color: #7a8a7f;
   font-size: 0.78rem;
-}
-
-.event-round-pts {
-  color: #2f5d43;
-  font-size: 0.85rem;
   font-weight: 700;
 }
 
-.event-round-linked {
-  color: #7a8a7f;
+.event-round-state {
+  display: inline-flex;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: #eef2ec;
+  color: #4a5a4f;
+  padding: 3px 8px;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.event-round-score {
+  display: grid;
+  gap: 2px;
+}
+
+.event-round-score strong {
+  color: #24362c;
+  font-size: 0.9rem;
+}
+
+.event-round-score span {
+  color: #2f5d43;
   font-size: 0.8rem;
-  font-style: italic;
+  font-weight: 800;
+}
+
+.event-blocker {
+  margin: 10px 0 0;
+  color: #8a672f;
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
 .match-summary-list {
   display: grid;
-  gap: 6px;
-  margin-top: 8px;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .match-summary-row {
@@ -1151,6 +1342,8 @@ input[placeholder="ABCD"] {
   gap: 6px;
   font-size: 0.82rem;
   flex-wrap: wrap;
+  border-top: 1px solid #efe9da;
+  padding-top: 8px;
 }
 
 .match-label {
@@ -1177,31 +1370,46 @@ input[placeholder="ABCD"] {
 
 .match-result {
   margin-left: auto;
-  font-weight: 600;
+  font-weight: 800;
   color: #4a6050;
   font-size: 0.82rem;
 }
 
+.event-detail-toggle {
+  margin-left: 52px;
+  font-size: 0.78rem;
+}
+
 .comp-breakdown {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  display: grid;
+  gap: 5px;
   margin: 0 0 4px 52px;
 }
 
 .comp-chip {
-  font-size: 0.68rem;
-  font-weight: 600;
-  padding: 1px 7px;
-  border-radius: 10px;
+  width: fit-content;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 999px;
   background: #eef2ec;
   color: #5a6a5e;
-  white-space: nowrap;
 }
 
 .comp-chip.comp-team1 {
   background: rgba(47, 93, 67, 0.14);
   color: #2f5d43;
+}
+
+.comp-chip.comp-team2 {
+  background: rgba(176, 132, 22, 0.16);
+  color: #8a672f;
+}
+
+.event-settings {
+  margin-top: 18px;
+  border-top: 1px solid #e0d7c4;
+  padding-top: 14px;
 }
 
 @media (max-width: 700px) {
@@ -1215,7 +1423,10 @@ input[placeholder="ABCD"] {
   .roster-add,
   .recent-row,
   .roster-row,
-  .hist-hdr {
+  .hist-hdr,
+  .event-header,
+  .event-round-hdr,
+  .event-round-actions {
     align-items: stretch;
     flex-direction: column;
   }
@@ -1237,11 +1448,33 @@ input[placeholder="ABCD"] {
     display: block;
     overflow-x: auto;
   }
-}
 
-.comp-chip.comp-team2 {
-  background: rgba(176, 132, 22, 0.16);
-  color: #8a672f;
+  .event-score-grid,
+  .event-teams {
+    grid-template-columns: 1fr;
+  }
+
+  .event-vs {
+    padding-top: 0;
+  }
+
+  .event-round-actions {
+    text-align: left;
+  }
+
+  .match-summary-row {
+    display: grid;
+    gap: 4px;
+  }
+
+  .match-result {
+    margin-left: 0;
+  }
+
+  .event-detail-toggle,
+  .comp-breakdown {
+    margin-left: 0;
+  }
 }
 
 .stats {

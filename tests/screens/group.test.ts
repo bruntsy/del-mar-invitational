@@ -2,11 +2,15 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import GroupScreen from '@/components/screens/GroupScreen.vue';
+import { defaultEventConfig } from '@/domain/events';
+import { demoRound } from '@/fixtures/demoRound';
+import { useEventStore } from '@/stores/event';
 import { useGroupStore } from '@/stores/group';
 import { emptyRound, useRoundStore } from '@/stores/round';
 
-const { routeQuery } = vi.hoisted(() => ({
+const { routeQuery, onlineState } = vi.hoisted(() => ({
   routeQuery: { value: {} as Record<string, string> },
+  onlineState: { value: false },
 }));
 const push = vi.fn();
 vi.mock('vue-router', () => ({
@@ -15,7 +19,7 @@ vi.mock('vue-router', () => ({
 }));
 vi.mock('@/services/supabase', () => ({
   supabase: null,
-  hasSupabase: () => false,
+  hasSupabase: () => onlineState.value,
 }));
 
 let pinia: ReturnType<typeof createPinia>;
@@ -24,12 +28,17 @@ function mountGroup() {
   return mount(GroupScreen, { global: { plugins: [pinia] } });
 }
 
+function fillCard(store: ReturnType<typeof useRoundStore>, player: string, gross: number) {
+  for (let hole = 0; hole < 18; hole += 1) store.setScore(player, hole, gross);
+}
+
 beforeEach(() => {
   pinia = createPinia();
   setActivePinia(pinia);
   localStorage.clear();
   push.mockClear();
   routeQuery.value = {};
+  onlineState.value = false;
 });
 
 describe('GroupScreen roster', () => {
@@ -119,5 +128,110 @@ describe('GroupScreen roster', () => {
     await back!.trigger('click');
 
     expect(push).toHaveBeenCalledWith({ path: '/group', query: { view: 'groups' } });
+  });
+
+  it('renders the team event dashboard with score labels, stateful round actions, and de-emphasized archive', async () => {
+    const group = useGroupStore();
+    await group.createGroup('Event Group');
+    onlineState.value = true;
+
+    const event = useEventStore();
+    const { round } = demoRound();
+    const config = defaultEventConfig(['Wes', 'Aaron', 'Tito', 'Q']);
+    config.teamNames = { team1: 'Seattle', team2: 'Cali' };
+    config.team1 = ['Wes', 'Aaron'];
+    config.team2 = ['Tito', 'Q'];
+    config.winPoints = 15.5;
+    config.rounds[0] = {
+      ...config.rounds[0],
+      name: 'Round 1',
+      format: 'twoManHighBallLowBall',
+      course: round.course,
+      roundId: 'event-round-1',
+      pairMatches: [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }],
+      pointsResult: { team1: 7, team2: 5 },
+    };
+    config.rounds[1] = {
+      ...config.rounds[1],
+      name: 'Round 2',
+      format: 'twoManHighBallLowBall',
+      course: round.course,
+      pairMatches: [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }],
+    };
+    config.rounds[2] = {
+      ...config.rounds[2],
+      name: 'Round 3',
+      format: 'twoManHighBallLowBall',
+      course: null,
+      pairMatches: [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }],
+    };
+    event.event = { id: 'event-1', groupId: 'g1', name: 'Event Test 6.10', status: 'active', config };
+
+    const wrapper = mountGroup();
+    await flushPromises();
+
+    expect(wrapper.find('.event-name').text()).toBe('Event Test 6.10');
+    expect(wrapper.find('.event-scoreboard').text()).toContain('Event score');
+    expect(wrapper.find('.event-scoreboard').text()).toContain('Seattle');
+    expect(wrapper.find('.event-scoreboard').text()).toContain('7');
+    expect(wrapper.find('.event-scoreboard').text()).toContain('Cali');
+    expect(wrapper.find('.event-scoreboard').text()).toContain('5');
+    expect(wrapper.find('.event-scoreboard').text()).toContain('15.5 points to win');
+    expect(wrapper.find('.event-teams').text()).toContain('Wes · Aaron');
+    expect(wrapper.find('.event-teams').text()).toContain('Tito · Q');
+    expect(wrapper.text()).toContain('Edit event');
+    expect(wrapper.find('.event-header').text()).not.toContain('Archive event');
+    expect(wrapper.find('.event-settings').text()).toContain('Archive event');
+    expect(wrapper.text()).toContain('Ready to launch');
+    expect(wrapper.text()).toContain('Launch round');
+    expect(wrapper.text()).toContain('Finish setup');
+    expect(wrapper.text()).toContain('Missing course');
+    expect(wrapper.text()).toContain('No completed event rounds yet. Completed rounds will appear here after they are finished.');
+  });
+
+  it('keeps event match details collapsed until requested', async () => {
+    const group = useGroupStore();
+    await group.createGroup('Event Group');
+    onlineState.value = true;
+
+    const roundStore = useRoundStore();
+    const event = useEventStore();
+    const { round, players } = demoRound();
+    round.id = 'event-round-1';
+    round.games.highBallLowBall.enabled = true;
+    round.games.highBallLowBall.scoringMode = 'match';
+    round.pairMatches = [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }];
+    roundStore.setRound(round, players);
+    fillCard(roundStore, 'Wes', 4);
+    fillCard(roundStore, 'Aaron', 5);
+    fillCard(roundStore, 'Tito', 5);
+    fillCard(roundStore, 'Q', 6);
+
+    const config = defaultEventConfig(['Wes', 'Aaron', 'Tito', 'Q']);
+    config.teamNames = { team1: 'Seattle', team2: 'Cali' };
+    config.team1 = ['Wes', 'Aaron'];
+    config.team2 = ['Tito', 'Q'];
+    config.rounds = [{
+      ...config.rounds[0],
+      name: 'Round 1',
+      format: 'twoManHighBallLowBall',
+      course: round.course,
+      roundId: 'event-round-1',
+      pairMatches: [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }],
+    }];
+    event.event = { id: 'event-1', groupId: 'g1', name: 'Event Test 6.10', status: 'active', config };
+
+    const wrapper = mountGroup();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Open round');
+    expect(wrapper.find('.event-detail-toggle').exists()).toBe(true);
+    expect(wrapper.find('.comp-chip').exists()).toBe(false);
+
+    await wrapper.find('.event-detail-toggle').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('.comp-chip').exists()).toBe(true);
+    expect(wrapper.find('.comp-chip').text()).toContain('Seattle');
   });
 });
