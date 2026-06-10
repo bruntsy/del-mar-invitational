@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { sortedGroupPlayers } from '@/domain/players';
+import { courseDisplayName } from '@/domain/round';
 import { hasSupabase } from '@/services/supabase';
 import { useGroupStore } from '@/stores/group';
 import { useHistoryStore } from '@/stores/history';
@@ -42,6 +43,20 @@ const editName = ref('');
 const editHandicapIndex = ref<number | string>('');
 
 const rosterPlayers = computed(() => sortedGroupPlayers(store.group?.players));
+
+const resumeCard = computed(() => {
+  const round = roundStore.round;
+  if (!round) return null;
+  const status = roundStore.roundStatus;
+  const subtext = `${courseDisplayName(round.course)} · ${roundStore.holesScoredCount} of 18 holes scored`;
+  if (status === 'completed') return { label: 'View results', to: '/results', subtext };
+  if (status === 'in_progress') return { label: 'Resume round', to: '/scorecard', subtext };
+  return { label: 'Continue setup', to: '/setup?edit=1', subtext };
+});
+
+function resume() {
+  if (resumeCard.value) void router.push(resumeCard.value.to);
+}
 
 async function loadGroupData(groupId: string) {
   void history.loadHistory(groupId);
@@ -230,6 +245,11 @@ function componentResultClass(component: EventComponent): string {
           <button class="btn-ghost" type="button" @click="goHome">Home</button>
           <button class="btn-ghost danger" type="button" @click="leave">Leave group</button>
         </div>
+
+        <button v-if="resumeCard" class="resume-card" type="button" @click="resume">
+          <span class="resume-label">{{ resumeCard.label }} →</span>
+          <span class="resume-sub">{{ resumeCard.subtext }}</span>
+        </button>
 
         <section class="roster">
           <span class="field-label">Roster</span>
@@ -575,6 +595,36 @@ function componentResultClass(component: EventComponent): string {
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 24px;
+}
+
+.resume-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-start;
+  width: 100%;
+  margin-top: 14px;
+  padding: 14px 18px;
+  border: 1px solid #2f5d43;
+  border-radius: 8px;
+  background: #eaf3ec;
+  cursor: pointer;
+  text-align: left;
+}
+
+.resume-card:hover {
+  background: #def0e3;
+}
+
+.resume-label {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #2f5d43;
+}
+
+.resume-sub {
+  font-size: 0.8rem;
+  color: #5a6a5f;
 }
 
 .btn-primary,

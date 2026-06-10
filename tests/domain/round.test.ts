@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   courseDisplayName,
+  deriveRoundStatus,
+  holesScored,
   mergeRoundData,
   normalizeRoundRow,
   roundForDb,
@@ -139,6 +141,44 @@ describe('summarizeRound', () => {
     } as unknown as RoundRow);
 
     expect(summarizeRound(round, {}).players).toEqual([]);
+  });
+});
+
+describe('deriveRoundStatus / holesScored', () => {
+  it('reports a draft when no scores are entered', () => {
+    const round = { completed: false, scores: {}, teamScores: {} } as unknown as RoundState;
+    expect(deriveRoundStatus(round)).toBe('draft');
+    expect(holesScored(round)).toBe(0);
+  });
+
+  it('reports in_progress with partial scores and counts holes', () => {
+    const round = {
+      completed: false,
+      scores: { Amy: [4, 5, null, ...Array(15).fill(null)] },
+      teamScores: {},
+    } as unknown as RoundState;
+    expect(deriveRoundStatus(round)).toBe('in_progress');
+    expect(holesScored(round)).toBe(2);
+  });
+
+  it('counts team scores (scramble) toward holes scored', () => {
+    const round = {
+      completed: false,
+      scores: {},
+      teamScores: { match_0_a: [4, null, ...Array(16).fill(null)] },
+    } as unknown as RoundState;
+    expect(deriveRoundStatus(round)).toBe('in_progress');
+    expect(holesScored(round)).toBe(1);
+  });
+
+  it('reports completed when the flag is set regardless of scores', () => {
+    const round = { completed: true, scores: {}, teamScores: {} } as unknown as RoundState;
+    expect(deriveRoundStatus(round)).toBe('completed');
+  });
+
+  it('treats a null round as a draft', () => {
+    expect(deriveRoundStatus(null)).toBe('draft');
+    expect(holesScored(null)).toBe(0);
   });
 });
 

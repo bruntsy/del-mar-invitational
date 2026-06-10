@@ -4,10 +4,13 @@ import { generateCode } from '@/domain/group';
 import { groupPlayerByName } from '@/domain/players';
 import {
   ACTIVE_ROUND_COLUMNS,
+  deriveRoundStatus,
+  holesScored,
   mergeRoundData,
   normalizeRoundRow,
   normalizeRoundState,
   roundForDb,
+  type RoundStatus,
 } from '@/domain/round';
 import { hasSupabase, supabase } from '@/services/supabase';
 import type { RoundRow } from '@/types/db';
@@ -209,6 +212,16 @@ export const useRoundStore = defineStore('round', {
 
     course(state) {
       return state.round?.course ?? null;
+    },
+
+    /** Derived lifecycle status for resume affordances. */
+    roundStatus(state): RoundStatus {
+      return deriveRoundStatus(state.round);
+    },
+
+    /** Number of holes (0–18) with any score data. */
+    holesScoredCount(state): number {
+      return holesScored(state.round);
     },
 
     games(state) {

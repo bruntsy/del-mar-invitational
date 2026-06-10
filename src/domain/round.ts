@@ -1,6 +1,7 @@
 import { normalizeGames } from '@/domain/games';
 import { groupPlayerByName } from '@/domain/players';
 import { normalizePlayingGroups } from '@/domain/playingGroups';
+import { cellValue } from '@/scoring/cells';
 import { computeWHSCourseHcp, allocateNetStrokes } from '@/scoring/handicap';
 import { playerRangeScore, type ScoreContext } from '@/scoring/round';
 import { computeSkins } from '@/scoring/skins';
@@ -150,6 +151,36 @@ export function mergeRoundData(
     merged.wolf = mergeWolfData(merged.wolf || { holes: {} }, remoteRound.wolf || { holes: {} }, true);
   }
   return normalizeRoundState(merged);
+}
+
+export type RoundStatus = 'draft' | 'in_progress' | 'completed';
+
+/**
+ * Count of holes (0–18) that have any score data — a player gross score or a
+ * team score (scramble). Used for the "N of 18 holes scored" resume subtext.
+ */
+export function holesScored(round: RoundState | null | undefined): number {
+  if (!round) return 0;
+  const matrices = [round.scores, round.teamScores].filter(Boolean) as RoundState['scores'][];
+  let count = 0;
+  for (let hole = 0; hole < 18; hole += 1) {
+    const any = matrices.some((matrix) =>
+      Object.values(matrix).some((row) => row && cellValue(row[hole]) != null),
+    );
+    if (any) count += 1;
+  }
+  return count;
+}
+
+/**
+ * Derive a round's lifecycle status from existing fields (no DB migration):
+ * the `completed` flag wins; otherwise any entered score makes it in-progress;
+ * a round with no scores yet is a draft.
+ */
+export function deriveRoundStatus(round: RoundState | null | undefined): RoundStatus {
+  if (!round) return 'draft';
+  if (round.completed) return 'completed';
+  return holesScored(round) > 0 ? 'in_progress' : 'draft';
 }
 
 /** Best-effort display name for a round's course, matching the scorecard header. */
