@@ -1,17 +1,25 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import { eventFormatLabel, gamesFromEventRound } from '@/domain/events';
+import { buildScoreContext } from '@/composables/useEventLeaderboard';
 import { getsStroke } from '@/scoring/handicap';
 import { playerHoleScore } from '@/scoring/round';
 import { puttPenaltyNote } from '@/scoring/puttPoker';
 import { runningMatchStatus, type HoleWinner } from '@/scoring/matchStatus';
+import { computeEventRoundResult, type EventComponent, type EventRoundRow } from '@/scoring/eventRound';
+import { useEventStore } from '@/stores/event';
 import { useRoundStore } from '@/stores/round';
 
 const store = useRoundStore();
+const eventStore = useEventStore();
 const router = useRouter();
 
 onMounted(() => {
   if (!store.round) store.load();
+  if (store.round?.groupId && !eventStore.event) {
+    void eventStore.loadEvent(store.round.groupId).then(() => eventStore.loadLinkedRounds());
+  }
   loadMobileHole();
 });
 
@@ -302,6 +310,59 @@ const matchPlayPanels = computed<MpPanel[]>(() => {
 });
 
 const hasMatchPlayPanels = computed(() => matchPlayPanels.value.length > 0);
+
+const activeEventRound = computed(() => {
+  const roundId = store.round?.id;
+  const event = eventStore.event;
+  if (!roundId || !event) return null;
+  const index = event.config.rounds.findIndex((round) => round.roundId === roundId);
+  if (index < 0) return null;
+  return { index, config: event.config.rounds[index], eventConfig: event.config };
+});
+
+const activeEventResult = computed(() => {
+  const eventRound = activeEventRound.value;
+  const round = store.round;
+  if (!eventRound || !round) return null;
+  const ctx = buildScoreContext(round, store.players);
+  if (!ctx) return null;
+  return computeEventRoundResult({
+    round: eventRound.config,
+    roundIndex: eventRound.index,
+    scoreContext: ctx,
+    games: gamesFromEventRound(eventRound.config),
+    pairMatches: eventRound.config.pairMatches,
+    team1: eventRound.eventConfig.team1,
+    team2: eventRound.eventConfig.team2,
+    teamScores: round.teamScores,
+  });
+});
+
+function eventRowTotals(row: EventRoundRow): { team1: number; team2: number } {
+  return row.components.reduce(
+    (acc, component) => ({ team1: acc.team1 + component.team1, team2: acc.team2 + component.team2 }),
+    { team1: 0, team2: 0 },
+  );
+}
+
+function eventMatchLeader(row: EventRoundRow): string {
+  const totals = eventRowTotals(row);
+  if (totals.team1 === 0 && totals.team2 === 0) return 'Open';
+  if (totals.team1 === totals.team2) return 'All square';
+  return totals.team1 > totals.team2 ? `${row.aPlayers.join(' + ')} leads` : `${row.bPlayers.join(' + ')} leads`;
+}
+
+function eventComponentClass(component: EventComponent): string {
+  if (component.winner === 'team1') return 'event-chip-team1';
+  if (component.winner === 'team2') return 'event-chip-team2';
+  if (component.winner === 'tie') return 'event-chip-tie';
+  return 'event-chip-open';
+}
+
+function eventComponentLabel(component: EventComponent): string {
+  if (component.winner === 'open') return `${component.label}: open`;
+  return `${component.label}: ${component.team1}-${component.team2}`;
+}
 
 function sideInitials(label: string): string {
   return label
@@ -790,6 +851,45 @@ const mobilePlayers = computed(() => {
         </table>
       </div><!-- end sc-table-wrap / v-if="!mobileMode" -->
 
+      <section v-if="activeEventResult" class="event-live">
+        <div class="event-live-head">
+          <div>
+            <p class="event-live-kicker">Event Round {{ activeEventResult.idx + 1 }}</p>
+            <h2>{{ activeEventResult.round.name }}</h2>
+            <p>{{ eventFormatLabel(activeEventResult.round.format) }}</p>
+          </div>
+          <div class="event-live-score">
+            <strong>{{ activeEventResult.team1 }}-{{ activeEventResult.team2 }}</strong>
+            <span>event pts</span>
+          </div>
+        </div>
+
+        <div class="event-match-list">
+          <div v-for="row in activeEventResult.rows" :key="row.label" class="event-match-card">
+            <div class="event-match-top">
+              <div>
+                <strong>{{ row.label }}</strong>
+                <span>{{ row.aPlayers.join(' + ') }} vs {{ row.bPlayers.join(' + ') }}</span>
+              </div>
+              <div class="event-match-status">
+                <strong>{{ eventRowTotals(row).team1 }}-{{ eventRowTotals(row).team2 }}</strong>
+                <span>{{ eventMatchLeader(row) }}</span>
+              </div>
+            </div>
+            <div class="event-chip-row">
+              <span
+                v-for="component in row.components"
+                :key="`${row.label}-${component.label}`"
+                class="event-chip"
+                :class="eventComponentClass(component)"
+              >
+                {{ eventComponentLabel(component) }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section v-if="hasMatchPlayPanels" class="mp-live">
         <div v-for="panel in matchPlayPanels" :key="panel.gameLabel" class="mp-panel">
           <div class="mp-panel-title">
@@ -1269,6 +1369,132 @@ const mobilePlayers = computed(() => {
 
 .hole-win-team1 { background: rgba(47, 93, 67, 0.10); }
 .hole-win-team2 { background: rgba(180, 71, 58, 0.10); }
+
+.event-live {
+  margin-top: 20px;
+  border: 1px solid #d7cebd;
+  border-radius: 8px;
+  background: #f8f4ea;
+  padding: 16px 18px;
+}
+
+.event-live-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.event-live-kicker {
+  margin: 0 0 2px;
+  color: #7a8a7f;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.event-live h2 {
+  margin: 0;
+  color: #24362c;
+  font-size: 1.05rem;
+}
+
+.event-live p {
+  margin: 3px 0 0;
+  color: #6a7a6f;
+  font-size: 0.86rem;
+}
+
+.event-live-score {
+  text-align: right;
+  color: #2f5d43;
+}
+
+.event-live-score strong {
+  display: block;
+  font-size: 1.35rem;
+}
+
+.event-live-score span,
+.event-match-status span {
+  color: #6a7a6f;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.event-match-list {
+  display: grid;
+  gap: 10px;
+}
+
+.event-match-card {
+  border-top: 1px solid #e4ddcd;
+  padding-top: 10px;
+}
+
+.event-match-card:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.event-match-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.event-match-top strong,
+.event-match-status strong {
+  color: #24362c;
+}
+
+.event-match-top span {
+  display: block;
+  margin-top: 2px;
+  color: #4a5a4f;
+}
+
+.event-match-status {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.event-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.event-chip {
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  background: #ece8da;
+  color: #4a5a4f;
+}
+
+.event-chip-team1 {
+  background: #dfeadc;
+  color: #2f5d43;
+}
+
+.event-chip-team2 {
+  background: #f0dfd9;
+  color: #9b3d30;
+}
+
+.event-chip-tie {
+  background: #eadfca;
+  color: #8a672f;
+}
+
+.event-chip-open {
+  color: #7a8a7f;
+}
 
 /* Match-play panels (BB+Aggy, High/Low, Two-Man Scramble) */
 .mp-live {

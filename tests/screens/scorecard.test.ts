@@ -3,7 +3,10 @@ import { createPinia, setActivePinia } from 'pinia';
 import { nextTick } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ScorecardScreen from '@/components/screens/ScorecardScreen.vue';
+import { defaultEventConfig } from '@/domain/events';
+import { cloneDefaultGames } from '@/domain/games';
 import { demoRound } from '@/fixtures/demoRound';
+import { useEventStore } from '@/stores/event';
 import { useRoundStore } from '@/stores/round';
 
 vi.mock('vue-router', () => ({
@@ -146,6 +149,44 @@ describe('ScorecardScreen', () => {
 
     expect(wrapper.find('.sc-settlement').exists()).toBe(true);
     expect(wrapper.text()).toContain('Settlement');
+  });
+
+  it('shows linked event round status even when round games are missing the event game', async () => {
+    const roundStore = useRoundStore();
+    const eventStore = useEventStore();
+    const { round, players } = demoRound();
+    round.id = 'event-round-1';
+    round.groupId = 'g1';
+    round.games = cloneDefaultGames();
+    round.pairMatches = [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }];
+    roundStore.setRound(round, players);
+
+    const config = defaultEventConfig(['Wes', 'Aaron', 'Tito', 'Q']);
+    config.rounds[0] = {
+      ...config.rounds[0],
+      name: 'Round 1',
+      format: 'twoManHighBallLowBall',
+      roundId: 'event-round-1',
+      pairMatches: [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }],
+    };
+    eventStore.event = { id: 'event-1', groupId: 'g1', name: 'Event Test', status: 'active', config };
+
+    for (let hole = 0; hole < 9; hole += 1) {
+      roundStore.setScore('Wes', hole, 4);
+      roundStore.setScore('Aaron', hole, 5);
+      roundStore.setScore('Tito', hole, 5);
+      roundStore.setScore('Q', hole, 6);
+    }
+
+    const wrapper = mountScorecard();
+    await nextTick();
+
+    expect(wrapper.find('.event-live').exists()).toBe(true);
+    expect(wrapper.find('.event-live').text()).toContain('Event Round 1');
+    expect(wrapper.find('.event-live').text()).toContain('2v2 High Ball / Low Ball');
+    expect(wrapper.find('.event-live').text()).toContain('Wes + Aaron vs Tito + Q');
+    expect(wrapper.find('.event-live').text()).toContain('Low Ball Front');
+    expect(wrapper.find('.event-live').text()).toContain('High Ball Front');
   });
 
   it('renders the putt poker panel and reflects the base pot', () => {
