@@ -635,6 +635,32 @@ function goHome() {
         </div>
 
         <div class="game-row">
+          <label class="game-toggle"><input v-model="form.games.highBallLowBall.enabled" type="checkbox" /> High Ball / Low Ball</label>
+        </div>
+        <div v-if="form.games.highBallLowBall.enabled" class="game-subconfig">
+          <div class="sub-row">
+            <span class="sub-label">Score basis</span>
+            <div class="seg-ctrl">
+              <button class="seg-btn" :class="{ active: form.games.highBallLowBall.scoreBasis === 'net' }" type="button" @click="form.games.highBallLowBall.scoreBasis = 'net'">Net</button>
+              <button class="seg-btn" :class="{ active: form.games.highBallLowBall.scoreBasis === 'gross' }" type="button" @click="form.games.highBallLowBall.scoreBasis = 'gross'">Gross</button>
+            </div>
+          </div>
+          <div class="sub-row">
+            <span class="sub-label">Scoring mode</span>
+            <div class="seg-ctrl">
+              <button class="seg-btn" :class="{ active: form.games.highBallLowBall.scoringMode === 'match' }" type="button" @click="form.games.highBallLowBall.scoringMode = 'match'">Match Play</button>
+              <button class="seg-btn" :class="{ active: form.games.highBallLowBall.scoringMode === 'stroke' }" type="button" @click="form.games.highBallLowBall.scoringMode = 'stroke'">Stroke Play</button>
+            </div>
+          </div>
+          <div class="sub-row">
+            <span class="sub-label">Stakes ($/person)</span>
+            <input v-model.number="form.games.highBallLowBall.stake.front" class="form-input sm" type="number" min="0" placeholder="Front $" />
+            <input v-model.number="form.games.highBallLowBall.stake.back" class="form-input sm" type="number" min="0" placeholder="Back $" />
+            <input v-model.number="form.games.highBallLowBall.stake.overall" class="form-input sm" type="number" min="0" placeholder="Overall $" />
+          </div>
+        </div>
+
+        <div class="game-row">
           <label class="game-toggle"><input v-model="form.games.scramble4.enabled" type="checkbox" /> 4-Man Scramble</label>
           <input v-model.number="form.games.scramble4.front" class="form-input sm" type="number" min="0" placeholder="Front $" />
           <input v-model.number="form.games.scramble4.back" class="form-input sm" type="number" min="0" placeholder="Back $" />
