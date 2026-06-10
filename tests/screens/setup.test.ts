@@ -261,7 +261,9 @@ describe('SetupScreen', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('Course search failed.');
-    expect(wrapper.find('label input[placeholder="Del Mar Country Club"]').exists()).toBe(true);
+    // Fallback: the search UI stays available so the user can retry.
+    expect(wrapper.find('.course-search-input').exists()).toBe(true);
+    expect(wrapper.find('.course-search-btn').exists()).toBe(true);
   });
 
   it('includes 4-man scramble config in the created round', async () => {
@@ -326,6 +328,31 @@ describe('SetupScreen', () => {
     await wrapper.find('.btn-primary').trigger('click');
 
     expect(store.round?.playingGroups[0].name).toBe('Bay Boys');
+  });
+
+  it('builds pair matches when a team game is enabled', async () => {
+    const store = useRoundStore();
+    const wrapper = mountSetup();
+    await fillDefaultPlayers(wrapper);
+
+    const aggyRow = wrapper.findAll('.game-row').find((row) => row.text().includes('Best Ball + Aggy'));
+    expect(aggyRow).toBeDefined();
+    await aggyRow!.find('input[type="checkbox"]').setValue(true);
+    await flushPromises();
+
+    // Match builder appears and a default match is seeded (whole team1 vs team2).
+    expect(wrapper.find('.pair-match-builder').exists()).toBe(true);
+    expect(wrapper.text()).toContain('Match 1 — Ann / Bea vs Cal / Dan');
+
+    await wrapper.find('.btn-primary').trigger('click');
+
+    expect(store.round?.pairMatches).toEqual([{ a: ['Ann', 'Bea'], b: ['Cal', 'Dan'] }]);
+  });
+
+  it('no longer renders a global scoring-mode toggle', async () => {
+    const wrapper = mountSetup();
+    await fillDefaultPlayers(wrapper);
+    expect(wrapper.text()).not.toContain('Scoring Mode');
   });
 
   it('adds and removes player rows', async () => {

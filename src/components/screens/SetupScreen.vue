@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { courseFromSearchTee, selectableCourseTees, type CourseSearchResult, type CourseSearchTee } from '@/domain/courseSearch';
 import { cloneDefaultGames, normalizeGames } from '@/domain/games';
 import { sortedGroupPlayers } from '@/domain/players';
-import { autoPlayingGroupsForTeams, normalizePlayingGroups } from '@/domain/playingGroups';
+import { autoPlayingGroupsForTeams, autoPlayingGroupsFromPairMatches, normalizePlayingGroups } from '@/domain/playingGroups';
 import { allocateNetStrokes, computeWHSCourseHcp, getsStroke } from '@/scoring/handicap';
 import { searchCourses } from '@/services/courseSearch';
 import { useGroupStore } from '@/stores/group';
 import { emptyRound, useRoundStore } from '@/stores/round';
 import { useEventStore } from '@/stores/event';
-import type { Course, GameConfig, PlayerMap, RoundState } from '@/types';
+import type { Course, GameConfig, PairMatch, PlayerMap, RoundState, ScoreType } from '@/types';
 
 const store = useRoundStore();
 const group = useGroupStore();
@@ -55,7 +55,7 @@ const form = reactive({
   games: cloneDefaultGames() as GameConfig,
   playingGroupNames: [] as string[],
   playingGroupCustom: null as string[][] | null,
-  scoringMode: 'strokePlay' as 'strokePlay' | 'matchPlay',
+  pairMatches: [] as PairMatch[],
 });
 
 onMounted(() => {
@@ -101,7 +101,7 @@ function prefillPlayersFromGroup() {
     form.games = structuredClone(r.games) as GameConfig;
     form.playingGroupNames = (r.playingGroups ?? []).map((g) => g.name);
     form.playingGroupCustom = (r.playingGroups ?? []).map((g) => [...g.players]);
-    form.scoringMode = 'strokePlay';
+    form.pairMatches = (r.pairMatches ?? []).map((m) => ({ a: [...m.a], b: [...m.b] }));
     return;
   }
 
@@ -277,8 +277,101 @@ const canStart = computed(() => errors.value.length === 0);
 
 const hasEventContext = computed(() => event.pendingRoundLink != null);
 
+// --- Pair-match builder (Side A vs Side B) ------------------------------
+
+const TEAM_GAMES = [
+  { key: 'bestBallAggy', label: 'Best Ball + Aggy', hasBasis: true },
+  { key: 'highBallLowBall', label: 'High / Low Ball', hasBasis: true },
+  { key: 'twoManScramble', label: 'Two-Man Scramble', hasBasis: false },
+] as const;
+
+const enabledTeamGames = computed(() => TEAM_GAMES.filter((g) => form.games[g.key].enabled));
+const showPairMatches = computed(() => enabledTeamGames.value.length > 0);
+
+function addPairMatch() {
+  form.pairMatches.push({ a: [], b: [] });
+}
+
+function removePairMatch(index: number) {
+  form.pairMatches.splice(index, 1);
+}
+
+function togglePairSide(matchIndex: number, side: 'a' | 'b', player: string) {
+  const match = form.pairMatches[matchIndex];
+  if (!match) return;
+  const list = match[side];
+  const at = list.indexOf(player);
+  if (at >= 0) {
+    list.splice(at, 1);
+    return;
+  }
+  // A player can only be on one side of a given match.
+  const other = side === 'a' ? match.b : match.a;
+  const otherAt = other.indexOf(player);
+  if (otherAt >= 0) other.splice(otherAt, 1);
+  list.push(player);
+}
+
+function inPairSide(matchIndex: number, side: 'a' | 'b', player: string) {
+  return form.pairMatches[matchIndex]?.[side].includes(player) ?? false;
+}
+
+// Seed a sensible default match (whole team1 vs whole team2) the first time a
+// team game is enabled, so an ad-hoc round always has something to score.
+watch(showPairMatches, (show) => {
+  if (show && form.pairMatches.length === 0 && team1.value.length && team2.value.length) {
+    form.pairMatches = [{ a: [...team1.value], b: [...team2.value] }];
+  }
+});
+
+const cleanedPairMatches = computed<PairMatch[]>(() => {
+  const valid = new Set(namedPlayers.value.map((p) => p.name.trim()));
+  return form.pairMatches
+    .map((m) => ({
+      a: m.a.filter((p) => valid.has(p)),
+      b: m.b.filter((p) => valid.has(p)),
+    }))
+    .filter((m) => m.a.length && m.b.length);
+});
+
+const matchSummaries = computed(() =>
+  cleanedPairMatches.value.map((m, i) => ({
+    index: i,
+    a: m.a.join(' / '),
+    b: m.b.join(' / '),
+    group: previewPlayingGroups.value[i]?.name ?? `Group ${i + 1}`,
+    games: enabledTeamGames.value.map((g) => {
+      const cfg = form.games[g.key] as { scoringMode: 'stroke' | 'match'; scoreBasis?: ScoreType; stake: { front: number; back: number; overall: number } };
+      return {
+        label: g.label,
+        basis: g.hasBasis ? cfg.scoreBasis ?? 'net' : 'gross',
+        mode: cfg.scoringMode === 'match' ? 'match' : 'stroke',
+        bet: `$${cfg.stake.front}/$${cfg.stake.back}/$${cfg.stake.overall}`,
+      };
+    }),
+  })),
+);
+
+// Prompt before clobbering manually-edited playing groups when matches change.
+watch(
+  () => JSON.stringify(form.pairMatches),
+  () => {
+    if (form.playingGroupCustom) {
+      const ok = window.confirm('Pair matches changed. Regenerate playing groups from matches? Cancel keeps your manual groups.');
+      if (ok) form.playingGroupCustom = null;
+    }
+  },
+);
+
 const previewPlayingGroups = computed(() =>
-  autoPlayingGroupsForTeams(team1.value, team2.value),
+  cleanedPairMatches.value.length
+    ? autoPlayingGroupsFromPairMatches(
+        cleanedPairMatches.value,
+        [...team1.value, ...team2.value],
+        team1.value,
+        team2.value,
+      )
+    : autoPlayingGroupsForTeams(team1.value, team2.value),
 );
 
 const displayPlayingGroups = computed(() => {
@@ -383,7 +476,7 @@ function buildRound(): { round: RoundState; players: PlayerMap } {
     team2: team2.value,
     teamNames: { team1: form.teamNames.team1, team2: form.teamNames.team2 },
     matchups,
-    pairMatches: [],
+    pairMatches: showPairMatches.value ? cleanedPairMatches.value : [],
     playingGroups,
     games: normalizeGames(form.games),
   };
@@ -568,25 +661,18 @@ function goHome() {
       <h2 class="setup-hdr">Games</h2>
       <div class="games-list">
         <div class="game-row">
-          <span class="game-toggle" style="min-width:auto; font-weight:700;">Scoring Mode</span>
-          <div class="seg-ctrl">
-            <button class="seg-btn" :class="{ active: form.scoringMode === 'strokePlay' }" type="button" @click="form.scoringMode = 'strokePlay'">Stroke Play</button>
-            <button class="seg-btn" :class="{ active: form.scoringMode === 'matchPlay' }" type="button" @click="form.scoringMode = 'matchPlay'">Match Play</button>
-          </div>
-        </div>
-
-        <div class="game-row">
           <label class="game-toggle"><input v-model="form.games.skins.enabled" type="checkbox" /> Skins</label>
-          <input v-model.number="form.games.skins.pot" class="form-input sm" type="number" min="0" placeholder="$/player" />
+          <label class="bet-field">Value per skin<input v-model.number="form.games.skins.pot" class="form-input sm" type="number" min="0" /></label>
           <select v-model="form.games.skins.type" class="form-input sm"><option>net</option><option>gross</option></select>
         </div>
 
         <div class="game-row">
           <label class="game-toggle"><input v-model="form.games.bestBall.enabled" type="checkbox" /> Best Ball</label>
-          <input v-model.number="form.games.bestBall.front" class="form-input sm" type="number" min="0" placeholder="Front $" />
-          <input v-model.number="form.games.bestBall.back" class="form-input sm" type="number" min="0" placeholder="Back $" />
-          <input v-model.number="form.games.bestBall.total" class="form-input sm" type="number" min="0" placeholder="Total $" />
+          <label class="bet-field">Front 9 ($/person)<input v-model.number="form.games.bestBall.front" class="form-input sm" type="number" min="0" /></label>
+          <label class="bet-field">Back 9 ($/person)<input v-model.number="form.games.bestBall.back" class="form-input sm" type="number" min="0" /></label>
+          <label class="bet-field">Overall ($/person)<input v-model.number="form.games.bestBall.total" class="form-input sm" type="number" min="0" /></label>
           <select v-model="form.games.bestBall.type" class="form-input sm"><option>net</option><option>gross</option></select>
+          <span class="game-note">Stroke play</span>
         </div>
 
         <div class="game-row">
@@ -608,10 +694,10 @@ function goHome() {
             </div>
           </div>
           <div class="sub-row">
-            <span class="sub-label">Stakes ($/person)</span>
-            <input v-model.number="form.games.bestBallAggy.stake.front" class="form-input sm" type="number" min="0" placeholder="Front $" />
-            <input v-model.number="form.games.bestBallAggy.stake.back" class="form-input sm" type="number" min="0" placeholder="Back $" />
-            <input v-model.number="form.games.bestBallAggy.stake.overall" class="form-input sm" type="number" min="0" placeholder="Overall $" />
+            <span class="sub-label">Stakes</span>
+            <label class="bet-field">Front 9 ($/person)<input v-model.number="form.games.bestBallAggy.stake.front" class="form-input sm" type="number" min="0" /></label>
+            <label class="bet-field">Back 9 ($/person)<input v-model.number="form.games.bestBallAggy.stake.back" class="form-input sm" type="number" min="0" /></label>
+            <label class="bet-field">Overall ($/person)<input v-model.number="form.games.bestBallAggy.stake.overall" class="form-input sm" type="number" min="0" /></label>
           </div>
         </div>
 
@@ -627,10 +713,10 @@ function goHome() {
             </div>
           </div>
           <div class="sub-row">
-            <span class="sub-label">Stakes ($/person)</span>
-            <input v-model.number="form.games.twoManScramble.stake.front" class="form-input sm" type="number" min="0" placeholder="Front $" />
-            <input v-model.number="form.games.twoManScramble.stake.back" class="form-input sm" type="number" min="0" placeholder="Back $" />
-            <input v-model.number="form.games.twoManScramble.stake.overall" class="form-input sm" type="number" min="0" placeholder="Overall $" />
+            <span class="sub-label">Stakes</span>
+            <label class="bet-field">Front 9 ($/person)<input v-model.number="form.games.twoManScramble.stake.front" class="form-input sm" type="number" min="0" /></label>
+            <label class="bet-field">Back 9 ($/person)<input v-model.number="form.games.twoManScramble.stake.back" class="form-input sm" type="number" min="0" /></label>
+            <label class="bet-field">Overall ($/person)<input v-model.number="form.games.twoManScramble.stake.overall" class="form-input sm" type="number" min="0" /></label>
           </div>
         </div>
 
@@ -653,30 +739,78 @@ function goHome() {
             </div>
           </div>
           <div class="sub-row">
-            <span class="sub-label">Stakes ($/person)</span>
-            <input v-model.number="form.games.highBallLowBall.stake.front" class="form-input sm" type="number" min="0" placeholder="Front $" />
-            <input v-model.number="form.games.highBallLowBall.stake.back" class="form-input sm" type="number" min="0" placeholder="Back $" />
-            <input v-model.number="form.games.highBallLowBall.stake.overall" class="form-input sm" type="number" min="0" placeholder="Overall $" />
+            <span class="sub-label">Stakes</span>
+            <label class="bet-field">Front 9 ($/person)<input v-model.number="form.games.highBallLowBall.stake.front" class="form-input sm" type="number" min="0" /></label>
+            <label class="bet-field">Back 9 ($/person)<input v-model.number="form.games.highBallLowBall.stake.back" class="form-input sm" type="number" min="0" /></label>
+            <label class="bet-field">Overall ($/person)<input v-model.number="form.games.highBallLowBall.stake.overall" class="form-input sm" type="number" min="0" /></label>
           </div>
         </div>
 
         <div class="game-row">
           <label class="game-toggle"><input v-model="form.games.scramble4.enabled" type="checkbox" /> 4-Man Scramble</label>
-          <input v-model.number="form.games.scramble4.front" class="form-input sm" type="number" min="0" placeholder="Front $" />
-          <input v-model.number="form.games.scramble4.back" class="form-input sm" type="number" min="0" placeholder="Back $" />
-          <input v-model.number="form.games.scramble4.total" class="form-input sm" type="number" min="0" placeholder="Total $" />
+          <label class="bet-field">Front 9 ($/person)<input v-model.number="form.games.scramble4.front" class="form-input sm" type="number" min="0" /></label>
+          <label class="bet-field">Back 9 ($/person)<input v-model.number="form.games.scramble4.back" class="form-input sm" type="number" min="0" /></label>
+          <label class="bet-field">Overall ($/person)<input v-model.number="form.games.scramble4.total" class="form-input sm" type="number" min="0" /></label>
+          <span class="game-note">Stroke play</span>
         </div>
 
         <div class="game-row">
           <label class="game-toggle"><input v-model="form.games.wolf.enabled" type="checkbox" /> Wolf</label>
-          <input v-model.number="form.games.wolf.amount" class="form-input sm" type="number" min="0" placeholder="$/player" />
+          <label class="bet-field">{{ form.games.wolf.nassau ? 'Overall ($/person)' : 'Full round ($/person)' }}<input v-model.number="form.games.wolf.amount" class="form-input sm" type="number" min="0" /></label>
           <select v-model="form.games.wolf.type" class="form-input sm"><option>net</option><option>gross</option></select>
           <label class="game-toggle sm"><input v-model="form.games.wolf.nassau" type="checkbox" /> Nassau</label>
         </div>
 
         <div class="game-row">
           <label class="game-toggle"><input v-model="form.games.puttPoker.enabled" type="checkbox" /> Putt Poker</label>
-          <input v-model.number="form.games.puttPoker.pot" class="form-input sm" type="number" min="0" placeholder="$/person" />
+          <label class="bet-field">Buy-in per player<input v-model.number="form.games.puttPoker.pot" class="form-input sm" type="number" min="0" /></label>
+        </div>
+      </div>
+    </section>
+
+    <section v-if="!hasEventContext && showPairMatches" class="setup-card">
+      <div class="pg-header">
+        <h2 class="setup-hdr">Matches</h2>
+        <button class="btn-ghost sm" type="button" @click="addPairMatch">+ Add match</button>
+      </div>
+      <p class="pg-hint">Set Side A vs Side B for each match. These drive Best Ball + Aggy, High/Low and Two-Man Scramble scoring.</p>
+
+      <div class="pm-list">
+        <div v-for="(_match, mi) in form.pairMatches" :key="mi" class="pair-match-builder">
+          <div class="pm-builder-head">
+            <strong>Match {{ mi + 1 }}</strong>
+            <button class="btn-remove" type="button" title="Remove match" @click="removePairMatch(mi)">✕</button>
+          </div>
+          <div class="pm-sides">
+            <div class="pm-side">
+              <span class="pm-side-label">Side A</span>
+              <label v-for="p in namedPlayers" :key="`a-${mi}-${p.name}`" class="pm-chk">
+                <input type="checkbox" :checked="inPairSide(mi, 'a', p.name.trim())" @change="togglePairSide(mi, 'a', p.name.trim())" />
+                {{ p.name }}
+              </label>
+            </div>
+            <span class="pair-match-vs">vs</span>
+            <div class="pm-side">
+              <span class="pm-side-label">Side B</span>
+              <label v-for="p in namedPlayers" :key="`b-${mi}-${p.name}`" class="pm-chk">
+                <input type="checkbox" :checked="inPairSide(mi, 'b', p.name.trim())" @change="togglePairSide(mi, 'b', p.name.trim())" />
+                {{ p.name }}
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="matchSummaries.length" class="pm-summaries">
+        <h3 class="sub-hdr">Match summary</h3>
+        <div v-for="m in matchSummaries" :key="m.index" class="pm-summary">
+          <strong>Match {{ m.index + 1 }} — {{ m.a }} vs {{ m.b }}</strong>
+          <span class="pm-summary-group">{{ m.group }}</span>
+          <ul class="pm-summary-games">
+            <li v-for="(g, gi) in m.games" :key="gi">
+              {{ g.label }} · {{ g.basis }} {{ g.mode }} · {{ g.bet }}
+            </li>
+          </ul>
         </div>
       </div>
     </section>
@@ -1104,6 +1238,14 @@ label {
   font-size: 0.82rem;
 }
 
+.bet-field {
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #6a7a6f;
+}
+
 .pair-match-builder {
   display: grid;
   gap: 8px;
@@ -1141,6 +1283,70 @@ label {
   margin: 0 0 12px;
   color: #6a7a6f;
   font-size: 0.78rem;
+}
+
+.pm-list {
+  display: grid;
+  gap: 10px;
+}
+
+.pm-builder-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.pm-sides {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.pm-side {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+}
+
+.pm-side-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #8a672f;
+}
+
+.pm-chk {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: #283b30;
+}
+
+.pm-summaries {
+  margin-top: 14px;
+}
+
+.pm-summary {
+  border-top: 1px solid #ece3d2;
+  padding: 8px 0;
+}
+
+.pm-summary-group {
+  margin-left: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #2f5d43;
+}
+
+.pm-summary-games {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: #4a5a4f;
+  font-size: 0.8rem;
 }
 
 .pg-list {

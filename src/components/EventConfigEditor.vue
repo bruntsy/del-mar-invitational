@@ -271,14 +271,14 @@ function save() {
               <label class="ece-sublabel">Best Ball Bet</label>
               <div class="ece-row ece-points-row">
                 <template v-if="roundNassau(round)">
-                  <label class="ece-pts-label">Front
+                  <label class="ece-pts-label">Front 9 ($/person)
                     <input v-model.number="round.bestBallBet.front" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
                   </label>
-                  <label class="ece-pts-label">Back
+                  <label class="ece-pts-label">Back 9 ($/person)
                     <input v-model.number="round.bestBallBet.back" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
                   </label>
                 </template>
-                <label class="ece-pts-label">Total
+                <label class="ece-pts-label">{{ roundNassau(round) ? 'Overall ($/person)' : 'Full round ($/person)' }}
                   <input v-model.number="round.bestBallBet.total" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
                 </label>
                 <select v-model="round.bestBallBet.type" class="form-input ece-type-select">
@@ -295,14 +295,14 @@ function save() {
               <label class="ece-sublabel">Scramble Bet</label>
               <div class="ece-row ece-points-row">
                 <template v-if="roundNassau(round)">
-                  <label class="ece-pts-label">Front
+                  <label class="ece-pts-label">Front 9 ($/person)
                     <input v-model.number="round.scrambleBet.front" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
                   </label>
-                  <label class="ece-pts-label">Back
+                  <label class="ece-pts-label">Back 9 ($/person)
                     <input v-model.number="round.scrambleBet.back" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
                   </label>
                 </template>
-                <label class="ece-pts-label">Total
+                <label class="ece-pts-label">{{ roundNassau(round) ? 'Overall ($/person)' : 'Full round ($/person)' }}
                   <input v-model.number="round.scrambleBet.total" class="form-input ece-pts-input" type="number" min="0" placeholder="$" />
                 </label>
               </div>
@@ -311,7 +311,7 @@ function save() {
 
           <!-- Points: 6 per-component fields for combo games (BB+Aggy, HB/LB), 3 otherwise -->
           <div class="ece-field">
-            <label class="ece-sublabel">Points</label>
+            <label class="ece-sublabel">Ryder points per segment (pts, not $)</label>
             <template v-if="roundVariant(round) === 'aggy' && round.points.bestBall && round.points.aggy">
               <div class="ece-row ece-points-row">
                 <span class="ece-pts-group">Best Ball</span>
@@ -365,13 +365,13 @@ function save() {
               </div>
             </template>
             <div v-else class="ece-row ece-points-row">
-              <label class="ece-pts-label">Front
+              <label class="ece-pts-label">Front (pts)
                 <input v-model.number="round.points.front" class="form-input ece-pts-input" type="number" min="0" />
               </label>
-              <label class="ece-pts-label">Back
+              <label class="ece-pts-label">Back (pts)
                 <input v-model.number="round.points.back" class="form-input ece-pts-input" type="number" min="0" />
               </label>
-              <label class="ece-pts-label">Total
+              <label class="ece-pts-label">Overall (pts)
                 <input v-model.number="round.points.total" class="form-input ece-pts-input" type="number" min="0" />
               </label>
             </div>
@@ -455,7 +455,7 @@ function save() {
               Skins
             </label>
             <template v-if="round.skins.enabled">
-              <input v-model.number="round.skins.pot" class="form-input ece-money-input" type="number" min="0" placeholder="Pot $" />
+              <input v-model.number="round.skins.pot" class="form-input ece-money-input" type="number" min="0" placeholder="Value per skin" />
               <select v-model="round.skins.type" class="form-input ece-type-select">
                 <option value="gross">Gross</option>
                 <option value="net">Net</option>
@@ -470,7 +470,7 @@ function save() {
               Putt poker
             </label>
             <template v-if="round.puttPoker.enabled">
-              <input v-model.number="round.puttPoker.pot" class="form-input ece-money-input" type="number" min="0" placeholder="Buy-in $" />
+              <input v-model.number="round.puttPoker.pot" class="form-input ece-money-input" type="number" min="0" placeholder="Buy-in per player" />
             </template>
           </div>
         </div>
