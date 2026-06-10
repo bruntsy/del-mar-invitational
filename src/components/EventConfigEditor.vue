@@ -4,6 +4,9 @@ import type { EventRoundConfig } from '@/types/event';
 import type { Event, EventConfig } from '@/types/event';
 import { eventFormatLabel, normalizeEventConfig } from '@/domain/events';
 import { autoPlayingGroupsFromPairMatches } from '@/domain/playingGroups';
+import { courseFromSearchTee, selectableCourseTees, type CourseSearchResult, type CourseSearchTee } from '@/domain/courseSearch';
+import { searchCourses } from '@/services/courseSearch';
+import CourseScorecard from '@/components/CourseScorecard.vue';
 
 const props = defineProps<{
   event: Event;
@@ -143,6 +146,72 @@ function removeMatch(roundIndex: number, matchIndex: number) {
   recomputePlayingGroups(roundIndex);
 }
 
+// --- Per-round course search -------------------------------------------
+const courseQuery = ref<Record<number, string>>({});
+const courseResults = ref<Record<number, CourseSearchResult[]>>({});
+const courseSelected = ref<Record<number, CourseSearchResult | null>>({});
+const courseSearching = ref<Record<number, boolean>>({});
+const courseError = ref<Record<number, string>>({});
+
+function courseLabel(course: CourseSearchResult) {
+  return course.clubName || course.courseName || 'Course';
+}
+
+function teeLabel(tee: CourseSearchTee) {
+  return [
+    tee.gender || '',
+    tee.yards ? `${Number(tee.yards).toLocaleString()} yds` : '',
+    tee.rating ? `Rating ${tee.rating}` : '',
+    tee.slope ? `Slope ${tee.slope}` : '',
+  ].filter(Boolean).join(' / ');
+}
+
+function courseTeeKey(tee: CourseSearchTee) {
+  return `${tee.name || 'Tee'}-${tee.gender || ''}-${tee.yards || 0}`;
+}
+
+async function runCourseSearch(ri: number) {
+  const q = (courseQuery.value[ri] ?? '').trim();
+  if (q.length < 3) {
+    courseError.value[ri] = 'Enter at least 3 characters.';
+    return;
+  }
+  courseSearching.value[ri] = true;
+  courseError.value[ri] = '';
+  courseSelected.value[ri] = null;
+  try {
+    const results = await searchCourses(q);
+    courseResults.value[ri] = results;
+    if (!results.length) courseError.value[ri] = 'No courses found.';
+  } catch (error) {
+    courseResults.value[ri] = [];
+    courseError.value[ri] = error instanceof Error ? error.message : 'Course search failed.';
+  } finally {
+    courseSearching.value[ri] = false;
+  }
+}
+
+function chooseCourse(ri: number, course: CourseSearchResult) {
+  courseSelected.value[ri] = course;
+  courseError.value[ri] = selectableCourseTees(course).length ? '' : 'No 18-hole tees returned for this course.';
+}
+
+function applyCourse(ri: number, course: CourseSearchResult, tee: CourseSearchTee) {
+  draft.value.rounds[ri].course = courseFromSearchTee(course, tee);
+  courseResults.value[ri] = [];
+  courseSelected.value[ri] = null;
+  courseQuery.value[ri] = '';
+  courseError.value[ri] = '';
+}
+
+function clearCourse(ri: number) {
+  draft.value.rounds[ri].course = null;
+  courseSelected.value[ri] = null;
+  courseResults.value[ri] = [];
+  courseQuery.value[ri] = '';
+  courseError.value[ri] = '';
+}
+
 function save() {
   const normalized = normalizeEventConfig(draft.value, props.groupPlayers);
   emit('save', normalized, draftName.value.trim() || props.event.name);
@@ -215,6 +284,42 @@ function save() {
           <div class="ece-field">
             <label class="ece-sublabel">Name</label>
             <input v-model="round.name" class="form-input" type="text" :placeholder="`Round ${ri + 1}`" />
+          </div>
+
+          <!-- Course -->
+          <div class="ece-field">
+            <label class="ece-sublabel">Course</label>
+            <template v-if="round.course">
+              <CourseScorecard :course="round.course" />
+              <button class="btn-ghost sm" type="button" style="margin-top: 8px;" @click="clearCourse(ri)">Change course</button>
+            </template>
+            <template v-else>
+              <div class="ece-course-search">
+                <input
+                  v-model="courseQuery[ri]"
+                  class="form-input"
+                  type="search"
+                  placeholder="Search course name"
+                  @keydown.enter.prevent="runCourseSearch(ri)"
+                />
+                <button class="btn-ghost sm" type="button" :disabled="courseSearching[ri]" @click="runCourseSearch(ri)">
+                  {{ courseSearching[ri] ? 'Searching…' : 'Search' }}
+                </button>
+              </div>
+              <div v-if="courseResults[ri]?.length" class="ece-course-results">
+                <button v-for="c in courseResults[ri]" :key="c.id || courseLabel(c)" class="ece-course-result" type="button" @click="chooseCourse(ri, c)">
+                  <strong>{{ courseLabel(c) }}</strong>
+                  <small>{{ selectableCourseTees(c).length }} tees</small>
+                </button>
+              </div>
+              <div v-if="courseSelected[ri]" class="ece-course-results">
+                <button v-for="t in selectableCourseTees(courseSelected[ri]!)" :key="courseTeeKey(t)" class="ece-course-result" type="button" @click="applyCourse(ri, courseSelected[ri]!, t)">
+                  <strong>{{ t.name || 'Tee' }}</strong>
+                  <small>{{ teeLabel(t) }}</small>
+                </button>
+              </div>
+              <p v-if="courseError[ri]" class="ece-course-error">{{ courseError[ri] }}</p>
+            </template>
           </div>
 
           <!-- Format -->
@@ -754,5 +859,52 @@ function save() {
 .ece-seg-btn.active {
   background: #2f5d43;
   color: #f3efe2;
+}
+
+.ece-course-search {
+  display: flex;
+  gap: 8px;
+}
+
+.ece-course-search .form-input {
+  flex: 1;
+}
+
+.ece-course-results {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.ece-course-result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  border: 1px solid #d7cebd;
+  border-radius: 6px;
+  background: #fdfbf4;
+  padding: 8px 10px;
+  color: #283b30;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ece-course-result:hover {
+  border-color: #b88a3b;
+  background: #fff8e8;
+}
+
+.ece-course-result small {
+  color: #6a7a6f;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.ece-course-error {
+  margin: 8px 0 0;
+  color: #b4473a;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 </style>

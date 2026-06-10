@@ -1,3 +1,4 @@
+import type { Course } from './course';
 import type { PairMatch, PlayingGroup } from './round';
 
 export type EventRoundFormat =
@@ -59,6 +60,9 @@ export interface EventRoundConfig {
   };
   pairMatches: PairMatch[];
   playingGroups: PlayingGroup[];
+  // Optional course/tee selection that the launched round inherits. Stored inside
+  // the event config JSON — no DB migration. Old configs default to null.
+  course?: Course | null;
   roundId: string | null;
   pointsResult: {
     team1: number | null;

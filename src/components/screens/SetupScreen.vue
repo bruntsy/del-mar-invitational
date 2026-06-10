@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import CourseScorecard from '@/components/CourseScorecard.vue';
 import { courseFromSearchTee, selectableCourseTees, type CourseSearchResult, type CourseSearchTee } from '@/domain/courseSearch';
 import { cloneDefaultGames, normalizeGames } from '@/domain/games';
 import { sortedGroupPlayers } from '@/domain/players';
@@ -20,7 +21,6 @@ const route = useRoute();
 
 const editMode = computed(() => route.query.edit === '1');
 
-const HOLES = Array.from({ length: 18 }, (_, hole) => hole);
 const DEFAULT_PAR = [4, 5, 3, 4, 4, 3, 5, 4, 4, 4, 4, 3, 5, 4, 4, 3, 5, 4];
 const DEFAULT_SI = [7, 1, 15, 5, 11, 17, 3, 9, 13, 8, 2, 16, 4, 12, 10, 18, 6, 14];
 const DEFAULT_YDS = Array.from({ length: 18 }, () => 0);
@@ -121,6 +121,25 @@ function prefillPlayersFromGroup() {
       ...eventConfig.team2.map((name) => ({ name, handicapIndex: hcpMap[name] ?? '', team: 'team2' as const })),
     ];
     form.playingGroupNames = (roundConfig.playingGroups ?? []).map((g) => g.name);
+    if (roundConfig.pairMatches?.length) {
+      form.pairMatches = roundConfig.pairMatches.map((m) => ({ a: [...m.a], b: [...m.b] }));
+    }
+    // Inherit (and lock) the course/tee chosen in the event round config.
+    if (roundConfig.course) {
+      const c = roundConfig.course;
+      form.courseId = c.id ?? '';
+      form.clubName = c.clubName ?? '';
+      form.courseName = c.courseName ?? '';
+      form.location = typeof c.location === 'string' ? c.location : '';
+      form.teeName = c.tee.name;
+      form.teeGender = c.tee.gender ?? '';
+      form.teeYards = c.tee.yards ?? 0;
+      form.rating = c.tee.rating;
+      form.slope = c.tee.slope;
+      form.par = [...c.par];
+      form.si = [...c.si];
+      form.yds = [...c.yds];
+    }
     applyEventGames(roundConfig);
     return;
   }
@@ -398,6 +417,24 @@ function resetCustomGroups() {
 
 const courseParTotal = computed(() => form.par.reduce((total, value) => total + Number(value || 0), 0));
 
+const formCourse = computed<Course>(() => ({
+  id: form.courseId || undefined,
+  clubName: form.clubName.trim() || undefined,
+  courseName: form.courseName.trim() || 'Course',
+  location: form.location.trim() || undefined,
+  tee: {
+    name: form.teeName.trim() || 'Tee',
+    gender: form.teeGender || undefined,
+    rating: Number(form.rating) || 72,
+    slope: Number(form.slope) || 113,
+    parTotal: courseParTotal.value,
+    yards: Number(form.teeYards) || form.yds.reduce((a, b) => a + Number(b || 0), 0),
+  },
+  par: form.par.map((v) => Number(v) || 0),
+  si: form.si.map((v) => Number(v) || 0),
+  yds: form.yds.map((v) => Number(v) || 0),
+}));
+
 const previewCourseHandicaps = computed(() => Object.fromEntries(
   namedPlayers.value.map((player) => [
     player.name.trim(),
@@ -525,48 +562,14 @@ function goHome() {
 
       <!-- Read-only display when launched from an event or editing an existing round -->
       <template v-if="hasEventContext || editMode">
-        <div class="course-readonly">
-          <div class="course-readonly-name">{{ [form.clubName, form.courseName].filter(Boolean).join(' — ') || 'Course' }}</div>
-          <div class="course-readonly-meta">
-            <span v-if="form.teeName">{{ form.teeName }} tees</span>
-            <span v-if="form.rating"> · Rating {{ form.rating }}</span>
-            <span v-if="form.slope"> · Slope {{ form.slope }}</span>
-            <span v-if="form.location"> · {{ form.location }}</span>
-          </div>
-        </div>
+        <CourseScorecard :course="formCourse" />
       </template>
 
       <!-- Standalone new round: search then read-only display -->
       <template v-else>
-        <!-- Course selected: show read-only summary + hole grid -->
+        <!-- Course selected: show read-only scorecard -->
         <template v-if="selectedTeeKey">
-          <div class="course-readonly">
-            <div class="course-readonly-name">{{ [form.clubName, form.courseName].filter(Boolean).join(' — ') || 'Course' }}</div>
-            <div class="course-readonly-meta">
-              <span v-if="form.teeName">{{ form.teeName }} tees</span>
-              <span v-if="form.rating"> · Rating {{ form.rating }}</span>
-              <span v-if="form.slope"> · Slope {{ form.slope }}</span>
-              <span v-if="form.location"> · {{ form.location }}</span>
-            </div>
-          </div>
-          <div class="hole-grid hole-grid-readonly">
-            <div class="hole-grid-row">
-              <span class="hole-grid-label">Hole</span>
-              <span v-for="h in HOLES" :key="`hl-${h}`" class="hole-grid-head">{{ h + 1 }}</span>
-            </div>
-            <div class="hole-grid-row">
-              <span class="hole-grid-label">Par</span>
-              <span v-for="h in HOLES" :key="`par-${h}`" class="hole-cell">{{ form.par[h] }}</span>
-            </div>
-            <div class="hole-grid-row">
-              <span class="hole-grid-label">SI</span>
-              <span v-for="h in HOLES" :key="`si-${h}`" class="hole-cell">{{ form.si[h] }}</span>
-            </div>
-            <div class="hole-grid-row">
-              <span class="hole-grid-label">Yds</span>
-              <span v-for="h in HOLES" :key="`yds-${h}`" class="hole-cell">{{ form.yds[h] }}</span>
-            </div>
-          </div>
+          <CourseScorecard :course="formCourse" />
           <button class="btn-ghost sm" type="button" style="margin-top: 8px;" @click="clearCourse">Change course</button>
         </template>
 

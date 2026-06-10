@@ -35,6 +35,7 @@ export function eventDefaultRound(index: number, team1: string[] = [], team2: st
     scrambleBet: { front: 0, back: 0, total: 0, type: 'gross' },
     pairMatches: defaultPairs,
     playingGroups: autoPlayingGroupsFromPairMatches(defaultPairs, [...team1, ...team2], team1, team2),
+    course: null,
     roundId: null,
     pointsResult: { team1: null, team2: null },
   };
@@ -144,6 +145,7 @@ export function normalizeEventConfig(
       scrambleBet: { ...fallback.scrambleBet, ...source.scrambleBet },
       pairMatches,
       playingGroups: normalizePlayingGroups(source.playingGroups || fallback.playingGroups, validPlayers),
+      course: source.course ?? fallback.course ?? null,
       pointsResult: {
         team1: source.pointsResult?.team1 ?? null,
         team2: source.pointsResult?.team2 ?? null,
