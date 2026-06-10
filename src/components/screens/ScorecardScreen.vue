@@ -1609,6 +1609,13 @@ const mobilePlayers = computed(() => {
   margin-top: 20px;
 }
 
+.mp-panel {
+  border: 1px solid #d7cebd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 14px 16px 16px;
+}
+
 .mp-panel-title {
   display: flex;
   align-items: baseline;
@@ -1616,7 +1623,7 @@ const mobilePlayers = computed(() => {
   font-size: 1rem;
   font-weight: 800;
   color: #2f5d43;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .mp-basis {
@@ -1628,7 +1635,14 @@ const mobilePlayers = computed(() => {
 }
 
 .mp-match {
-  margin-bottom: 14px;
+  border-top: 1px solid #e4ddcd;
+  padding-top: 12px;
+  margin-bottom: 16px;
+}
+
+.mp-match:first-of-type {
+  border-top: 0;
+  padding-top: 0;
 }
 
 .mp-match-head {
@@ -1652,7 +1666,11 @@ const mobilePlayers = computed(() => {
 }
 
 .mp-contest {
-  margin-bottom: 10px;
+  margin-bottom: 14px;
+  border: 1px solid #eee5d5;
+  border-radius: 8px;
+  background: #fffdf7;
+  padding: 10px;
 }
 
 .mp-contest-head {
@@ -1703,10 +1721,18 @@ const mobilePlayers = computed(() => {
   font-size: 0.78rem;
   font-weight: 800;
   color: #2f5d43;
+  background: #e8f0e8;
+  border-radius: 999px;
+  padding: 2px 8px;
 }
 
 .mp-final.pending {
+  background: #ece8da;
   color: #8a9489;
+}
+
+.mp-table {
+  background: #fdfbf4;
 }
 
 .mp-table .mp-score,
@@ -1726,8 +1752,8 @@ const mobilePlayers = computed(() => {
 .mp-w-pending { color: #b8c0b8; }
 
 .mp-thru {
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: 0.68rem;
+  font-weight: 800;
   color: #6a7a6f;
 }
 
@@ -2054,14 +2080,22 @@ const mobilePlayers = computed(() => {
 
 .pnl-table {
   border-collapse: collapse;
-  min-width: 220px;
+  min-width: 260px;
+  background: #fdfbf4;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .pnl-table th,
 .pnl-table td {
   border-bottom: 1px solid #e4ddcd;
-  padding: 6px 14px 6px 0;
+  padding: 8px 12px;
   text-align: left;
+}
+
+.pnl-table tr:last-child td {
+  border-bottom: 0;
 }
 
 .pnl-pos { color: #2f8f58; font-weight: 700; }

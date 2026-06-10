@@ -561,6 +561,11 @@ function goHome() {
   color: #24362c;
 }
 
+.rs-section > .rs-table-wrap,
+.rs-section > .pnl-table {
+  margin-top: 4px;
+}
+
 .team-grid {
   display: flex;
   align-items: center;
@@ -626,6 +631,10 @@ function goHome() {
   border-collapse: collapse;
   width: 100%;
   font-size: 0.85rem;
+  background: #fdfbf4;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .rs-table th,
@@ -637,10 +646,15 @@ function goHome() {
 }
 
 .rs-table thead th {
-  color: #6a7a6f;
+  background: #efe9da;
+  color: #4a5a4f;
   font-size: 0.72rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.rs-table tbody tr:nth-child(even) {
+  background: #fbf7ed;
 }
 
 .col-left { text-align: left; }
@@ -652,13 +666,20 @@ function goHome() {
   margin-top: 16px;
 }
 
+.bba-match {
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 12px;
+}
+
 .bba-head {
   display: flex;
   justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
   align-items: baseline;
-  margin-bottom: 6px;
+  margin-bottom: 10px;
 }
 
 .bba-vs {
@@ -682,6 +703,15 @@ function goHome() {
   text-align: left;
   font-weight: 600;
   color: #3a4a40;
+}
+
+.bba-table tbody tr:nth-child(3),
+.bba-table tbody tr:nth-child(6) {
+  border-bottom: 2px solid #d7cebd;
+}
+
+.bba-table tbody tr:nth-child(4) .bba-bet {
+  color: #8a672f;
 }
 
 .bba-table .bba-result {
@@ -711,14 +741,27 @@ function goHome() {
 
 .pnl-table {
   border-collapse: collapse;
-  min-width: 220px;
+  min-width: 260px;
+  background: #fdfbf4;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .pnl-table th,
 .pnl-table td {
   border-bottom: 1px solid #e4ddcd;
-  padding: 6px 14px 6px 0;
+  padding: 8px 12px;
   text-align: left;
+}
+
+.pnl-table th {
+  background: #efe9da;
+  color: #4a5a4f;
+}
+
+.pnl-table tr:last-child td {
+  border-bottom: 0;
 }
 
 .pnl-pos { color: #2f8f58; font-weight: 700; }

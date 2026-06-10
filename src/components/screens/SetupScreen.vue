@@ -835,8 +835,15 @@ function goHome() {
       <div v-if="matchSummaries.length" class="pm-summaries">
         <h3 class="sub-hdr">Match summary</h3>
         <div v-for="m in matchSummaries" :key="m.index" class="pm-summary">
-          <strong>Match {{ m.index + 1 }} — {{ m.a }} vs {{ m.b }}</strong>
-          <span class="pm-summary-group">{{ m.group }}</span>
+          <div class="pm-summary-head">
+            <strong>Match {{ m.index + 1 }}</strong>
+            <span class="pm-summary-group">{{ m.group }}</span>
+          </div>
+          <div class="pm-summary-vs">
+            <span>{{ m.a }}</span>
+            <em>vs</em>
+            <span>{{ m.b }}</span>
+          </div>
           <ul class="pm-summary-games">
             <li v-for="(g, gi) in m.games" :key="gi">
               {{ g.label }} · {{ g.basis }} {{ g.mode }} · {{ g.bet }}
@@ -1150,7 +1157,7 @@ label {
 
 .event-roster-player {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: minmax(120px, 1fr) auto auto;
   gap: 8px;
   align-items: center;
   border-top: 1px solid #ece3d2;
@@ -1218,21 +1225,25 @@ label {
 
 .games-list {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .game-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: minmax(150px, 1.2fr) repeat(auto-fit, minmax(112px, max-content));
+  gap: 10px;
   align-items: center;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 10px 12px;
 }
 
 .game-toggle {
   flex-direction: row;
   align-items: center;
   gap: 6px;
-  min-width: 130px;
+  min-width: 0;
   font-weight: 700;
   color: #283b30;
 }
@@ -1251,11 +1262,11 @@ label {
 .game-subconfig {
   display: grid;
   gap: 8px;
-  margin: -2px 0 4px 16px;
-  padding: 8px 12px;
-  border-left: 2px solid #d3e0d3;
+  margin: -4px 0 4px;
+  padding: 10px 12px 12px;
+  border: 1px solid #d3e0d3;
+  border-radius: 8px;
   background: #f7faf6;
-  border-radius: 0 6px 6px 0;
 }
 
 .sub-row {
@@ -1300,7 +1311,8 @@ label {
 }
 
 .form-input.sm {
-  max-width: 100px;
+  width: 96px;
+  max-width: 100%;
   padding: 5px 8px;
   font-size: 0.82rem;
 }
@@ -1375,7 +1387,11 @@ label {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-width: 140px;
+  min-width: 160px;
+  border: 1px solid #eee5d5;
+  border-radius: 8px;
+  background: #fffdf7;
+  padding: 8px 10px;
 }
 
 .pm-side-label {
@@ -1399,14 +1415,36 @@ label {
 
 .pm-summary {
   border-top: 1px solid #ece3d2;
-  padding: 8px 0;
+  padding: 10px 0;
+}
+
+.pm-summary-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .pm-summary-group {
-  margin-left: 8px;
   font-size: 0.72rem;
   font-weight: 700;
   color: #2f5d43;
+}
+
+.pm-summary-vs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+  color: #283b30;
+  font-weight: 800;
+}
+
+.pm-summary-vs em {
+  color: #8a9489;
+  font-style: normal;
+  font-size: 0.72rem;
+  text-transform: uppercase;
 }
 
 .pm-summary-games {
@@ -1453,32 +1491,36 @@ label {
 .pg-player-chip {
   display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
+  flex-direction: column;
+  gap: 1px;
   background: #e8f0e8;
   border: 1px solid #b8d4c0;
-  border-radius: 20px;
-  padding: 3px 6px 3px 10px;
+  border-radius: 8px;
+  padding: 6px 8px;
   font-size: 0.78rem;
   font-weight: 700;
   color: #2f5d43;
+  min-width: 96px;
+  align-items: flex-start;
 }
 
 .pg-partner-label {
   color: #6a7a6f;
   font-size: 0.7rem;
   font-weight: 700;
+  line-height: 1.2;
 }
 
 .pg-move-select {
   background: transparent;
   border: 1px solid #b8d4c0;
-  border-radius: 10px;
+  border-radius: 6px;
   font-size: 0.68rem;
   color: #7a8a7f;
   cursor: pointer;
-  padding: 1px 2px;
-  max-width: 72px;
+  padding: 2px 4px;
+  max-width: 100%;
+  margin-top: 3px;
 }
 
 .pg-move-select:focus {

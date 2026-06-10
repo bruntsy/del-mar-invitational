@@ -349,7 +349,9 @@ describe('SetupScreen', () => {
 
     // Match builder appears and a default match is seeded (whole team1 vs team2).
     expect(wrapper.find('.pair-match-builder').exists()).toBe(true);
-    expect(wrapper.text()).toContain('Match 1 — Ann / Bea vs Cal / Dan');
+    expect(wrapper.find('.pm-summary').text()).toContain('Match 1');
+    expect(wrapper.find('.pm-summary').text()).toContain('Ann / Bea');
+    expect(wrapper.find('.pm-summary').text()).toContain('Cal / Dan');
 
     await wrapper.find('.btn-primary').trigger('click');
 
