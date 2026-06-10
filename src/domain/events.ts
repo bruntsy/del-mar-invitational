@@ -6,6 +6,7 @@ export function eventFormatLabel(format: EventRoundFormat): string {
     {
       bestBallNassau: '2v2 Net Best Ball Nassau',
       twoManBestBallAggy: '2v2 Best Ball + Aggy',
+      twoManHighBallLowBall: '2v2 High Ball / Low Ball',
       scramble2v2Nassau: '2v2 Two-Man Scramble Nassau',
       fourManScramble: '4-Man Scramble',
       custom: 'Custom Round',
@@ -41,13 +42,26 @@ export function eventDefaultRound(index: number, team1: string[] = [], team2: st
 
 export function eventRoundAvailablePoints(round: Pick<EventRoundConfig, 'format' | 'points' | 'pairMatches'>): number {
   const matchCount = Math.max(1, round.pairMatches?.length || 1);
+  const points = round.points ?? { front: 0, back: 0, total: 0 };
+  const base = Number(points.front || 0) + Number(points.back || 0) + Number(points.total || 0);
 
-  if (round.format === 'twoManBestBallAggy') {
-    return 36 * matchCount;
+  // Combo games (BB+Aggy, HB/LB) score two contests x three segments per match.
+  // Available points are the sum of the six per-component values, falling back to
+  // the base front/back/total when a component override is absent.
+  if (round.format === 'twoManBestBallAggy' || round.format === 'twoManHighBallLowBall') {
+    const components =
+      round.format === 'twoManBestBallAggy'
+        ? [points.bestBall, points.aggy]
+        : [points.lowBall, points.highBall];
+    const comboTotal = components.reduce(
+      (sum, c) =>
+        sum + (c ? Number(c.front || 0) + Number(c.back || 0) + Number(c.overall || 0) : base),
+      0,
+    );
+    return comboTotal * matchCount;
   }
 
-  const points = round.points ?? { front: 0, back: 0, total: 0 };
-  return (Number(points.front || 0) + Number(points.back || 0) + Number(points.total || 0)) * matchCount;
+  return base * matchCount;
 }
 
 export function defaultEventConfig(groupPlayerNames: string[]): EventConfig {

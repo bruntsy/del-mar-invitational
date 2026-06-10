@@ -36,14 +36,22 @@ describe('event config helpers', () => {
     expect(config.winPoints).toBe(5);
   });
 
-  it('calculates available points for best-ball and aggy formats', () => {
+  it('calculates available points for best-ball and combo formats', () => {
     expect(eventRoundAvailablePoints(eventDefaultRound(0, ['A', 'B'], ['C', 'D']))).toBe(3);
+    // Combo games score two contests x three segments. With default 1/1/1 points
+    // and no per-component overrides each contest contributes 3 -> 6 total.
     expect(
       eventRoundAvailablePoints({
         ...eventDefaultRound(0, ['A', 'B'], ['C', 'D']),
         format: 'twoManBestBallAggy',
       }),
-    ).toBe(36);
+    ).toBe(6);
+    expect(
+      eventRoundAvailablePoints({
+        ...eventDefaultRound(0, ['A', 'B'], ['C', 'D']),
+        format: 'twoManHighBallLowBall',
+      }),
+    ).toBe(6);
   });
 
   it('normalizes teams by removing duplicate team assignments and adding group players', () => {

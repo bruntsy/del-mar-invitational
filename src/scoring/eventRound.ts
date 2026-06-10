@@ -4,6 +4,7 @@ import {
   type BbaContest,
   type BbaSegment,
 } from '@/scoring/bestBallAggy';
+import { buildHighBallLowBallConfig, scoreHighBallLowBall } from '@/scoring/highBallLowBall';
 import {
   pairAggyScore,
   pairBestBallScore,
@@ -77,13 +78,24 @@ const SEGMENT_LABEL: Record<BbaSegment, string> = {
   overall: 'Overall',
 };
 
+export type ComboContest = BbaContest | 'low_ball' | 'high_ball';
+
 /** Resolve the point value for a component/segment, honouring per-component overrides. */
 export function getPointValue(
   points: EventRoundConfig['points'],
-  component: BbaContest | null,
+  component: ComboContest | null,
   segment: BbaSegment,
 ): number {
-  const override = component === 'best_ball' ? points.bestBall : component === 'aggy' ? points.aggy : undefined;
+  const override =
+    component === 'best_ball'
+      ? points.bestBall
+      : component === 'aggy'
+        ? points.aggy
+        : component === 'low_ball'
+          ? points.lowBall
+          : component === 'high_ball'
+            ? points.highBall
+            : undefined;
   if (override) return Number(override[segment] || 0);
   const fallback = { front: points.front, back: points.back, overall: points.total };
   return Number(fallback[segment] || 0);
@@ -95,7 +107,7 @@ function ryderFromComponent(
   roundIndex: number,
   matchIndex: number,
   gameType: string,
-  contest: BbaContest | null,
+  contest: ComboContest | null,
   segment: BbaSegment,
 ): RyderPointEntry {
   const winningTeam =
@@ -328,6 +340,50 @@ export function computeEventRoundResult(input: EventRoundInput): EventRoundResul
           components.push(component);
           addComponent(component);
           ryderPoints.push(ryderFromComponent(component, roundIndex, index, 'best_ball_aggy', contest, segment));
+        }
+      }
+
+      rows.push({ label: `Match ${index + 1}`, aPlayers: match.a ?? [], bPlayers: match.b ?? [], components });
+    });
+  } else if (round.format === 'twoManHighBallLowBall') {
+    const game = games?.highBallLowBall ?? {
+      enabled: true,
+      scoreBasis: 'net' as ScoreType,
+      scoringMode: matchPlay ? ('match' as const) : ('stroke' as const),
+      stake: { front: 0, back: 0, overall: 0 },
+    };
+    pairMatches.forEach((match, index) => {
+      const config = buildHighBallLowBallConfig(match, {
+        ...game,
+        scoringMode: matchPlay ? 'match' : 'stroke',
+      });
+      const result = scoreHighBallLowBall(config, scoreContext);
+      const [aId, bId] = [config.teams[0].id, config.teams[1].id];
+      const contests: { contest: ComboContest; key: 'lowBall' | 'highBall'; label: string }[] = [
+        { contest: 'low_ball', key: 'lowBall', label: 'Low Ball' },
+        { contest: 'high_ball', key: 'highBall', label: 'High Ball' },
+      ];
+
+      const components: EventComponent[] = [];
+      for (const { contest, key, label } of contests) {
+        for (const segment of SEGMENTS) {
+          const seg = result.segmentResults[key][segment];
+          const points = getPointValue(round.points, contest, segment);
+          const map = matchPlay ? seg.teamHolesWon : seg.teamScores;
+          const a = seg.incomplete || !map ? null : map[aId] ?? null;
+          const b = seg.incomplete || !map ? null : map[bId] ?? null;
+          const component = eventComponent(
+            `${label} ${SEGMENT_LABEL[segment]}`,
+            a,
+            b,
+            points,
+            matchPlay,
+            matchPlay ? 'holes' : 'strokes',
+            { kind: 'highBallLowBallSegment', contest, segment },
+          );
+          components.push(component);
+          addComponent(component);
+          ryderPoints.push(ryderFromComponent(component, roundIndex, index, 'high_ball_low_ball', contest, segment));
         }
       }
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import type { EventRoundConfig, EventRoundFormat } from '@/types/event';
+import type { EventRoundConfig } from '@/types/event';
 import type { Event, EventConfig } from '@/types/event';
 import { eventFormatLabel, normalizeEventConfig } from '@/domain/events';
 import { autoPlayingGroupsFromPairMatches } from '@/domain/playingGroups';
@@ -19,21 +19,33 @@ const draft = ref<EventConfig>(JSON.parse(JSON.stringify(props.event.config)));
 const draftName = ref(props.event.name);
 const openRound = ref<number | null>(0);
 
-/** Seed per-component point overrides for Best Ball + Aggy rounds. */
-function ensureAggyPoints(round: EventRoundConfig) {
+type BaseFormat = 'bestBall' | 'scramble' | 'custom';
+type BestBallVariant = 'nassau' | 'aggy' | 'highLow';
+
+/** Seed per-component point overrides for combo (BB+Aggy / HB-LB) rounds. */
+function ensureComboPoints(round: EventRoundConfig) {
   const base = { front: round.points.front, back: round.points.back, overall: round.points.total };
-  if (!round.points.bestBall) round.points.bestBall = { ...base };
-  if (!round.points.aggy) round.points.aggy = { ...base };
+  if (round.format === 'twoManBestBallAggy') {
+    if (!round.points.bestBall) round.points.bestBall = { ...base };
+    if (!round.points.aggy) round.points.aggy = { ...base };
+  } else if (round.format === 'twoManHighBallLowBall') {
+    if (!round.points.lowBall) round.points.lowBall = { ...base };
+    if (!round.points.highBall) round.points.highBall = { ...base };
+  }
 }
 
 for (const round of draft.value.rounds) {
-  if (round.format === 'twoManBestBallAggy') ensureAggyPoints(round);
+  ensureComboPoints(round);
 }
 
-type BaseFormat = 'bestBall' | 'scramble' | 'custom';
-
 function roundBase(round: EventRoundConfig): BaseFormat {
-  if (round.format === 'bestBallNassau' || round.format === 'twoManBestBallAggy') return 'bestBall';
+  if (
+    round.format === 'bestBallNassau' ||
+    round.format === 'twoManBestBallAggy' ||
+    round.format === 'twoManHighBallLowBall'
+  ) {
+    return 'bestBall';
+  }
   if (round.format === 'scramble2v2Nassau' || round.format === 'fourManScramble') return 'scramble';
   return 'custom';
 }
@@ -42,33 +54,36 @@ function roundNassau(round: EventRoundConfig): boolean {
   return round.format === 'bestBallNassau' || round.format === 'scramble2v2Nassau';
 }
 
-function roundAggy(round: EventRoundConfig): boolean {
-  return round.format === 'twoManBestBallAggy';
-}
-
-function deriveFormat(base: BaseFormat, nassau: boolean, aggy: boolean): EventRoundFormat {
-  if (base === 'bestBall') return aggy ? 'twoManBestBallAggy' : 'bestBallNassau';
-  if (base === 'scramble') return nassau ? 'scramble2v2Nassau' : 'fourManScramble';
-  return 'custom';
+function roundVariant(round: EventRoundConfig): BestBallVariant {
+  if (round.format === 'twoManBestBallAggy') return 'aggy';
+  if (round.format === 'twoManHighBallLowBall') return 'highLow';
+  return 'nassau';
 }
 
 function setRoundBase(ri: number, base: BaseFormat) {
   const round = draft.value.rounds[ri];
-  const nassau = roundNassau(round);
-  const aggy = base === 'bestBall' ? roundAggy(round) : false;
-  round.format = deriveFormat(base, nassau, aggy);
+  if (base === 'bestBall') round.format = 'bestBallNassau';
+  else if (base === 'scramble') round.format = roundNassau(round) ? 'scramble2v2Nassau' : 'fourManScramble';
+  else round.format = 'custom';
   recomputePlayingGroups(ri);
 }
 
 function setRoundNassau(ri: number, nassau: boolean) {
   const round = draft.value.rounds[ri];
-  round.format = deriveFormat(roundBase(round), nassau, roundAggy(round));
+  const base = roundBase(round);
+  if (base === 'scramble') round.format = nassau ? 'scramble2v2Nassau' : 'fourManScramble';
+  else if (base === 'bestBall') round.format = 'bestBallNassau';
 }
 
-function setRoundAggy(ri: number, aggy: boolean) {
+function setRoundVariant(ri: number, variant: BestBallVariant) {
   const round = draft.value.rounds[ri];
-  round.format = deriveFormat(roundBase(round), roundNassau(round), aggy);
-  if (round.format === 'twoManBestBallAggy') ensureAggyPoints(round);
+  round.format =
+    variant === 'aggy'
+      ? 'twoManBestBallAggy'
+      : variant === 'highLow'
+        ? 'twoManHighBallLowBall'
+        : 'bestBallNassau';
+  ensureComboPoints(round);
 }
 
 function recomputePlayingGroups(roundIndex: number) {
@@ -212,8 +227,8 @@ function save() {
             </div>
           </div>
 
-          <!-- Nassau / Full Round (non-custom) -->
-          <div v-if="roundBase(round) !== 'custom' && !roundAggy(round)" class="ece-field">
+          <!-- Nassau / Full Round (scramble only) -->
+          <div v-if="roundBase(round) === 'scramble'" class="ece-field">
             <label class="ece-sublabel">Scoring structure</label>
             <div class="ece-seg">
               <button class="ece-seg-btn" :class="{ active: roundNassau(round) }" type="button" @click="setRoundNassau(ri, true)">Nassau</button>
@@ -221,12 +236,14 @@ function save() {
             </div>
           </div>
 
-          <!-- Aggy (Best Ball only) -->
-          <div v-if="roundBase(round) === 'bestBall'" class="ece-field ece-inline-field">
-            <label class="ece-sublabel">
-              <input type="checkbox" :checked="roundAggy(round)" @change="setRoundAggy(ri, ($event.target as HTMLInputElement).checked)" />
-              Aggy
-            </label>
+          <!-- Variant (Best Ball base) -->
+          <div v-if="roundBase(round) === 'bestBall'" class="ece-field">
+            <label class="ece-sublabel">Variant</label>
+            <div class="ece-seg">
+              <button class="ece-seg-btn" :class="{ active: roundVariant(round) === 'nassau' }" type="button" @click="setRoundVariant(ri, 'nassau')">Nassau</button>
+              <button class="ece-seg-btn" :class="{ active: roundVariant(round) === 'aggy' }" type="button" @click="setRoundVariant(ri, 'aggy')">Best Ball + Aggy</button>
+              <button class="ece-seg-btn" :class="{ active: roundVariant(round) === 'highLow' }" type="button" @click="setRoundVariant(ri, 'highLow')">High Ball / Low Ball</button>
+            </div>
           </div>
 
           <!-- Scoring Mode -->
@@ -292,10 +309,10 @@ function save() {
             </div>
           </template>
 
-          <!-- Points: 6 per-component fields for Best Ball + Aggy, 3 otherwise -->
+          <!-- Points: 6 per-component fields for combo games (BB+Aggy, HB/LB), 3 otherwise -->
           <div class="ece-field">
             <label class="ece-sublabel">Points</label>
-            <template v-if="roundAggy(round) && round.points.bestBall && round.points.aggy">
+            <template v-if="roundVariant(round) === 'aggy' && round.points.bestBall && round.points.aggy">
               <div class="ece-row ece-points-row">
                 <span class="ece-pts-group">Best Ball</span>
                 <label class="ece-pts-label">Front
@@ -318,6 +335,32 @@ function save() {
                 </label>
                 <label class="ece-pts-label">Overall
                   <input v-model.number="round.points.aggy.overall" class="form-input ece-pts-input" type="number" min="0" />
+                </label>
+              </div>
+            </template>
+            <template v-else-if="roundVariant(round) === 'highLow' && round.points.lowBall && round.points.highBall">
+              <div class="ece-row ece-points-row">
+                <span class="ece-pts-group">Low Ball</span>
+                <label class="ece-pts-label">Front
+                  <input v-model.number="round.points.lowBall.front" class="form-input ece-pts-input" type="number" min="0" />
+                </label>
+                <label class="ece-pts-label">Back
+                  <input v-model.number="round.points.lowBall.back" class="form-input ece-pts-input" type="number" min="0" />
+                </label>
+                <label class="ece-pts-label">Overall
+                  <input v-model.number="round.points.lowBall.overall" class="form-input ece-pts-input" type="number" min="0" />
+                </label>
+              </div>
+              <div class="ece-row ece-points-row">
+                <span class="ece-pts-group">High Ball</span>
+                <label class="ece-pts-label">Front
+                  <input v-model.number="round.points.highBall.front" class="form-input ece-pts-input" type="number" min="0" />
+                </label>
+                <label class="ece-pts-label">Back
+                  <input v-model.number="round.points.highBall.back" class="form-input ece-pts-input" type="number" min="0" />
+                </label>
+                <label class="ece-pts-label">Overall
+                  <input v-model.number="round.points.highBall.overall" class="form-input ece-pts-input" type="number" min="0" />
                 </label>
               </div>
             </template>

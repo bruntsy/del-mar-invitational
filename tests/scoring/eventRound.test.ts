@@ -191,6 +191,66 @@ describe('event round scoring (twoManBestBallAggy, segment-based)', () => {
     });
   });
 
+  it('scores twoManHighBallLowBall as six segment components, split contests', () => {
+    // A1=4 A2=6 (Low 4, High 6); B1=5 B2=5 (Low 5, High 5).
+    // Low Ball: team1 wins (4<5). High Ball: team2 wins (5<6).
+    const input = inputFor([{ a: ['A', 'B'], b: ['C', 'D'] }], {
+      format: 'twoManHighBallLowBall',
+      scoringMode: 'matchPlay',
+      points: { front: 1, back: 1, total: 1 },
+    });
+    fillRange(input.scoreContext.scores, 0, 18, { A: 4, B: 6, C: 5, D: 5 });
+
+    const result = computeEventRoundResult(input);
+
+    // 3 Low Ball segments -> team1, 3 High Ball segments -> team2
+    expect(result.team1).toBe(3);
+    expect(result.team2).toBe(3);
+    expect(result.rows[0].components).toHaveLength(6);
+    expect(result.rows[0].components.map((c) => c.label)).toEqual([
+      'Low Ball Front',
+      'Low Ball Back',
+      'Low Ball Overall',
+      'High Ball Front',
+      'High Ball Back',
+      'High Ball Overall',
+    ]);
+    expect(result.ryderPoints).toHaveLength(6);
+    expect(result.ryderPoints[0]).toMatchObject({
+      gameType: 'high_ball_low_ball',
+      component: 'low_ball',
+      segment: 'front',
+      winningTeam: 'team1',
+    });
+    expect(result.ryderPoints[3]).toMatchObject({
+      gameType: 'high_ball_low_ball',
+      component: 'high_ball',
+      segment: 'front',
+      winningTeam: 'team2',
+    });
+  });
+
+  it('scores twoManHighBallLowBall with per-component point overrides', () => {
+    const input = inputFor([{ a: ['A', 'B'], b: ['C', 'D'] }], {
+      format: 'twoManHighBallLowBall',
+      scoringMode: 'strokePlay',
+      points: {
+        front: 1,
+        back: 1,
+        total: 1,
+        lowBall: { front: 2, back: 2, overall: 4 },
+        highBall: { front: 1, back: 1, overall: 2 },
+      },
+    });
+    fillRange(input.scoreContext.scores, 0, 18, { A: 4, B: 5, C: 6, D: 7 }); // team1 lower on both balls
+
+    const result = computeEventRoundResult(input);
+
+    // Low: 2+2+4 = 8, High: 1+1+2 = 4 -> team1 12
+    expect(result.team1).toBe(12);
+    expect(result.team2).toBe(0);
+  });
+
   it('scores best-ball Nassau match play by front, back, and overall hole wins', () => {
     const input = inputFor([{ a: ['A', 'B'], b: ['C', 'D'] }], {
       format: 'bestBallNassau',

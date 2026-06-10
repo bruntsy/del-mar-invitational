@@ -3,6 +3,7 @@ import type { PairMatch, PlayingGroup } from './round';
 export type EventRoundFormat =
   | 'bestBallNassau'
   | 'twoManBestBallAggy'
+  | 'twoManHighBallLowBall'
   | 'scramble2v2Nassau'
   | 'fourManScramble'
   | 'custom';
@@ -31,6 +32,8 @@ export interface EventRoundConfig {
     // optional per-component overrides for combo games (BB+Aggy, HB/LB)
     bestBall?: { front: number; back: number; overall: number };
     aggy?: { front: number; back: number; overall: number };
+    lowBall?: { front: number; back: number; overall: number };
+    highBall?: { front: number; back: number; overall: number };
   };
   skins: {
     enabled: boolean;
