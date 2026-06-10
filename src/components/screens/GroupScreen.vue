@@ -12,7 +12,7 @@ import { eventFormatLabel } from '@/domain/events';
 import { useEventLeaderboard } from '@/composables/useEventLeaderboard';
 import EventConfigEditor from '@/components/EventConfigEditor.vue';
 import type { EventConfig } from '@/types/event';
-import type { EventRoundRow } from '@/scoring/eventRound';
+import type { EventComponent, EventRoundRow } from '@/scoring/eventRound';
 
 const store = useGroupStore();
 const history = useHistoryStore();
@@ -170,16 +170,38 @@ function goHome() {
   void router.push('/');
 }
 
+function rowTotals(row: EventRoundRow): { team1: number; team2: number } {
+  return row.components.reduce(
+    (acc, c) => ({ team1: acc.team1 + c.team1, team2: acc.team2 + c.team2 }),
+    { team1: 0, team2: 0 },
+  );
+}
+
+// Aggregate across all components so this works for both the old hole-by-hole
+// format and the new segment-component format (best ball / aggy x front/back/overall).
 function overallWinner(row: EventRoundRow): string {
-  return row.components.at(-1)?.winner ?? 'open';
+  const totals = rowTotals(row);
+  if (totals.team1 === 0 && totals.team2 === 0) return 'open';
+  if (totals.team1 > totals.team2) return 'team1';
+  if (totals.team2 > totals.team1) return 'team2';
+  return 'tie';
 }
 
 function matchResultLabel(row: EventRoundRow): string {
-  const comp = row.components.at(-1);
-  if (!comp || comp.winner === 'open') return '—';
-  if (comp.winner === 'tie') return 'Tie';
-  const pts = comp.winner === 'team1' ? comp.team1 : comp.team2;
-  return `${pts} pts`;
+  const totals = rowTotals(row);
+  if (totals.team1 === 0 && totals.team2 === 0) return '—';
+  return `${totals.team1} – ${totals.team2} pts`;
+}
+
+/** Components that have a decided/scored result, for the per-segment breakdown. */
+function scoredComponents(row: EventRoundRow): EventComponent[] {
+  return row.components.filter((c) => c.winner !== 'open');
+}
+
+function componentResultClass(component: EventComponent): string {
+  if (component.winner === 'team1') return 'comp-team1';
+  if (component.winner === 'team2') return 'comp-team2';
+  return 'comp-tie';
 }
 </script>
 
@@ -336,13 +358,23 @@ function matchResultLabel(row: EventRoundRow): string {
                   <!-- Match rows when data is present -->
                   <template v-if="r.hasData && r.result.rows.length">
                     <div class="match-summary-list">
-                      <div v-for="row in r.result.rows" :key="row.label" class="match-summary-row">
-                        <span class="match-label">{{ row.label }}</span>
-                        <span class="match-players" :class="{ 'match-winner': overallWinner(row) === 'team1' }">{{ row.aPlayers.join(' / ') }}</span>
-                        <span class="match-vs">vs</span>
-                        <span class="match-players" :class="{ 'match-winner': overallWinner(row) === 'team2' }">{{ row.bPlayers.join(' / ') }}</span>
-                        <span class="match-result">{{ matchResultLabel(row) }}</span>
-                      </div>
+                      <template v-for="row in r.result.rows" :key="row.label">
+                        <div class="match-summary-row">
+                          <span class="match-label">{{ row.label }}</span>
+                          <span class="match-players" :class="{ 'match-winner': overallWinner(row) === 'team1' }">{{ row.aPlayers.join(' / ') }}</span>
+                          <span class="match-vs">vs</span>
+                          <span class="match-players" :class="{ 'match-winner': overallWinner(row) === 'team2' }">{{ row.bPlayers.join(' / ') }}</span>
+                          <span class="match-result">{{ matchResultLabel(row) }}</span>
+                        </div>
+                        <div v-if="scoredComponents(row).length" class="comp-breakdown">
+                          <span
+                            v-for="component in scoredComponents(row)"
+                            :key="`${row.label}-${component.label}`"
+                            class="comp-chip"
+                            :class="componentResultClass(component)"
+                          >{{ component.label }}: {{ component.team1 }}–{{ component.team2 }}</span>
+                        </div>
+                      </template>
                     </div>
                   </template>
                   <p v-else-if="!r.hasData" class="hint">No scores yet.</p>
@@ -863,6 +895,33 @@ function matchResultLabel(row: EventRoundRow): string {
   font-weight: 600;
   color: #4a6050;
   font-size: 0.82rem;
+}
+
+.comp-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 4px 52px;
+}
+
+.comp-chip {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: #eef2ec;
+  color: #5a6a5e;
+  white-space: nowrap;
+}
+
+.comp-chip.comp-team1 {
+  background: rgba(47, 93, 67, 0.14);
+  color: #2f5d43;
+}
+
+.comp-chip.comp-team2 {
+  background: rgba(176, 132, 22, 0.16);
+  color: #8a672f;
 }
 
 .stats {
