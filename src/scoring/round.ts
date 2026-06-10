@@ -82,6 +82,19 @@ export function pairAggyScore(
     : null;
 }
 
+export function pairHighBallScore(
+  context: ScoreContext,
+  pair: string[],
+  hole: number,
+  type: ScoreType = 'net',
+): number | null {
+  const values = pair
+    .map((player) => playerHoleScore(context, player, hole, type))
+    .filter((value): value is number => value != null);
+
+  return pair.length > 0 && values.length === pair.length ? Math.max(...values) : null;
+}
+
 export function pairRangeScore(
   context: ScoreContext,
   pair: string[],
