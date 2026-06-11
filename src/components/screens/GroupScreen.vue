@@ -391,6 +391,34 @@ function topEntry(map: Map<string, number>): [string, number] | null {
   return [...map.entries()].filter(([, value]) => value > 0).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0] ?? null;
 }
 
+interface PairRecord {
+  pair: string;
+  wins: number;
+  losses: number;
+  pushes: number;
+}
+
+function pairLabel(players: string[]): string {
+  return players.join(' + ') || 'Pair';
+}
+
+function addPairRecord(records: Map<string, PairRecord>, players: string[], result: 'win' | 'loss' | 'push') {
+  const pair = pairLabel(players);
+  const record = records.get(pair) ?? { pair, wins: 0, losses: 0, pushes: 0 };
+  if (result === 'win') record.wins += 1;
+  else if (result === 'loss') record.losses += 1;
+  else record.pushes += 1;
+  records.set(pair, record);
+}
+
+function componentHoleWins(component: EventComponent): { a: number; b: number } | null {
+  if (component.unit !== 'holes' || component.label === 'Overall') return null;
+  const a = typeof component.a === 'number' ? component.a : null;
+  const b = typeof component.b === 'number' ? component.b : null;
+  if (a == null || b == null) return null;
+  return { a, b };
+}
+
 function linkedRoundData(roundId: string | null | undefined): LinkedRoundData | null {
   if (!roundId) return null;
   if (roundStore.round?.id === roundId) return { round: roundStore.round, players: roundStore.players };
@@ -400,6 +428,8 @@ function linkedRoundData(roundId: string | null | undefined): LinkedRoundData | 
 const eventLeaderCards = computed<EventLeaderCard[]>(() => {
   if (!eventStore.event) return [];
   const contributed = new Map<string, number>();
+  const holesWon = new Map<string, number>();
+  const pairRecords = new Map<string, PairRecord>();
   const skinsWon = new Map<string, number>();
   const netTotals = new Map<string, { total: number; rounds: number }>();
 
@@ -409,6 +439,22 @@ const eventLeaderCards = computed<EventLeaderCard[]>(() => {
       for (const component of scoredComponents(row)) {
         addTo(contributed, row.aPlayers, component.team1);
         addTo(contributed, row.bPlayers, component.team2);
+        const holeWins = componentHoleWins(component);
+        if (holeWins) {
+          addTo(holesWon, row.aPlayers, holeWins.a);
+          addTo(holesWon, row.bPlayers, holeWins.b);
+        }
+      }
+      const winner = overallWinner(row);
+      if (winner === 'team1') {
+        addPairRecord(pairRecords, row.aPlayers, 'win');
+        addPairRecord(pairRecords, row.bPlayers, 'loss');
+      } else if (winner === 'team2') {
+        addPairRecord(pairRecords, row.aPlayers, 'loss');
+        addPairRecord(pairRecords, row.bPlayers, 'win');
+      } else if (winner === 'tie') {
+        addPairRecord(pairRecords, row.aPlayers, 'push');
+        addPairRecord(pairRecords, row.bPlayers, 'push');
       }
     }
   }
@@ -452,6 +498,28 @@ const eventLeaderCards = computed<EventLeaderCard[]>(() => {
       label: 'Skins won',
       value: skinsLeader[0],
       detail: `${skinsLeader[1]} skin${skinsLeader[1] === 1 ? '' : 's'}`,
+    });
+  }
+
+  const holesLeader = topEntry(holesWon);
+  if (holesLeader) {
+    cards.push({
+      key: 'holes',
+      label: 'Holes won',
+      value: holesLeader[0],
+      detail: `${holesLeader[1]} match-play hole${holesLeader[1] === 1 ? '' : 's'}`,
+    });
+  }
+
+  const pairLeader = [...pairRecords.values()]
+    .filter((record) => record.wins > 0 || record.pushes > 0)
+    .sort((a, b) => b.wins - a.wins || a.losses - b.losses || b.pushes - a.pushes || a.pair.localeCompare(b.pair))[0];
+  if (pairLeader) {
+    cards.push({
+      key: 'pair-record',
+      label: 'Best pair record',
+      value: pairLeader.pair,
+      detail: `${pairLeader.wins}-${pairLeader.losses}-${pairLeader.pushes}`,
     });
   }
 
@@ -1381,7 +1449,7 @@ input[placeholder="ABCD"] {
 
 .event-leader-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 8px;
   margin-top: 10px;
 }

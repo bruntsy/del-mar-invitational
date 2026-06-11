@@ -2200,3 +2200,43 @@ scoring logic.
 
 - Add longer event stats next: holes won, pair records, clutch holes, and
   transparent MVP-style callouts if the data is reliable.
+
+---
+
+## Checkpoint 43 — Event leader stat expansion (2026-06-11)
+
+### Summary
+
+Expanded the Event leaders section on the group dashboard with two more
+transparent stats derived from existing linked-round event results.
+
+### Changes
+
+- **`src/components/screens/GroupScreen.vue`** — Event leaders now include:
+  - **Holes won** from match-play event components, excluding Overall so
+    Front/Back hole wins are not double-counted.
+  - **Best pair record** from each scored event match row's overall winner,
+    displayed as wins-losses-pushes.
+- The leader-card grid now uses responsive `auto-fit` tracks so three, five,
+  or future cards fit cleanly without forcing a fixed column count.
+
+- **`tests/screens/group.test.ts`** — Added assertions for Holes won and Best
+  pair record in the existing scored event dashboard fixture.
+
+- **`README.md`** — Updated the event dashboard description to list the
+  expanded Event leaders stats.
+
+### Verification
+
+- `npm run test:run -- tests/screens/group.test.ts` passed.
+- `npm run test:run` passed: 37 files, 341 tests.
+- `npm run build` passed (vue-tsc clean).
+- Browser smoke on `/group` passed in local offline mode: route rendered, no
+  page-level horizontal overflow, no console errors. Event leader cards are
+  covered by the focused Group screen test because the local browser has no
+  Supabase-backed event fixture.
+
+### Next likely tasks
+
+- Add clutch holes / most valuable match callouts if the scoring output exposes
+  a clear and explainable definition.
