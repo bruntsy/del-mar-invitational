@@ -698,7 +698,7 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   leaderboard: live standings with leading-team highlight, per-round breakdown cards
   with Front/Back/Overall match tables, Launch buttons for unlinked rounds, and
   event leader cards for contributed points, skins won, holes won, best pair
-  record, and best net average.
+  record, most valuable match, and best net average.
 
 ## Realtime Sync
 

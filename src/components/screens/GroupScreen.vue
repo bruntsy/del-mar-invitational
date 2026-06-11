@@ -398,6 +398,15 @@ interface PairRecord {
   pushes: number;
 }
 
+interface ValuableMatch {
+  round: string;
+  label: string;
+  winner: string;
+  winnerPoints: number;
+  loserPoints: number;
+  margin: number;
+}
+
 function pairLabel(players: string[]): string {
   return players.join(' + ') || 'Pair';
 }
@@ -419,6 +428,26 @@ function componentHoleWins(component: EventComponent): { a: number; b: number } 
   return { a, b };
 }
 
+function valuableMatch(roundName: string, row: EventRoundRow): ValuableMatch | null {
+  const components = scoredComponents(row);
+  if (!components.length) return null;
+  const team1 = components.reduce((total, component) => total + component.team1, 0);
+  const team2 = components.reduce((total, component) => total + component.team2, 0);
+  if (team1 === team2) return null;
+  const winner = team1 > team2 ? pairLabel(row.aPlayers) : pairLabel(row.bPlayers);
+  const winnerPoints = Math.max(team1, team2);
+  const loserPoints = Math.min(team1, team2);
+
+  return {
+    round: roundName,
+    label: row.label,
+    winner,
+    winnerPoints,
+    loserPoints,
+    margin: winnerPoints - loserPoints,
+  };
+}
+
 function linkedRoundData(roundId: string | null | undefined): LinkedRoundData | null {
   if (!roundId) return null;
   if (roundStore.round?.id === roundId) return { round: roundStore.round, players: roundStore.players };
@@ -432,10 +461,14 @@ const eventLeaderCards = computed<EventLeaderCard[]>(() => {
   const pairRecords = new Map<string, PairRecord>();
   const skinsWon = new Map<string, number>();
   const netTotals = new Map<string, { total: number; rounds: number }>();
+  const valuableMatches: ValuableMatch[] = [];
 
   for (const round of leaderboard.value.rounds) {
     if (!round.hasData) continue;
     for (const row of round.result.rows) {
+      const match = valuableMatch(round.result.round.name, row);
+      if (match) valuableMatches.push(match);
+
       for (const component of scoredComponents(row)) {
         addTo(contributed, row.aPlayers, component.team1);
         addTo(contributed, row.bPlayers, component.team2);
@@ -520,6 +553,17 @@ const eventLeaderCards = computed<EventLeaderCard[]>(() => {
       label: 'Best pair record',
       value: pairLeader.pair,
       detail: `${pairLeader.wins}-${pairLeader.losses}-${pairLeader.pushes}`,
+    });
+  }
+
+  const matchLeader = valuableMatches
+    .sort((a, b) => b.margin - a.margin || b.winnerPoints - a.winnerPoints || a.round.localeCompare(b.round) || a.label.localeCompare(b.label))[0];
+  if (matchLeader) {
+    cards.push({
+      key: 'valuable-match',
+      label: 'Most valuable match',
+      value: matchLeader.winner,
+      detail: `${matchLeader.winnerPoints}-${matchLeader.loserPoints} event pts · ${matchLeader.round} ${matchLeader.label}`,
     });
   }
 

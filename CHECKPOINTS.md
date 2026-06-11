@@ -2240,3 +2240,38 @@ transparent stats derived from existing linked-round event results.
 
 - Add clutch holes / most valuable match callouts if the scoring output exposes
   a clear and explainable definition.
+
+---
+
+## Checkpoint 44 — Most valuable match event leader (2026-06-11)
+
+### Summary
+
+Added a display-only Most valuable match card to the group dashboard's Event
+leaders section. The callout uses existing linked-round event rows and ranks
+the scored match with the largest event-point margin.
+
+### Changes
+
+- **`src/components/screens/GroupScreen.vue`** — Event leaders now include
+  **Most valuable match**, showing the winning pair and the match's event-point
+  result with round/match context.
+- **`tests/screens/group.test.ts`** — Added coverage for the new leader-card
+  label in the scored event dashboard fixture.
+- **`README.md`** — Updated the event dashboard description to list the new
+  callout.
+
+### Verification
+
+- `npm run test:run -- tests/screens/group.test.ts` passed.
+- `npm run test:run` passed: 37 files, 341 tests.
+- `npm run build` passed (vue-tsc clean).
+- Browser smoke on `/group` passed in local offline mode: route rendered, no
+  page-level horizontal overflow, no console errors. Event leader cards are
+  covered by the focused Group screen test because the local browser has no
+  Supabase-backed event fixture.
+
+### Next likely tasks
+
+- Leave clutch holes / closing points deferred unless a clear, reliable
+  definition emerges from existing result data.
