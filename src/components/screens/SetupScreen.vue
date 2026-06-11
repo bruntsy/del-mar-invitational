@@ -463,13 +463,23 @@ const courseSummaryName = computed(() => (
     .join(' — ') || form.courseName || form.clubName || 'Course'
 ));
 
-const courseMeta = computed(() => [
+const teeMarkerStyle = computed(() => {
+  const name = form.teeName.toLowerCase();
+  if (name.includes('black')) return { background: '#20252a' };
+  if (name.includes('blue')) return { background: '#2d5f9f' };
+  if (name.includes('white')) return { background: '#f8f7f1', borderColor: '#d7d0c1' };
+  if (name.includes('gold')) return { background: '#c89b31' };
+  if (name.includes('red')) return { background: '#b84a3d' };
+  if (name.includes('green')) return { background: '#3f7b54' };
+  return { background: '#7a8a7f' };
+});
+
+const courseBadges = computed(() => [
   form.teeGender || '',
-  form.teeName ? `${form.teeName} tees` : '',
-  `Rating ${Number(form.rating || 0).toFixed(1).replace('.0', '')}`,
-  `Slope ${Number(form.slope || 0)}`,
   `Par ${courseParTotal.value}`,
   courseYardsTotal.value ? `${Number(courseYardsTotal.value).toLocaleString()} yards` : '',
+  `Rating ${Number(form.rating || 0).toFixed(1).replace('.0', '')}`,
+  `Slope ${Number(form.slope || 0)}`,
 ].filter(Boolean));
 
 function capitalize(value: string) {
@@ -652,7 +662,13 @@ function goGroup() {
         <div class="course-summary-card">
           <div>
             <h3 class="course-summary-name">{{ courseSummaryName }}</h3>
-            <p class="course-summary-meta">{{ courseMeta.join(' · ') }}</p>
+            <div class="course-summary-tee">
+              <span class="tee-marker-dot" :style="teeMarkerStyle" aria-hidden="true"></span>
+              <span>{{ form.teeName || 'Tee' }} tees</span>
+            </div>
+            <div class="course-badge-row" aria-label="Selected course details">
+              <span v-for="badge in courseBadges" :key="badge" class="course-detail-badge">{{ badge }}</span>
+            </div>
             <div class="course-nine-grid">
               <div>
                 <strong>Front 9</strong>
@@ -1150,12 +1166,6 @@ function goGroup() {
   font-size: 1.12rem;
 }
 
-.course-summary-meta {
-  margin: 5px 0 0;
-  color: #607067;
-  line-height: 1.45;
-}
-
 .course-summary-actions {
   display: flex;
   align-items: flex-start;
@@ -1163,6 +1173,42 @@ function goGroup() {
   flex-wrap: wrap;
   justify-content: flex-end;
   flex-shrink: 0;
+}
+
+.course-summary-tee {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 6px;
+  color: #2f5d43;
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
+.tee-marker-dot {
+  width: 11px;
+  height: 11px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px #fbf7ed;
+}
+
+.course-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.course-detail-badge {
+  border: 1px solid #e7ddcb;
+  border-radius: 999px;
+  background: #fffdf7;
+  color: #607067;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 6px 8px;
 }
 
 .course-nine-grid {

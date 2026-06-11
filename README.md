@@ -593,7 +593,8 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   18-hole tees, collapses duplicate tee sets, repairs invalid stroke indexes,
   and maps selected tees into the round `Course` shape. Selecting a tee fills
   rating, slope, par, SI/stroke index, and yardage before handicap/stroke
-  getters run.
+  getters run. Selected courses render a compact tee marker plus par, yardage,
+  rating, and slope badges before the front/back-nine summary.
 - The player section previews each named player's handicap index, WHS course
   handicap, relative strokes, and SI-based stroke-hole list using the shared
   handicap helpers. The preview updates immediately when course rating, slope,

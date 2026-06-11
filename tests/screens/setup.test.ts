@@ -218,6 +218,14 @@ describe('SetupScreen', () => {
     await wrapper.find('.course-result').trigger('click');
     await wrapper.find('.tee-result').trigger('click');
 
+    const summary = wrapper.find('.course-summary-card');
+    expect(summary.text()).toContain('Black tees');
+    expect(summary.text()).toContain('7,011 yards');
+    expect(summary.text()).toContain('Rating 74.2');
+    expect(summary.text()).toContain('Slope 138');
+    expect(summary.find('.tee-marker-dot').exists()).toBe(true);
+    expect(summary.findAll('.course-detail-badge')).toHaveLength(5);
+
     await fillDefaultPlayers(wrapper);
     await wrapper.find('.setup-actions .btn-primary').trigger('click');
 

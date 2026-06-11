@@ -2311,3 +2311,37 @@ a clear and visible definition.
 
 - Keep clutch holes deferred unless a precise, non-fuzzy definition is added to
   the product spec or exposed directly by scoring output.
+
+---
+
+## Checkpoint 46 — Course tee detail polish (2026-06-11)
+
+### Summary
+
+Polished the selected-course summary in round setup so it feels more like a
+golf course card and less like a flat metadata line.
+
+### Changes
+
+- **`src/components/screens/SetupScreen.vue`** — Replaced the selected-course
+  meta sentence with a tee marker dot and compact badges for par, yardage,
+  rating, slope, and tee gender. The existing front/back-nine summary remains
+  below the badges.
+- **`tests/screens/setup.test.ts`** — Added coverage that a searched tee renders
+  the marker and detail badges while still populating the same round course
+  data.
+- **`README.md`** — Documented the selected-course tee marker and badge
+  summary.
+
+### Verification
+
+- `npm run test:run -- tests/screens/setup.test.ts` passed.
+- `npm run test:run` passed: 37 files, 341 tests.
+- `npm run build` passed (vue-tsc clean).
+- Browser smoke on `/setup` passed in local offline mode: route rendered, no
+  page-level horizontal overflow, no console errors.
+
+### Next likely tasks
+
+- Continue small visual polish slices from the spec, favoring display-only
+  changes that do not alter scoring math or persisted state.
