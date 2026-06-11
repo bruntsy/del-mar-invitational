@@ -622,12 +622,13 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 - `src/components/screens/ResultsScreen.vue`, routed at `/results`, renders the
   first rewrite results view.
 - It shows team net scores, an individual leaderboard sorted by net score,
-  settlement P&L and transfer rows, enabled team-game front/back/total
-  breakdowns, pair-match results, Wolf standings/detail tables, a Stableford
-  points table (best-first, leader highlighted), a 3-Man Nassau segment table
-  (solo vs best-ball of side, Front/Back/Overall, with invalid-roster note when
-  the round has ≠ 3 players), a per-group Putt Poker summary (coin holder, card
-  counts, penalties, final pot), and a skins breakdown.
+  a share-ready story-of-round summary, settlement P&L and transfer rows,
+  enabled team-game front/back/total breakdowns, pair-match results, Wolf
+  standings/detail tables, a Stableford points table (best-first, leader
+  highlighted), a 3-Man Nassau segment table (solo vs best-ball of side,
+  Front/Back/Overall, with invalid-roster note when the round has ≠ 3 players),
+  a per-group Putt Poker summary (coin holder, card counts, penalties, final
+  pot), and a skins breakdown.
 - The screen uses round-store getters for all scoring and formatting inputs; it
   does not recompute game math in the component.
 - Rounds can be marked complete or reopened locally from the results screen.

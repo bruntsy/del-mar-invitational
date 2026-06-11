@@ -165,6 +165,12 @@ const skinRows = computed(() => [
 const completed = computed(() => store.round?.completed ?? false);
 const expandedHblDetails = ref<Record<string, boolean>>({});
 
+interface RoundStory {
+  headline: string;
+  subhead: string;
+  facts: Array<{ label: string; value: string; note?: string }>;
+}
+
 interface SegmentDisplayRow {
   label: string;
   a: number | null;
@@ -489,6 +495,117 @@ function teamGameBadgeClass(game: { team1: { total: number | null }; team2: { to
   return resultBadgeClass('win', side);
 }
 
+function winnersFromScores(
+  team1Name: string,
+  team1: number | null,
+  team2Name: string,
+  team2: number | null,
+  lowWins: boolean,
+): { headline: string; winner: string | null } {
+  if (team1 == null || team2 == null) return { headline: 'Round still taking shape', winner: null };
+  if (team1 === team2) return { headline: `${team1Name} and ${team2Name} are tied, ${team1}-${team2}`, winner: null };
+  const team1Wins = lowWins ? team1 < team2 : team1 > team2;
+  const winner = team1Wins ? team1Name : team2Name;
+  return { headline: `${winner} wins, ${team1Wins ? team1 : team2}-${team1Wins ? team2 : team1}`, winner };
+}
+
+const topNetStory = computed(() => {
+  const topNet = leaderboard.value.find((row) => row.net != null)?.net;
+  if (topNet == null) return null;
+  const players = leaderboard.value.filter((row) => row.net === topNet).map((row) => row.player);
+  return {
+    players: players.join(', '),
+    net: topNet,
+  };
+});
+
+const skinsLeaderStory = computed(() => {
+  const leader = skinsSummary.value[0];
+  if (!leader) return null;
+  return { player: leader[0], skins: leader[1] };
+});
+
+const biggestEventMatchStory = computed(() => {
+  const result = eventRoundResult.value;
+  if (!result?.rows.length) return null;
+  const rows = result.rows
+    .map((row) => {
+      const team1 = row.components.reduce((total, component) => total + component.team1, 0);
+      const team2 = row.components.reduce((total, component) => total + component.team2, 0);
+      return {
+        row,
+        team1,
+        team2,
+        margin: Math.abs(team1 - team2),
+      };
+    })
+    .filter((row) => row.team1 !== row.team2)
+    .sort((a, b) => b.margin - a.margin);
+  const best = rows[0];
+  if (!best) return null;
+  const winner = best.team1 > best.team2 ? best.row.aPlayers.join(' + ') : best.row.bPlayers.join(' + ');
+  const label = `${best.row.aPlayers.join(' + ')} vs ${best.row.bPlayers.join(' + ')}`;
+  return {
+    label,
+    value: `${winner} carried it, ${best.team1}-${best.team2}`,
+  };
+});
+
+const roundStory = computed<RoundStory>(() => {
+  const event = eventRoundSummary.value;
+  const eventOutcome = event
+    ? winnersFromScores(event.team1Name, event.team1, event.team2Name, event.team2, false)
+    : null;
+  const teamOutcomeStory = !event
+    ? winnersFromScores(teamNames.value.team1, teamNet.value.team1, teamNames.value.team2, teamNet.value.team2, true)
+    : null;
+  const headline = event
+    ? (eventOutcome ?? { headline: 'Round still taking shape' }).headline.replace('wins,', `wins ${event.name},`)
+    : teamOutcomeStory?.headline ?? 'Round still taking shape';
+  const subhead = event
+    ? 'Round points, player scoring, skins, and money all in one share-ready view.'
+    : 'Team net, player scoring, skins, and money all in one share-ready view.';
+  const facts: RoundStory['facts'] = [];
+
+  if (event) {
+    facts.push({
+      label: 'Round points',
+      value: `${event.team1Name} ${event.team1} · ${event.team2Name} ${event.team2}`,
+    });
+  } else if (teamNet.value.team1 != null && teamNet.value.team2 != null) {
+    facts.push({
+      label: 'Team net',
+      value: `${teamNames.value.team1} ${teamNet.value.team1} · ${teamNames.value.team2} ${teamNet.value.team2}`,
+    });
+  }
+
+  if (topNetStory.value) {
+    facts.push({ label: 'Top net', value: `${topNetStory.value.players} · ${topNetStory.value.net}` });
+  }
+  if (skinsLeaderStory.value) {
+    facts.push({
+      label: 'Skins leader',
+      value: `${skinsLeaderStory.value.player} · ${skinsLeaderStory.value.skins}`,
+    });
+  }
+  if (biggestEventMatchStory.value) {
+    facts.push({
+      label: 'Biggest match',
+      value: biggestEventMatchStory.value.value,
+      note: biggestEventMatchStory.value.label,
+    });
+  }
+  if (settlementTransfers.value[0]) {
+    const payment = settlementTransfers.value[0];
+    facts.push({
+      label: 'Top payment',
+      value: `${payment.from} pays ${payment.to} $${payment.amount}`,
+    });
+  }
+
+  return { headline, subhead, facts };
+});
+
 function dash(value: number | null | undefined): string {
   return value == null ? '—' : String(value);
 }
@@ -621,6 +738,21 @@ function goGroup() {
           <button class="btn-reset-secondary" type="button" @click="resetRound">Reset round</button>
         </div>
       </header>
+
+      <section class="story-card" aria-label="Story of the round">
+        <div class="story-main">
+          <span>Story of the round</span>
+          <h2>{{ roundStory.headline }}</h2>
+          <p>{{ roundStory.subhead }}</p>
+        </div>
+        <div class="story-facts">
+          <div v-for="fact in roundStory.facts" :key="fact.label" class="story-fact">
+            <span>{{ fact.label }}</span>
+            <strong>{{ fact.value }}</strong>
+            <em v-if="fact.note">{{ fact.note }}</em>
+          </div>
+        </div>
+      </section>
 
       <section v-if="!hasPrimaryMatchPlayGame" class="rs-section">
         <h2 class="rs-section-hdr">Team Scores</h2>
@@ -1096,6 +1228,79 @@ function goGroup() {
   gap: 8px;
   flex-wrap: wrap;
   align-items: center;
+}
+
+.story-card {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.1fr) minmax(280px, 1.4fr);
+  gap: 14px;
+  border: 1px solid #d7cebd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  box-shadow: 0 1px 0 rgba(47, 93, 67, 0.08);
+  padding: 16px 18px;
+}
+
+.story-main {
+  border-left: 4px solid #2f5d43;
+  padding-left: 12px;
+}
+
+.story-main > span,
+.story-fact span {
+  display: block;
+  color: #8a672f;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.story-main h2 {
+  margin: 4px 0 6px;
+  color: #24362c;
+  font-size: 1.22rem;
+  line-height: 1.15;
+}
+
+.story-main p {
+  margin: 0;
+  color: #6a7a6f;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.story-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.story-fact {
+  min-width: 0;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fffdf7;
+  padding: 9px 10px;
+}
+
+.story-fact strong {
+  display: block;
+  margin-top: 3px;
+  color: #24362c;
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
+
+.story-fact em {
+  display: block;
+  margin-top: 3px;
+  color: #7a8a7e;
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .rs-section {
@@ -1933,6 +2138,15 @@ function goGroup() {
   .round-points-card {
     width: 100%;
     order: 2;
+  }
+
+  .story-card {
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+
+  .story-facts {
+    grid-template-columns: 1fr;
   }
 
   .rs-actions button,

@@ -60,6 +60,31 @@ describe('ResultsScreen', () => {
     expect(wrapper.text()).toContain('Settlement');
   });
 
+  it('renders a share-ready story of the round summary from existing results', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.games.skins.enabled = true;
+    store.setRound(round, players);
+    fillCard(store, 'Wes', 4);
+    fillCard(store, 'Aaron', 4);
+    fillCard(store, 'Tito', 6);
+    fillCard(store, 'Q', 6);
+    store.setScore('Wes', 0, 3);
+    store.setScore('Aaron', 0, 4);
+
+    const wrapper = mountResults();
+    await nextTick();
+
+    const story = wrapper.find('.story-card');
+    expect(story.exists()).toBe(true);
+    expect(story.text()).toContain('Story of the round');
+    expect(story.text()).toContain('Bay Cats wins');
+    expect(story.text()).toContain('Team net');
+    expect(story.text()).toContain('Top net');
+    expect(story.text()).toContain('Skins leader');
+    expect(story.text()).toContain('Aaron · 6');
+  });
+
   it('emphasizes settlement payments and shows losses with a minus sign', async () => {
     const store = useRoundStore();
     const { round, players } = demoRound();
@@ -181,6 +206,9 @@ describe('ResultsScreen', () => {
 
     expect(wrapper.text()).not.toContain('Team Scores');
     expect(wrapper.text()).toContain('Round points');
+    expect(wrapper.find('.story-card').text()).toContain('Story of the round');
+    expect(wrapper.find('.story-card').text()).toContain('Round 1');
+    expect(wrapper.find('.story-card').text()).toContain('Biggest match');
     expect(wrapper.text()).toContain('Round 1');
     expect(wrapper.text()).toContain('High Ball / Low Ball');
     expect(wrapper.text()).toContain('Match play');

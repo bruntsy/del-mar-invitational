@@ -2161,3 +2161,42 @@ archiving and recreating the event.
   currently not exposed in the editor.
 - Manual winPoints override field if event organizer wants to set a custom
   win threshold.
+
+---
+
+## Checkpoint 42 — Story-of-round results summary (2026-06-11)
+
+### Summary
+
+Added a compact story-of-round card near the top of final results. The card is
+display-only and derives from existing Results/Event data so it does not change
+scoring logic.
+
+### Changes
+
+- **`src/components/screens/ResultsScreen.vue`** — Added a `roundStory`
+  computed summary that renders immediately after the Results header.
+  Depending on context, it shows:
+  - Event round winner and round points for linked event rounds.
+  - Team net winner/totals for normal rounds.
+  - Top net player(s).
+  - Skins leader when skins exist.
+  - Biggest event match by point margin when event rows are available.
+  - Top settlement payment when money games produce transfers.
+- Added compact scoreboard styling for desktop and stacked mobile layouts.
+
+- **`tests/screens/results.test.ts`** — Added coverage for the new summary in
+  normal round results and linked event match-play results.
+
+### Verification
+
+- `npm run test:run -- tests/screens/results.test.ts` passed.
+- `npm run test:run` passed: 37 files, 341 tests.
+- `npm run build` passed (vue-tsc clean).
+- Browser smoke on `/results` passed on desktop and 390px mobile viewport:
+  story card rendered, no page-level horizontal overflow, no console errors.
+
+### Next likely tasks
+
+- Add longer event stats next: holes won, pair records, clutch holes, and
+  transparent MVP-style callouts if the data is reliable.
