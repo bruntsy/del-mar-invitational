@@ -10,10 +10,13 @@ import { useStatsStore } from '@/stores/stats';
 import { useEventStore } from '@/stores/event';
 import { useRoundStore } from '@/stores/round';
 import { eventFormatLabel } from '@/domain/events';
-import { useEventLeaderboard } from '@/composables/useEventLeaderboard';
+import { buildScoreContext, useEventLeaderboard } from '@/composables/useEventLeaderboard';
+import { computeSkins } from '@/scoring/skins';
+import { playerRangeScore } from '@/scoring/round';
 import EventConfigEditor from '@/components/EventConfigEditor.vue';
 import type { EventConfig, EventRoundConfig } from '@/types/event';
 import type { EventComponent, EventRoundRow } from '@/scoring/eventRound';
+import type { PlayerMap, RoundState, ScoreType } from '@/types';
 
 const store = useGroupStore();
 const history = useHistoryStore();
@@ -366,6 +369,107 @@ function componentResultLabel(component: EventComponent): string {
   if (component.winner === 'team2') return `${leaderboard.value.team2Name} ${component.team1}–${component.team2}`;
   return `Push ${component.team1}–${component.team2}`;
 }
+
+interface LinkedRoundData {
+  round: RoundState;
+  players: PlayerMap;
+}
+
+interface EventLeaderCard {
+  key: string;
+  label: string;
+  value: string;
+  detail: string;
+}
+
+function addTo(map: Map<string, number>, names: string[], amount: number) {
+  if (amount <= 0) return;
+  for (const name of names) map.set(name, (map.get(name) ?? 0) + amount);
+}
+
+function topEntry(map: Map<string, number>): [string, number] | null {
+  return [...map.entries()].filter(([, value]) => value > 0).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0] ?? null;
+}
+
+function linkedRoundData(roundId: string | null | undefined): LinkedRoundData | null {
+  if (!roundId) return null;
+  if (roundStore.round?.id === roundId) return { round: roundStore.round, players: roundStore.players };
+  return eventStore.cachedRounds[roundId] ?? null;
+}
+
+const eventLeaderCards = computed<EventLeaderCard[]>(() => {
+  if (!eventStore.event) return [];
+  const contributed = new Map<string, number>();
+  const skinsWon = new Map<string, number>();
+  const netTotals = new Map<string, { total: number; rounds: number }>();
+
+  for (const round of leaderboard.value.rounds) {
+    if (!round.hasData) continue;
+    for (const row of round.result.rows) {
+      for (const component of scoredComponents(row)) {
+        addTo(contributed, row.aPlayers, component.team1);
+        addTo(contributed, row.bPlayers, component.team2);
+      }
+    }
+  }
+
+  for (const roundConfig of eventStore.event.config.rounds) {
+    const linked = linkedRoundData(roundConfig.roundId);
+    if (!linked?.round.completed) continue;
+    const ctx = buildScoreContext(linked.round, linked.players);
+    if (!ctx) continue;
+    const names = [...(linked.round.team1 || []), ...(linked.round.team2 || [])];
+    const skinType = (linked.round.games?.skins?.type ?? 'net') as ScoreType;
+    const skins = computeSkins(ctx, names, skinType).skinsByPlayer;
+
+    for (const name of names) {
+      const skinCount = skins[name] ?? 0;
+      if (skinCount > 0) skinsWon.set(name, (skinsWon.get(name) ?? 0) + skinCount);
+      const net = playerRangeScore(ctx, name, 0, 18, 'net');
+      if (net == null) continue;
+      const entry = netTotals.get(name) ?? { total: 0, rounds: 0 };
+      entry.total += net;
+      entry.rounds += 1;
+      netTotals.set(name, entry);
+    }
+  }
+
+  const cards: EventLeaderCard[] = [];
+  const pointsLeader = topEntry(contributed);
+  if (pointsLeader) {
+    cards.push({
+      key: 'points',
+      label: 'Contributed points',
+      value: pointsLeader[0],
+      detail: `${pointsLeader[1]} event pts`,
+    });
+  }
+
+  const skinsLeader = topEntry(skinsWon);
+  if (skinsLeader) {
+    cards.push({
+      key: 'skins',
+      label: 'Skins won',
+      value: skinsLeader[0],
+      detail: `${skinsLeader[1]} skin${skinsLeader[1] === 1 ? '' : 's'}`,
+    });
+  }
+
+  const netLeader = [...netTotals.entries()]
+    .filter(([, value]) => value.rounds > 0)
+    .map(([name, value]) => ({ name, avg: value.total / value.rounds, rounds: value.rounds }))
+    .sort((a, b) => a.avg - b.avg || a.name.localeCompare(b.name))[0];
+  if (netLeader) {
+    cards.push({
+      key: 'net',
+      label: 'Best net average',
+      value: netLeader.name,
+      detail: `${Math.round(netLeader.avg * 10) / 10} over ${netLeader.rounds} round${netLeader.rounds === 1 ? '' : 's'}`,
+    });
+  }
+
+  return cards;
+});
 </script>
 
 <template>
@@ -508,6 +612,20 @@ function componentResultLabel(component: EventComponent): string {
                   <div class="event-team-players">{{ eventStore.event.config.team2.join(' · ') || '—' }}</div>
                 </div>
               </div>
+
+              <section v-if="eventLeaderCards.length" class="event-leaders">
+                <div class="event-leaders-head">
+                  <span class="field-label">Event leaders</span>
+                  <span>Derived from scored linked rounds</span>
+                </div>
+                <div class="event-leader-grid">
+                  <article v-for="card in eventLeaderCards" :key="card.key" class="event-leader-card">
+                    <span>{{ card.label }}</span>
+                    <strong>{{ card.value }}</strong>
+                    <em>{{ card.detail }}</em>
+                  </article>
+                </div>
+              </section>
 
               <!-- Per-round breakdown -->
               <div class="event-rounds-head">Rounds</div>
@@ -1243,6 +1361,65 @@ input[placeholder="ABCD"] {
   padding-top: 4px;
 }
 
+.event-leaders {
+  margin-top: 12px;
+  border: 1px solid #e0d7c4;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 12px;
+}
+
+.event-leaders-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  color: #7a8a7f;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.event-leader-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.event-leader-card {
+  min-width: 0;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fffdf7;
+  padding: 10px;
+}
+
+.event-leader-card span {
+  display: block;
+  color: #7a8a7f;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.event-leader-card strong {
+  display: block;
+  margin-top: 5px;
+  color: #24362c;
+  font-size: 1.05rem;
+  line-height: 1.1;
+}
+
+.event-leader-card em {
+  display: block;
+  margin-top: 4px;
+  color: #2f5d43;
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
 .event-rounds {
   margin-top: 10px;
   display: flex;
@@ -1450,7 +1627,8 @@ input[placeholder="ABCD"] {
   }
 
   .event-score-grid,
-  .event-teams {
+  .event-teams,
+  .event-leader-grid {
     grid-template-columns: 1fr;
   }
 

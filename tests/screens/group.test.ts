@@ -198,6 +198,7 @@ describe('GroupScreen roster', () => {
     const event = useEventStore();
     const { round, players } = demoRound();
     round.id = 'event-round-1';
+    round.completed = true;
     round.games.highBallLowBall.enabled = true;
     round.games.highBallLowBall.scoringMode = 'match';
     round.pairMatches = [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }];
@@ -225,6 +226,11 @@ describe('GroupScreen roster', () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain('Open round');
+    expect(wrapper.find('.event-leaders').text()).toContain('Event leaders');
+    expect(wrapper.find('.event-leaders').text()).toContain('Contributed points');
+    expect(wrapper.find('.event-leaders').text()).toContain('Skins won');
+    expect(wrapper.find('.event-leaders').text()).toContain('Best net average');
+    expect(wrapper.find('.event-leaders').text()).toContain('Wes');
     expect(wrapper.find('.event-detail-toggle').exists()).toBe(true);
     expect(wrapper.find('.comp-chip').exists()).toBe(false);
 
