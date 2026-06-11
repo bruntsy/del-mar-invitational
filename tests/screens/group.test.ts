@@ -228,6 +228,7 @@ describe('GroupScreen roster', () => {
     expect(wrapper.text()).toContain('Open round');
     expect(wrapper.find('.event-leaders').text()).toContain('Event leaders');
     expect(wrapper.find('.event-leaders').text()).toContain('Contributed points');
+    expect(wrapper.find('.event-leaders').text()).toContain('Closing points');
     expect(wrapper.find('.event-leaders').text()).toContain('Skins won');
     expect(wrapper.find('.event-leaders').text()).toContain('Holes won');
     expect(wrapper.find('.event-leaders').text()).toContain('Best pair record');

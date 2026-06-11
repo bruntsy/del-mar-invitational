@@ -2275,3 +2275,39 @@ the scored match with the largest event-point margin.
 
 - Leave clutch holes / closing points deferred unless a clear, reliable
   definition emerges from existing result data.
+
+---
+
+## Checkpoint 45 — Closing points event leader (2026-06-11)
+
+### Summary
+
+Added a display-only Closing points card to the group dashboard's Event leaders
+section. The card credits players with event points won by their side on
+Back-labeled event components, which gives the optional closing-points callout
+a clear and visible definition.
+
+### Changes
+
+- **`src/components/screens/GroupScreen.vue`** — Event leaders now include
+  **Closing points**, derived from scored `Back` components in existing event
+  result rows. No core scoring logic or persisted data changed.
+- **`tests/screens/group.test.ts`** — Added coverage for the new leader-card
+  label in the scored event dashboard fixture.
+- **`README.md`** — Updated the event dashboard description to list closing
+  points.
+
+### Verification
+
+- `npm run test:run -- tests/screens/group.test.ts` passed.
+- `npm run test:run` passed: 37 files, 341 tests.
+- `npm run build` passed (vue-tsc clean).
+- Browser smoke on `/group` passed in local offline mode: route rendered, no
+  page-level horizontal overflow, no console errors. Event leader cards are
+  covered by the focused Group screen test because the local browser has no
+  Supabase-backed event fixture.
+
+### Next likely tasks
+
+- Keep clutch holes deferred unless a precise, non-fuzzy definition is added to
+  the product spec or exposed directly by scoring output.

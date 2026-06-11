@@ -428,6 +428,10 @@ function componentHoleWins(component: EventComponent): { a: number; b: number } 
   return { a, b };
 }
 
+function isClosingComponent(component: EventComponent): boolean {
+  return /\bBack\b/.test(component.label);
+}
+
 function valuableMatch(roundName: string, row: EventRoundRow): ValuableMatch | null {
   const components = scoredComponents(row);
   if (!components.length) return null;
@@ -457,6 +461,7 @@ function linkedRoundData(roundId: string | null | undefined): LinkedRoundData | 
 const eventLeaderCards = computed<EventLeaderCard[]>(() => {
   if (!eventStore.event) return [];
   const contributed = new Map<string, number>();
+  const closingPoints = new Map<string, number>();
   const holesWon = new Map<string, number>();
   const pairRecords = new Map<string, PairRecord>();
   const skinsWon = new Map<string, number>();
@@ -472,6 +477,10 @@ const eventLeaderCards = computed<EventLeaderCard[]>(() => {
       for (const component of scoredComponents(row)) {
         addTo(contributed, row.aPlayers, component.team1);
         addTo(contributed, row.bPlayers, component.team2);
+        if (isClosingComponent(component)) {
+          addTo(closingPoints, row.aPlayers, component.team1);
+          addTo(closingPoints, row.bPlayers, component.team2);
+        }
         const holeWins = componentHoleWins(component);
         if (holeWins) {
           addTo(holesWon, row.aPlayers, holeWins.a);
@@ -521,6 +530,16 @@ const eventLeaderCards = computed<EventLeaderCard[]>(() => {
       label: 'Contributed points',
       value: pointsLeader[0],
       detail: `${pointsLeader[1]} event pts`,
+    });
+  }
+
+  const closingLeader = topEntry(closingPoints);
+  if (closingLeader) {
+    cards.push({
+      key: 'closing-points',
+      label: 'Closing points',
+      value: closingLeader[0],
+      detail: `${closingLeader[1]} back-nine event pts`,
     });
   }
 

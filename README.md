@@ -697,8 +697,8 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   Totals prefer stored `pointsResult` when set. `GroupScreen.vue` renders the full
   leaderboard: live standings with leading-team highlight, per-round breakdown cards
   with Front/Back/Overall match tables, Launch buttons for unlinked rounds, and
-  event leader cards for contributed points, skins won, holes won, best pair
-  record, most valuable match, and best net average.
+  event leader cards for contributed points, closing points, skins won, holes
+  won, best pair record, most valuable match, and best net average.
 
 ## Realtime Sync
 
