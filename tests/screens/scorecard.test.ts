@@ -144,6 +144,39 @@ describe('ScorecardScreen', () => {
     expect(bayRows[0].find('.total-col').text()).not.toBe('—');
   });
 
+  it('nests a collapsible skins drawer near the scorecard', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.games.skins.enabled = true;
+    round.games.skins.type = 'gross';
+    store.setRound(round, players);
+    store.setScore('Wes', 0, 3);
+    store.setScore('Aaron', 0, 4);
+    store.setScore('Tito', 0, 4);
+    store.setScore('Q', 0, 4);
+    for (const player of ['Wes', 'Aaron', 'Tito', 'Q']) store.setScore(player, 1, 4);
+
+    const wrapper = mountScorecard();
+    await nextTick();
+
+    const drawer = wrapper.find('.skins-drawer');
+    expect(drawer.exists()).toBe(true);
+    expect(drawer.element.compareDocumentPosition(wrapper.find('.sc-table-wrap').element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(drawer.text()).toContain('Skins');
+    expect(drawer.text()).toContain('Wes 1');
+    expect(drawer.find('.skins-drawer-body').exists()).toBe(false);
+
+    await drawer.find('.skins-drawer-toggle').trigger('click');
+    await nextTick();
+
+    expect(drawer.find('.skins-drawer-body').exists()).toBe(true);
+    expect(drawer.text()).toContain('Front 9');
+    expect(drawer.text()).toContain('Hole 1');
+    expect(drawer.text()).toContain('Wes');
+    expect(drawer.text()).toContain('Par 4 · Gross birdie');
+    expect(drawer.find('.skins-drawer-tile.tied').text()).toContain('Par 5 · No skin');
+  });
+
   it('renders scramble team rows and writes team scores', async () => {
     const store = useRoundStore();
     const { round, players } = demoRound();

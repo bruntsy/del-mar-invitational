@@ -13,6 +13,7 @@ import { buildHighBallLowBallConfig, scoreHighBallLowBall, type HighBallLowBallR
 import { buildTwoManScrambleConfig, scoreTwoManScramble, twoManScrambleTeamKey, type TwoManScrambleResult, type TwoManScrambleSegmentResult } from '@/scoring/twoManScramble';
 import { useEventStore } from '@/stores/event';
 import { useRoundStore } from '@/stores/round';
+import type { SkinHoleResult } from '@/scoring/skins';
 
 const store = useRoundStore();
 const eventStore = useEventStore();
@@ -38,6 +39,7 @@ const expandedPutts = reactive<Record<string, boolean>>({});
 function togglePutts(player: string) {
   expandedPutts[player] = !expandedPutts[player];
 }
+const skinsDrawerOpen = ref(false);
 
 const course = computed(() => store.course);
 const par = computed(() => course.value?.par ?? []);
@@ -208,6 +210,23 @@ function puttSum(player: string, start: number, end: number): number | null {
 const puttPokerEnabled = computed(() => store.games.puttPoker.enabled);
 const scrambleEnabled = computed(() => store.games.scramble4.enabled);
 const twoManScrambleEnabled = computed(() => store.games.twoManScramble.enabled);
+const skinsEnabled = computed(() => store.games.skins.enabled);
+const skinBasisLabel = computed(() => (store.games.skins.type === 'gross' ? 'Gross' : 'Net'));
+const skinHoles = computed(() => store.skins.holeResults);
+const skinsSummary = computed(() =>
+  Object.entries(store.skins.skinsByPlayer)
+    .filter(([, skins]) => skins > 0)
+    .sort(([, a], [, b]) => b - a),
+);
+const skinsSummaryText = computed(() => {
+  if (!skinHoles.value.length) return 'No completed holes yet';
+  if (!skinsSummary.value.length) return 'No skins won yet';
+  return skinsSummary.value.map(([player, skins]) => `${player} ${skins}`).join(' · ');
+});
+const skinRows = computed(() => [
+  { label: 'Front 9', holes: skinHoles.value.filter((hole) => hole.hole <= 9) },
+  { label: 'Back 9', holes: skinHoles.value.filter((hole) => hole.hole > 9) },
+]);
 
 /** One entry per pair match, each with its two team-score rows (keys + labels). */
 const twoManScrambleMatches = computed(() => {
@@ -225,6 +244,32 @@ const twoManScrambleMatches = computed(() => {
 
 function holeWinnerClass(_hole: number): string {
   return '';
+}
+
+function skinPar(hole: number): number | null {
+  return par.value[hole - 1] ?? null;
+}
+
+function skinScoreToPar(hole: SkinHoleResult): string {
+  const holePar = skinPar(hole.hole);
+  if (hole.tied || !hole.winner || holePar == null) return 'No skin';
+  const score = hole.effectiveScores[hole.winner];
+  if (score == null) return 'Skin won';
+  const diff = score - holePar;
+  const scoreWord =
+    diff <= -3 ? 'albatross' :
+    diff === -2 ? 'eagle' :
+    diff === -1 ? 'birdie' :
+    diff === 0 ? 'par' :
+    diff === 1 ? 'bogey' :
+    diff === 2 ? 'double bogey' :
+    `${diff} over`;
+  return `${skinBasisLabel.value} ${scoreWord}`;
+}
+
+function skinDetailLabel(hole: SkinHoleResult): string {
+  const holePar = skinPar(hole.hole);
+  return [holePar == null ? null : `Par ${holePar}`, skinScoreToPar(hole)].filter(Boolean).join(' · ');
 }
 
 // ── Match-play visibility (BB+Aggy, High/Low, Two-Man Scramble) ───────────────
@@ -941,6 +986,31 @@ const mobileMatchSummaries = computed(() =>
         <span><i class="mobile-stroke-dot">●</i> Dot = stroke received</span>
         <span><strong>SKN</strong> = skins won</span>
       </div>
+
+      <section v-if="skinsEnabled && (!holeView || fullScorecardOpen)" class="skins-drawer">
+        <button class="skins-drawer-toggle" type="button" @click="skinsDrawerOpen = !skinsDrawerOpen">
+          <span>
+            <strong>Skins</strong>
+            <em>{{ skinsSummaryText }}</em>
+          </span>
+          <b>{{ skinsDrawerOpen ? 'Hide' : 'View' }}</b>
+        </button>
+        <div v-if="skinsDrawerOpen" class="skins-drawer-body" aria-label="Scorecard skins breakdown">
+          <p v-if="!skinHoles.length" class="skins-empty">No completed holes yet.</p>
+          <template v-else>
+            <div v-for="row in skinRows" :key="row.label" class="skins-drawer-row">
+              <h2>{{ row.label }}</h2>
+              <div class="skins-drawer-grid">
+                <div v-for="hole in row.holes" :key="hole.hole" class="skins-drawer-tile" :class="{ tied: hole.tied }">
+                  <span>Hole {{ hole.hole }}</span>
+                  <strong>{{ hole.tied ? 'Tied' : hole.winner }}</strong>
+                  <em>{{ skinDetailLabel(hole) }}</em>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </section>
 
       <div v-if="!holeView || fullScorecardOpen" class="sc-table-wrap">
         <table class="sc-table">
@@ -2380,6 +2450,126 @@ const mobileMatchSummaries = computed(() =>
   gap: 5px;
 }
 
+.skins-drawer {
+  margin: -4px 0 14px;
+  border: 1px solid #d7cebd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  overflow: hidden;
+}
+
+.skins-drawer-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 0;
+  background: #fffdf7;
+  padding: 10px 12px;
+  color: #24362c;
+  text-align: left;
+  cursor: pointer;
+}
+
+.skins-drawer-toggle span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.skins-drawer-toggle strong {
+  color: #8a672f;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.skins-drawer-toggle em {
+  color: #4a5a4f;
+  font-size: 0.86rem;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.skins-drawer-toggle b {
+  flex: 0 0 auto;
+  border: 1px solid #d7cebd;
+  border-radius: 999px;
+  background: #f8f4ea;
+  color: #2f5d43;
+  padding: 4px 10px;
+  font-size: 0.74rem;
+}
+
+.skins-drawer-body {
+  display: grid;
+  gap: 14px;
+  border-top: 1px solid #e4ddcd;
+  padding: 12px;
+}
+
+.skins-empty {
+  margin: 0;
+  color: #6a7a6f;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.skins-drawer-row h2 {
+  margin: 0 0 8px;
+  color: #24362c;
+  font-size: 0.84rem;
+}
+
+.skins-drawer-grid {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(74px, 1fr));
+  gap: 7px;
+}
+
+.skins-drawer-tile {
+  display: grid;
+  align-content: center;
+  min-height: 78px;
+  border: 1px solid #d7cebd;
+  border-radius: 6px;
+  background: #fffdf7;
+  padding: 7px;
+  text-align: center;
+}
+
+.skins-drawer-tile.tied {
+  background: #f4efe4;
+  opacity: 0.76;
+}
+
+.skins-drawer-tile span {
+  color: #9aa49a;
+  font-size: 0.6rem;
+  font-weight: 800;
+}
+
+.skins-drawer-tile strong {
+  color: #2f5d43;
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.skins-drawer-tile.tied strong {
+  color: #8a672f;
+}
+
+.skins-drawer-tile em {
+  margin-top: 3px;
+  color: #6a7a6f;
+  font-size: 0.66rem;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.18;
+}
+
 .legend-dot {
   width: 10px;
   height: 10px;
@@ -2723,6 +2913,18 @@ const mobileMatchSummaries = computed(() =>
 
   .pp-group {
     min-width: 0;
+  }
+
+  .skins-drawer-toggle {
+    align-items: flex-start;
+  }
+
+  .skins-drawer-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .skins-drawer-tile {
+    min-height: 82px;
   }
 
   .sc-topbar-actions .btn-primary,
