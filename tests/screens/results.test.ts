@@ -111,6 +111,26 @@ describe('ResultsScreen', () => {
     expect(winner.exists()).toBe(true);
     expect(winner.text()).toContain('Bay Cats');
     expect(winner.text()).toContain('Winners');
+    expect(winner.classes()).toContain('team-a');
+    expect(winner.find('.result-badge.status-win.team-a').text()).toBe('Winners');
+    expect(wrapper.find('.team-box.team-b .result-badge.status-open').text()).toBe('Runner-up');
+  });
+
+  it('adds side-aware result badges to team game result cards', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    store.setRound(round, players);
+    fillCard(store, 'Wes', 4);
+    fillCard(store, 'Aaron', 4);
+    fillCard(store, 'Tito', 6);
+    fillCard(store, 'Q', 6);
+
+    const wrapper = mountResults();
+    await nextTick();
+
+    expect(wrapper.find('.fc-box.team-a.winner').exists()).toBe(true);
+    expect(wrapper.find('.fc-box.team-a .result-badge.status-win.team-a').text()).toBe('Winning');
+    expect(wrapper.find('.fc-box.team-b .result-badge.status-open').text()).toBe('Trailing');
   });
 
   it('does not lead match-play team games with stroke-total team scores', async () => {
@@ -172,6 +192,7 @@ describe('ResultsScreen', () => {
     expect(wrapper.find('.hbl-card').text()).toContain('Wes + Aaron wins');
     expect(wrapper.findAll('.hbl-segment')).toHaveLength(6);
     expect(wrapper.find('.hbl-segment').text()).toMatch(/^Front/);
+    expect(wrapper.find('.hbl-card .result-badge.status-win.team-a').text()).toContain('Wes + Aaron wins');
     expect(wrapper.text()).not.toContain('Segment ·');
     expect(wrapper.findAll('.hbl-toggle')).toHaveLength(2);
     expect(wrapper.find('.hbl-timeline').exists()).toBe(false);

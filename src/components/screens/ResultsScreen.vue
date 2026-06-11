@@ -187,6 +187,8 @@ interface HblContestDisplay {
   key: 'lowBall' | 'highBall';
   label: string;
   status: string;
+  statusState: 'win' | 'push' | 'open';
+  winnerSide: 'a' | 'b' | null;
   segments: SegmentDisplayRow[];
   holes: HblHoleDisplay[];
 }
@@ -233,6 +235,14 @@ function matchStatusLabel(winners: HoleWinner[], aName: string, bName: string): 
   return status.decided ? `${leader} wins ${status.label}` : `${leader} ${status.label.toLowerCase()}`;
 }
 
+function matchStatusState(winners: HoleWinner[]): { statusState: 'win' | 'push' | 'open'; winnerSide: 'a' | 'b' | null } {
+  const status = finalMatchStatus(winners, { closeout: true });
+  if (status.label === 'Pending') return { statusState: 'open', winnerSide: null };
+  if (status.leader === null) return { statusState: 'push', winnerSide: null };
+  if (status.leader !== 'a' && status.leader !== 'b') return { statusState: 'push', winnerSide: null };
+  return { statusState: 'win', winnerSide: status.leader };
+}
+
 function segmentSummaryLabel(row: SegmentDisplayRow, aName: string, bName: string): string {
   if (row.status === 'open') return 'In progress';
   if (row.status === 'push') return 'Push';
@@ -272,11 +282,13 @@ function hblContest(
   const winners = match.holeResults.map((hole) =>
     holeWinnerSide(hole[winnerKey], hole[tiedKey], hole.incomplete, aId),
   );
+  const finalStatus = matchStatusState(winners);
   const statuses = runningMatchStatus(winners, { closeout: true });
   return {
     key,
     label,
     status: matchStatusLabel(winners, aName, bName),
+    ...finalStatus,
     segments: rows,
     holes: match.holeResults.map((hole, index) => {
       const winner = winners[index];
@@ -427,6 +439,56 @@ function segmentClass(segment: SegmentDisplayRow): string[] {
   return [`status-${segment.status}`, segment.winnerSide ? `winner-${segment.winnerSide}` : 'winner-none'];
 }
 
+function resultBadgeClass(status: 'win' | 'push' | 'open', winnerSide?: 'a' | 'b' | null): string[] {
+  return ['result-badge', `status-${status}`, winnerSide ? `team-${winnerSide}` : 'team-neutral'];
+}
+
+function teamBoxClass(side: 'a' | 'b', winner: boolean): Record<string, boolean> {
+  return { [`team-${side}`]: true, winner };
+}
+
+function teamScoreBadge(side: 'a' | 'b'): string {
+  if (!teamOutcome.value.decided) return 'In progress';
+  if (teamOutcome.value.tied) return 'Push';
+  return side === 'a'
+    ? teamOutcome.value.t1Win ? 'Winners' : 'Runner-up'
+    : teamOutcome.value.t2Win ? 'Winners' : 'Runner-up';
+}
+
+function teamScoreBadgeClass(side: 'a' | 'b'): string[] {
+  if (!teamOutcome.value.decided) return resultBadgeClass('open');
+  if (teamOutcome.value.tied) return resultBadgeClass('push');
+  const won = side === 'a' ? teamOutcome.value.t1Win : teamOutcome.value.t2Win;
+  return resultBadgeClass(won ? 'win' : 'open', won ? side : null);
+}
+
+function lowerScoreWinner(a: number | null | undefined, b: number | null | undefined): 'a' | 'b' | 'push' | 'open' {
+  if (a == null || b == null) return 'open';
+  if (a === b) return 'push';
+  return a < b ? 'a' : 'b';
+}
+
+function teamGameSideClass(game: { team1: { total: number | null }; team2: { total: number | null } }, side: 'a' | 'b'): string[] {
+  const winner = lowerScoreWinner(game.team1.total, game.team2.total);
+  return [`team-${side}`, winner === side ? 'winner' : '', winner === 'push' ? 'pushed' : ''].filter(
+    (value): value is string => Boolean(value),
+  );
+}
+
+function teamGameBadge(game: { team1: { total: number | null }; team2: { total: number | null } }, side: 'a' | 'b'): string {
+  const winner = lowerScoreWinner(game.team1.total, game.team2.total);
+  if (winner === 'open') return 'In progress';
+  if (winner === 'push') return 'Push';
+  return winner === side ? 'Winning' : 'Trailing';
+}
+
+function teamGameBadgeClass(game: { team1: { total: number | null }; team2: { total: number | null } }, side: 'a' | 'b'): string[] {
+  const winner = lowerScoreWinner(game.team1.total, game.team2.total);
+  if (winner === 'push') return resultBadgeClass('push');
+  if (winner === 'open' || winner !== side) return resultBadgeClass('open');
+  return resultBadgeClass('win', side);
+}
+
 function dash(value: number | null | undefined): string {
   return value == null ? '—' : String(value);
 }
@@ -530,11 +592,11 @@ function goGroup() {
         </div>
         <div v-if="eventRoundSummary" class="round-points-card" aria-label="Round points">
           <span>Round points</span>
-          <div>
+          <div class="round-points-row team-a">
             <strong>{{ eventRoundSummary.team1Name }}</strong>
             <b>{{ eventRoundSummary.team1 }}</b>
           </div>
-          <div>
+          <div class="round-points-row team-b">
             <strong>{{ eventRoundSummary.team2Name }}</strong>
             <b>{{ eventRoundSummary.team2 }}</b>
           </div>
@@ -551,22 +613,18 @@ function goGroup() {
       <section v-if="!hasPrimaryMatchPlayGame" class="rs-section">
         <h2 class="rs-section-hdr">Team Scores</h2>
         <div class="team-grid">
-          <div class="team-box" :class="{ winner: teamOutcome.t1Win }">
+          <div class="team-box" :class="teamBoxClass('a', teamOutcome.t1Win)">
             <div class="tb-label">{{ teamNames.team1 }}</div>
             <div class="tb-members">{{ teamMembers.team1.join(', ') }}</div>
             <div class="tb-score" :class="{ 'winner-score': teamOutcome.t1Win }">{{ dash(teamNet.team1) }}</div>
-            <div class="tb-tag" :class="{ 'winner-tag': teamOutcome.t1Win }">
-              {{ teamOutcome.t1Win ? 'Winners' : teamNet.team1 == null ? 'In progress' : '' }}
-            </div>
+            <div :class="teamScoreBadgeClass('a')">{{ teamScoreBadge('a') }}</div>
           </div>
           <div class="team-vs">vs</div>
-          <div class="team-box" :class="{ winner: teamOutcome.t2Win }">
+          <div class="team-box" :class="teamBoxClass('b', teamOutcome.t2Win)">
             <div class="tb-label">{{ teamNames.team2 }}</div>
             <div class="tb-members">{{ teamMembers.team2.join(', ') }}</div>
             <div class="tb-score" :class="{ 'winner-score': teamOutcome.t2Win }">{{ dash(teamNet.team2) }}</div>
-            <div class="tb-tag" :class="{ 'winner-tag': teamOutcome.t2Win }">
-              {{ teamOutcome.t2Win ? 'Winners' : teamOutcome.tied ? 'All square' : teamNet.team2 == null ? 'In progress' : '' }}
-            </div>
+            <div :class="teamScoreBadgeClass('b')">{{ teamScoreBadge('b') }}</div>
           </div>
         </div>
       </section>
@@ -627,7 +685,7 @@ function goGroup() {
         <div v-for="game in teamGameResults" :key="game.key" class="fc-game">
           <div class="fc-game-label">{{ game.label }} <span class="fc-type">{{ game.type }}</span></div>
           <div class="fc-grid">
-            <div class="fc-box">
+            <div class="fc-box" :class="teamGameSideClass(game, 'a')">
               <div class="fc-team">{{ teamNames.team1 }}</div>
               <div class="fc-split">
                 <div><span class="fc-sub">Front</span><span class="fc-val">{{ dash(game.team1.front) }}</span></div>
@@ -635,9 +693,10 @@ function goGroup() {
               </div>
               <div class="fc-total-label">Total</div>
               <div class="fc-score">{{ dash(game.team1.total) }}</div>
+              <div :class="teamGameBadgeClass(game, 'a')">{{ teamGameBadge(game, 'a') }}</div>
             </div>
             <div class="fc-vs">vs</div>
-            <div class="fc-box">
+            <div class="fc-box" :class="teamGameSideClass(game, 'b')">
               <div class="fc-team">{{ teamNames.team2 }}</div>
               <div class="fc-split">
                 <div><span class="fc-sub">Front</span><span class="fc-val">{{ dash(game.team2.front) }}</span></div>
@@ -645,6 +704,7 @@ function goGroup() {
               </div>
               <div class="fc-total-label">Total</div>
               <div class="fc-score">{{ dash(game.team2.total) }}</div>
+              <div :class="teamGameBadgeClass(game, 'b')">{{ teamGameBadge(game, 'b') }}</div>
             </div>
           </div>
         </div>
@@ -675,7 +735,9 @@ function goGroup() {
                 </td>
                 <td :class="{ 'bba-win': row.winnerSide === 'a' }">{{ dash(row.a) }}</td>
                 <td :class="{ 'bba-win': row.winnerSide === 'b' }">{{ dash(row.b) }}</td>
-                <td class="bba-result">{{ outcomeLabel(row, match.aName, match.bName) }}</td>
+                <td class="bba-result">
+                  <span :class="resultBadgeClass(row.status, row.winnerSide)">{{ outcomeLabel(row, match.aName, match.bName) }}</span>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -700,7 +762,7 @@ function goGroup() {
                   <h3>{{ contest.label }}</h3>
                   <p>{{ contest.status }}</p>
                 </div>
-                <span class="hbl-status" :class="{ pending: contest.status === 'In progress' }">{{ contest.status }}</span>
+                <span :class="resultBadgeClass(contest.statusState, contest.winnerSide)">{{ contest.status }}</span>
               </div>
 
               <div class="hbl-segments">
@@ -711,7 +773,11 @@ function goGroup() {
                   :class="segmentClass(segment)"
                 >
                   <span>{{ segment.label }}</span>
-                  <strong>{{ segmentSummaryLabel(segment, match.aName, match.bName) }}</strong>
+                  <strong>
+                    <span :class="resultBadgeClass(segment.status, segment.winnerSide)">
+                      {{ segmentSummaryLabel(segment, match.aName, match.bName) }}
+                    </span>
+                  </strong>
                 </div>
               </div>
 
@@ -766,7 +832,9 @@ function goGroup() {
                 <td class="bba-bet">{{ row.label }}</td>
                 <td :class="{ 'bba-win': row.winnerSide === 'a' }">{{ dash(row.a) }}</td>
                 <td :class="{ 'bba-win': row.winnerSide === 'b' }">{{ dash(row.b) }}</td>
-                <td class="bba-result">{{ outcomeLabel(row, match.aName, match.bName) }}</td>
+                <td class="bba-result">
+                  <span :class="resultBadgeClass(row.status, row.winnerSide)">{{ outcomeLabel(row, match.aName, match.bName) }}</span>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -968,16 +1036,43 @@ function goGroup() {
   text-transform: uppercase;
 }
 
-.round-points-card div {
+.round-points-card .round-points-row {
   display: flex;
   justify-content: space-between;
   gap: 18px;
+  border-left: 3px solid transparent;
+  padding-left: 8px;
   color: #24362c;
   font-size: 0.86rem;
 }
 
+.round-points-row + .round-points-row {
+  margin-top: 3px;
+}
+
+.team-a {
+  --team-accent: #2f5d43;
+  --team-accent-soft: #e8f0e8;
+  --team-accent-border: #92b99b;
+}
+
+.team-b {
+  --team-accent: #9f3f2d;
+  --team-accent-soft: #faebe6;
+  --team-accent-border: #d8a18e;
+}
+
+.round-points-row.team-a,
+.round-points-row.team-b {
+  border-left-color: var(--team-accent);
+}
+
 .round-points-card b {
   color: #2f5d43;
+}
+
+.round-points-row.team-b b {
+  color: #9f3f2d;
 }
 
 .rs-actions {
@@ -1026,17 +1121,18 @@ function goGroup() {
   border-radius: 8px;
   background: #fdfbf4;
   padding: 16px 12px;
+  box-shadow: 4px 0 0 var(--team-accent, transparent) inset;
 }
 
 .team-box.winner {
-  border-color: #c9a14a;
-  background: #fcf6e6;
-  box-shadow: 0 0 0 1px #c9a14a inset;
+  border-color: var(--team-accent-border);
+  background: var(--team-accent-soft);
+  box-shadow: 4px 0 0 var(--team-accent) inset, 0 0 0 1px var(--team-accent-border) inset;
 }
 
 .tb-label {
   font-weight: 700;
-  color: #2f5d43;
+  color: var(--team-accent, #2f5d43);
 }
 
 .tb-members {
@@ -1052,17 +1148,47 @@ function goGroup() {
   line-height: 1;
 }
 
-.tb-score.winner-score { color: #b08416; }
+.tb-score.winner-score { color: var(--team-accent, #b08416); }
 
-.tb-tag {
+.result-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  min-height: 24px;
+  border: 1px solid #d7cebd;
+  border-radius: 999px;
+  background: #f4efe4;
+  color: #6a7a6f;
+  padding: 3px 9px;
   font-size: 0.72rem;
-  color: #8a9489;
-  margin-top: 4px;
-  font-style: italic;
-  min-height: 1em;
+  font-weight: 900;
+  line-height: 1.15;
+  text-align: center;
+  white-space: normal;
 }
 
-.tb-tag.winner-tag { color: #b08416; font-weight: 700; font-style: normal; }
+.result-badge.status-win.team-a {
+  border-color: #92b99b;
+  background: #e8f0e8;
+  color: #2f5d43;
+}
+
+.result-badge.status-win.team-b {
+  border-color: #d8a18e;
+  background: #faebe6;
+  color: #9f3f2d;
+}
+
+.result-badge.status-push {
+  border-color: #d7c08f;
+  background: #fbf6ea;
+  color: #8a672f;
+}
+
+.result-badge.status-open {
+  color: #7a8a7e;
+}
 
 .team-vs {
   color: #9aa49a;
@@ -1190,22 +1316,12 @@ function goGroup() {
 }
 
 .bba-table .bba-result {
-  font-weight: 700;
-  color: #2f5d43;
+  min-width: 120px;
 }
 
 .bba-table .bba-win {
   font-weight: 800;
   color: #2f5d43;
-}
-
-.bba-table tr.status-push .bba-result {
-  color: #8a672f;
-}
-
-.bba-table tr.status-open .bba-result {
-  color: #9aa49a;
-  font-weight: 600;
 }
 
 .bba-error {
@@ -1256,21 +1372,6 @@ function goGroup() {
   font-weight: 800;
 }
 
-.hbl-status {
-  border-radius: 999px;
-  background: #e8f0e8;
-  color: #2f5d43;
-  padding: 4px 9px;
-  font-size: 0.72rem;
-  font-weight: 900;
-  white-space: nowrap;
-}
-
-.hbl-status.pending {
-  background: #ece8da;
-  color: #8a672f;
-}
-
 .hbl-segments {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1296,8 +1397,6 @@ function goGroup() {
 .hbl-segment strong {
   display: block;
   margin-top: 3px;
-  color: #24362c;
-  font-size: 0.86rem;
 }
 
 .hbl-segment.status-win {
@@ -1498,14 +1597,28 @@ function goGroup() {
   padding: 14px;
 }
 
-.fc-box { flex: 1; text-align: center; }
+.fc-box {
+  flex: 1;
+  text-align: center;
+  border-radius: 8px;
+  padding: 10px 8px;
+  box-shadow: 4px 0 0 var(--team-accent, transparent) inset;
+}
+
+.fc-box.winner {
+  background: var(--team-accent-soft);
+}
+
+.fc-box.pushed {
+  background: #fbf6ea;
+}
 
 .fc-team {
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #6a7a6f;
+  color: var(--team-accent, #6a7a6f);
   margin-bottom: 8px;
 }
 
