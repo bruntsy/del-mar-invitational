@@ -217,8 +217,8 @@ const twoManScrambleMatches = computed(() => {
     index,
     label: `Match ${index + 1}`,
     teams: [
-      { key: `match_${index}_a`, name: (match.a ?? []).join(' + ') || 'Team A' },
-      { key: `match_${index}_b`, name: (match.b ?? []).join(' + ') || 'Team B' },
+      { key: twoManScrambleTeamKey(index, 'a'), name: (match.a ?? []).join(' + ') || 'Team A', players: match.a ?? [] },
+      { key: twoManScrambleTeamKey(index, 'b'), name: (match.b ?? []).join(' + ') || 'Team B', players: match.b ?? [] },
     ],
   }));
 });
@@ -602,6 +602,12 @@ const activeGroupPlayers = computed<Set<string>>(() => {
   return new Set(playingGroups.value[selectedGroupIndex.value]?.players ?? []);
 });
 
+const visibleTwoManScrambleMatches = computed(() =>
+  twoManScrambleMatches.value.filter((match) =>
+    match.teams.some((team) => team.players.some((player) => activeGroupPlayers.value.has(player))),
+  ),
+);
+
 const activeMobileGroup = computed(() => {
   if (!holeView.value || playingGroups.value.length <= 1) return null;
   const index = selectedGroupIndex.value >= 0 ? selectedGroupIndex.value : 0;
@@ -700,6 +706,12 @@ function adjustScore(player: string, delta: number) {
   store.setScore(player, mobileHole.value, next);
 }
 
+function adjustTeamScore(teamKey: string, delta: number) {
+  const current = store.readTeamScore(teamKey, mobileHole.value) ?? 0;
+  const next = Math.max(1, current + delta);
+  store.setTeamScore(teamKey, mobileHole.value, next);
+}
+
 function adjustPutt(player: string, delta: number) {
   const current = store.readPutt(player, mobileHole.value) ?? 0;
   const next = Math.max(0, current + delta);
@@ -714,6 +726,12 @@ const mobilePlayers = computed(() => {
   }
   return store.playerNames;
 });
+
+const mobileScrambleTeams = computed(() =>
+  visibleTwoManScrambleMatches.value.flatMap((match) =>
+    match.teams.filter((team) => team.players.some((player) => activeGroupPlayers.value.has(player))),
+  ),
+);
 
 const mobileMatchSummaries = computed(() =>
   matchPlayPanels.value.flatMap((panel) =>
@@ -808,12 +826,45 @@ const mobileMatchSummaries = computed(() =>
         </div>
 
         <div class="mobile-score-key">
-          <span><i class="mobile-stroke-dot">●</i> Stroke hole</span>
+          <template v-if="twoManScrambleEnabled">
+            <span>Two-Man Scramble: one team score per side</span>
+            <span>Gross team score</span>
+          </template>
+          <template v-else>
+            <span><i class="mobile-stroke-dot">●</i> Stroke hole</span>
+          </template>
           <span>Green = birdie</span>
           <span>Red = bogey or worse</span>
         </div>
 
-        <div class="mobile-players">
+        <div v-if="twoManScrambleEnabled" class="mobile-players">
+          <div v-for="team in mobileScrambleTeams" :key="team.key" class="mobile-player-row mobile-scramble-row">
+            <div class="mobile-player-meta">
+              <div class="mobile-player-name">{{ team.name }}</div>
+              <div class="mobile-player-hcp">Scramble team</div>
+            </div>
+            <div class="mobile-score-block">
+              <div class="mobile-field-label">Team score</div>
+              <div class="mobile-stepper" :class="scoreColorClass(store.readTeamScore(team.key, mobileHole), par[mobileHole])">
+                <button class="stepper-btn" type="button" @click="adjustTeamScore(team.key, -1)">−</button>
+                <input
+                  type="number"
+                  inputmode="numeric"
+                  min="1"
+                  max="20"
+                  class="mobile-score-input"
+                  :value="store.readTeamScore(team.key, mobileHole) ?? ''"
+                  @input="onTeamScoreInput(team.key, mobileHole, ($event.target as HTMLInputElement).value)"
+                  @focus="($event.target as HTMLInputElement).select()"
+                />
+                <button class="stepper-btn" type="button" @click="adjustTeamScore(team.key, 1)">+</button>
+              </div>
+              <div v-if="store.readTeamScore(team.key, mobileHole) == null" class="mobile-field-error">Missing</div>
+            </div>
+          </div>
+        </div>
+
+        <div v-else class="mobile-players">
           <div v-for="player in mobilePlayers" :key="player" class="mobile-player-row">
             <div class="mobile-player-meta">
               <div class="mobile-player-name">{{ player }}</div>
@@ -866,7 +917,12 @@ const mobileMatchSummaries = computed(() =>
             v-for="h in HOLES"
             :key="`strip-${h}`"
             class="strip-btn"
-            :class="{ active: mobileHole === h, filled: mobilePlayers.some(p => store.readScore(p, h) != null) }"
+            :class="{
+              active: mobileHole === h,
+              filled: twoManScrambleEnabled
+                ? mobileScrambleTeams.some(team => store.readTeamScore(team.key, h) != null)
+                : mobilePlayers.some(p => store.readScore(p, h) != null)
+            }"
             type="button"
             @click="mobileHole = h"
           >{{ h + 1 }}</button>
@@ -918,6 +974,55 @@ const mobileMatchSummaries = computed(() =>
             </tr>
           </thead>
           <tbody>
+            <template v-if="twoManScrambleEnabled">
+              <template v-for="match in visibleTwoManScrambleMatches" :key="`tms-main-${match.index}`">
+                <tr class="row-team-divider">
+                  <td :colspan="24">{{ match.label }} — Two-Man Scramble</td>
+                </tr>
+                <tr v-for="team in match.teams" :key="team.key" class="row-format">
+                  <td class="name-cell">
+                    <div class="fmt-row-label">{{ team.name }}</div>
+                    <div class="fmt-row-sub">Scramble team score</div>
+                  </td>
+                  <template v-for="h in FRONT" :key="`tms-main-f-${team.key}-${h}`">
+                    <td class="score-cell" :class="scoreColorClass(store.readTeamScore(team.key, h), par[h])">
+                      <div class="sc-cell-inner">
+                        <input
+                          type="number"
+                          inputmode="numeric"
+                          min="1"
+                          max="20"
+                          :value="store.readTeamScore(team.key, h) ?? ''"
+                          @input="onTeamScoreInput(team.key, h, ($event.target as HTMLInputElement).value)"
+                          @focus="($event.target as HTMLInputElement).select()"
+                        />
+                      </div>
+                    </td>
+                  </template>
+                  <td class="sum-cell out-col">{{ dash(teamScoreSum(team.key, 0, 9)) }}</td>
+                  <template v-for="h in BACK" :key="`tms-main-b-${team.key}-${h}`">
+                    <td class="score-cell" :class="scoreColorClass(store.readTeamScore(team.key, h), par[h])">
+                      <div class="sc-cell-inner">
+                        <input
+                          type="number"
+                          inputmode="numeric"
+                          min="1"
+                          max="20"
+                          :value="store.readTeamScore(team.key, h) ?? ''"
+                          @input="onTeamScoreInput(team.key, h, ($event.target as HTMLInputElement).value)"
+                          @focus="($event.target as HTMLInputElement).select()"
+                        />
+                      </div>
+                    </td>
+                  </template>
+                  <td class="sum-cell in-col">{{ dash(teamScoreSum(team.key, 9, 18)) }}</td>
+                  <td class="sum-cell total-col">{{ dash(teamScoreSum(team.key, 0, 18)) }}</td>
+                  <td class="sum-cell net-col">—</td>
+                  <td class="sum-cell skins-col">—</td>
+                </tr>
+              </template>
+            </template>
+            <template v-else>
             <template v-for="section in displaySections" :key="section.key">
               <!-- Group header (group mode only) -->
               <tr v-if="section.type === 'groupHeader'" class="row-group-divider">
@@ -1083,6 +1188,7 @@ const mobileMatchSummaries = computed(() =>
               </tr>
               </template><!-- end teamSection -->
             </template><!-- end displaySections loop -->
+            </template>
           </tbody>
         </table>
       </div><!-- end sc-table-wrap -->
@@ -1181,71 +1287,6 @@ const mobileMatchSummaries = computed(() =>
                 </table>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section v-if="twoManScrambleEnabled" class="tms-live">
-        <div class="tms-live-title">
-          <span>Two-Man Scramble</span>
-          <span class="tms-live-sub">Team score per hole (gross)</span>
-        </div>
-        <div v-for="match in twoManScrambleMatches" :key="`tms-${match.index}`" class="tms-match">
-          <div class="tms-match-label">{{ match.label }}</div>
-          <div class="sc-table-wrap">
-            <table class="sc-table">
-              <thead>
-                <tr class="row-holes">
-                  <th class="col-name">Team</th>
-                  <th v-for="h in FRONT" :key="`tmsf-${match.index}-${h}`">{{ h + 1 }}</th>
-                  <th class="col-out">OUT</th>
-                  <th v-for="h in BACK" :key="`tmsb-${match.index}-${h}`">{{ h + 1 }}</th>
-                  <th class="col-in">IN</th>
-                  <th>TOT</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="team in match.teams" :key="team.key" class="row-format">
-                  <td class="name-cell">
-                    <div class="fmt-row-label">{{ team.name }}</div>
-                    <div class="fmt-row-sub">Scramble</div>
-                  </td>
-                  <template v-for="h in FRONT" :key="`tmsf-cell-${team.key}-${h}`">
-                    <td class="score-cell" :class="scoreColorClass(store.readTeamScore(team.key, h), par[h])">
-                      <div class="sc-cell-inner">
-                        <input
-                          type="number"
-                          inputmode="numeric"
-                          min="1"
-                          max="20"
-                          :value="store.readTeamScore(team.key, h) ?? ''"
-                          @input="onTeamScoreInput(team.key, h, ($event.target as HTMLInputElement).value)"
-                          @focus="($event.target as HTMLInputElement).select()"
-                        />
-                      </div>
-                    </td>
-                  </template>
-                  <td class="sum-cell out-col">{{ dash(teamScoreSum(team.key, 0, 9)) }}</td>
-                  <template v-for="h in BACK" :key="`tmsb-cell-${team.key}-${h}`">
-                    <td class="score-cell" :class="scoreColorClass(store.readTeamScore(team.key, h), par[h])">
-                      <div class="sc-cell-inner">
-                        <input
-                          type="number"
-                          inputmode="numeric"
-                          min="1"
-                          max="20"
-                          :value="store.readTeamScore(team.key, h) ?? ''"
-                          @input="onTeamScoreInput(team.key, h, ($event.target as HTMLInputElement).value)"
-                          @focus="($event.target as HTMLInputElement).select()"
-                        />
-                      </div>
-                    </td>
-                  </template>
-                  <td class="sum-cell in-col">{{ dash(teamScoreSum(team.key, 9, 18)) }}</td>
-                  <td class="sum-cell total-col">{{ dash(teamScoreSum(team.key, 0, 18)) }}</td>
-                </tr>
-              </tbody>
-            </table>
           </div>
         </div>
       </section>
@@ -1966,39 +2007,6 @@ const mobileMatchSummaries = computed(() =>
   border-radius: 8px;
   background: #f8f4ea;
   padding: 16px 20px;
-}
-
-.tms-live {
-  margin-top: 24px;
-  border: 1px solid #d7cebd;
-  border-radius: 8px;
-  background: #f8f4ea;
-  padding: 16px 20px;
-}
-
-.tms-live-title {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  font-weight: 800;
-  color: #24362c;
-  margin-bottom: 12px;
-}
-
-.tms-live-sub {
-  color: #8a672f;
-  font-weight: 600;
-}
-
-.tms-match + .tms-match {
-  margin-top: 16px;
-}
-
-.tms-match-label {
-  font-weight: 700;
-  color: #3a4a40;
-  margin-bottom: 6px;
 }
 
 .pair-live-title {

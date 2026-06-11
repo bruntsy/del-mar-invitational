@@ -6,6 +6,7 @@ import ScorecardScreen from '@/components/screens/ScorecardScreen.vue';
 import { defaultEventConfig } from '@/domain/events';
 import { cloneDefaultGames } from '@/domain/games';
 import { demoRound } from '@/fixtures/demoRound';
+import { twoManScrambleTeamKey } from '@/scoring/twoManScramble';
 import { useEventStore } from '@/stores/event';
 import { useRoundStore } from '@/stores/round';
 
@@ -164,6 +165,29 @@ describe('ScorecardScreen', () => {
     await nextTick();
 
     expect(firstTeamRow!.find('.total-col').text()).toBe('72');
+  });
+
+  it('renders two-man scramble pair rows in the main scorecard and writes team scores', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.games = cloneDefaultGames();
+    round.games.twoManScramble.enabled = true;
+    round.pairMatches = [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }];
+    round.playingGroups = [];
+    store.setRound(round, players);
+
+    const wrapper = mountScorecard();
+    expect(wrapper.text()).toContain('Match 1 — Two-Man Scramble');
+    expect(wrapper.text()).toContain('Wes + Aaron');
+    expect(wrapper.text()).toContain('Tito + Q');
+    expect(wrapper.findAll('.row-player')).toHaveLength(0);
+    expect(wrapper.findAll('.score-cell input')).toHaveLength(36);
+
+    const firstPairRow = wrapper.findAll('.row-format').find((row) => row.text().includes('Wes + Aaron'));
+    expect(firstPairRow).toBeDefined();
+    await firstPairRow!.find('.score-cell input').setValue('4');
+
+    expect(store.readTeamScore(twoManScrambleTeamKey(0, 'a'), 0)).toBe(4);
   });
 
   it('renders and updates the wolf live panel', async () => {
@@ -441,6 +465,34 @@ describe('ScorecardScreen', () => {
 
     // base 0 + 3 increments → max(1, 3) = 3
     expect(store.readScore('Wes', 0)).toBe(3);
+  });
+
+  it('mobile two-man scramble scores pair rows instead of individual players', async () => {
+    stubMobileViewport();
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.games = cloneDefaultGames();
+    round.games.twoManScramble.enabled = true;
+    round.pairMatches = [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }];
+    round.playingGroups = [];
+    store.setRound(round, players);
+
+    const wrapper = mountScorecard();
+    await nextTick();
+
+    expect(wrapper.find('.mobile-score-key').text()).toContain('one team score per side');
+    expect(wrapper.findAll('.mobile-scramble-row')).toHaveLength(2);
+    expect(wrapper.findAll('.mobile-player-row')).toHaveLength(2);
+    expect(wrapper.find('.mobile-scramble-row').text()).toContain('Wes + Aaron');
+
+    const plusBtn = wrapper.find('.mobile-scramble-row').findAll('.stepper-btn')[1];
+    await plusBtn.trigger('click');
+    await plusBtn.trigger('click');
+    await nextTick();
+
+    expect(store.readTeamScore(twoManScrambleTeamKey(0, 'a'), 0)).toBe(2);
+    expect(store.readScore('Wes', 0)).toBeNull();
+    expect(wrapper.find('.mobile-hole-strip .strip-btn').classes()).toContain('filled');
   });
 
   it('mobile hole strip marks filled holes and allows quick navigation', async () => {
