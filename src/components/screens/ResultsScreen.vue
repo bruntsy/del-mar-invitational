@@ -11,6 +11,7 @@ import { buildTwoManScrambleConfig, scoreTwoManScramble, twoManScrambleTeamKey }
 import { useEventStore } from '@/stores/event';
 import { useRoundStore } from '@/stores/round';
 import { puttPenaltyNote } from '@/scoring/puttPoker';
+import type { SkinHoleResult } from '@/scoring/skins';
 
 const store = useRoundStore();
 const eventStore = useEventStore();
@@ -156,6 +157,11 @@ const skinsSummary = computed(() =>
     .sort(([, a], [, b]) => b - a),
 );
 const tiedSkinHoles = computed(() => skinHoles.value.filter((hole) => hole.tied).map((hole) => hole.hole));
+const skinBasisLabel = computed(() => (store.games.skins.type === 'gross' ? 'Gross' : 'Net'));
+const skinRows = computed(() => [
+  { label: 'Front 9', holes: skinHoles.value.filter((hole) => hole.hole <= 9) },
+  { label: 'Back 9', holes: skinHoles.value.filter((hole) => hole.hole > 9) },
+]);
 const completed = computed(() => store.round?.completed ?? false);
 const expandedHblDetails = ref<Record<string, boolean>>({});
 
@@ -417,6 +423,10 @@ function outcomeLabel(row: SegmentDisplayRow, aName: string, bName: string): str
   return row.stake > 0 ? `${winner} +$${row.stake}` : `${winner}`;
 }
 
+function segmentClass(segment: SegmentDisplayRow): string[] {
+  return [`status-${segment.status}`, segment.winnerSide ? `winner-${segment.winnerSide}` : 'winner-none'];
+}
+
 function dash(value: number | null | undefined): string {
   return value == null ? '—' : String(value);
 }
@@ -429,6 +439,33 @@ function money(value: number): string {
 function betLabelParts(label: string): { contest: string; segment: string } {
   const [contest, segment] = label.split(' — ');
   return { contest, segment: segment ?? '' };
+}
+
+function skinPar(hole: number): number | null {
+  return course.value?.par?.[hole - 1] ?? null;
+}
+
+function scoreToParDescriptor(hole: SkinHoleResult): string {
+  const par = skinPar(hole.hole);
+  if (hole.tied || !hole.winner || par == null) return 'No skin';
+  const score = hole.effectiveScores[hole.winner];
+  if (score == null) return 'Skin won';
+  const diff = score - par;
+  const scoreWord =
+    diff <= -3 ? 'albatross' :
+    diff === -2 ? 'eagle' :
+    diff === -1 ? 'birdie' :
+    diff === 0 ? 'par' :
+    diff === 1 ? 'bogey' :
+    diff === 2 ? 'double bogey' :
+    `${diff} over`;
+  return `${skinBasisLabel.value} ${scoreWord}`;
+}
+
+function skinDetailLabel(hole: SkinHoleResult): string {
+  const par = skinPar(hole.hole);
+  const parts = [par == null ? null : `Par ${par}`, scoreToParDescriptor(hole)].filter(Boolean);
+  return parts.join(' · ');
 }
 
 function toggleComplete() {
@@ -671,9 +708,9 @@ function goGroup() {
                   v-for="segment in contest.segments"
                   :key="segment.label"
                   class="hbl-segment"
-                  :class="`status-${segment.status}`"
+                  :class="segmentClass(segment)"
                 >
-                  <span>Segment · {{ segment.label }}</span>
+                  <span>{{ segment.label }}</span>
                   <strong>{{ segmentSummaryLabel(segment, match.aName, match.bName) }}</strong>
                 </div>
               </div>
@@ -834,10 +871,16 @@ function goGroup() {
           <p v-if="tiedSkinHoles.length" class="skins-note">
             Tied holes do not pay a skin here: {{ tiedSkinHoles.join(', ') }}.
           </p>
-          <div class="skins-grid" aria-label="Hole-by-hole skins">
-            <div v-for="h in skinHoles" :key="h.hole" class="skin-chip" :class="{ tied: h.tied }">
-              <span class="skin-hole">Hole {{ h.hole }}</span>
-              <span class="skin-winner">{{ h.tied ? 'Tied' : h.winner }}</span>
+          <div class="skins-rows" aria-label="Hole-by-hole skins">
+            <div v-for="row in skinRows" :key="row.label" class="skins-row">
+              <h3>{{ row.label }}</h3>
+              <div class="skins-grid">
+                <div v-for="h in row.holes" :key="h.hole" class="skin-chip" :class="{ tied: h.tied }">
+                  <span class="skin-hole">Hole {{ h.hole }}</span>
+                  <span class="skin-winner">{{ h.tied ? 'Tied' : h.winner }}</span>
+                  <span class="skin-detail">{{ skinDetailLabel(h) }}</span>
+                </div>
+              </div>
             </div>
           </div>
         </template>
@@ -1262,6 +1305,16 @@ function goGroup() {
   background: #f3faf2;
 }
 
+.hbl-segment.status-win.winner-a {
+  border-color: #92b99b;
+  box-shadow: 3px 0 0 #2f5d43 inset;
+}
+
+.hbl-segment.status-win.winner-b {
+  border-color: #d8a18e;
+  box-shadow: 3px 0 0 #b1462f inset;
+}
+
 .hbl-segment.status-push {
   border-color: #eadfca;
   background: #fbf6ea;
@@ -1295,7 +1348,11 @@ function goGroup() {
 
 .hbl-timeline {
   display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(132px, 1fr);
   gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 6px;
 }
 
 .hbl-hole {
@@ -1570,17 +1627,12 @@ function goGroup() {
   min-width: 560px;
 }
 
-.skins-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 .skins-summary {
   margin-bottom: 12px;
 }
 
-.skins-summary h3 {
+.skins-summary h3,
+.skins-row h3 {
   margin: 0 0 8px;
   color: #24362c;
   font-size: 0.82rem;
@@ -1610,15 +1662,28 @@ function goGroup() {
   font-weight: 900;
 }
 
+.skins-rows {
+  display: grid;
+  gap: 14px;
+}
+
+.skins-grid {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(76px, 1fr));
+  gap: 8px;
+}
+
 .skin-chip {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 70px;
+  justify-content: center;
+  min-height: 84px;
   border: 1px solid #e4ddcd;
   border-radius: 6px;
   background: #fdfbf4;
-  padding: 6px 8px;
+  padding: 8px;
+  text-align: center;
 }
 
 .skin-chip.tied {
@@ -1636,6 +1701,14 @@ function goGroup() {
   font-weight: 700;
   color: #2f5d43;
   font-size: 0.82rem;
+}
+
+.skin-detail {
+  margin-top: 4px;
+  color: #6a7a6f;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .skin-chip.tied .skin-winner { color: #9aa49a; font-style: italic; }
@@ -1824,6 +1897,10 @@ function goGroup() {
 
   .hbl-segments {
     grid-template-columns: 1fr;
+  }
+
+  .skins-grid {
+    grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
   }
 
   .hbl-card-head {

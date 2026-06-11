@@ -171,6 +171,8 @@ describe('ResultsScreen', () => {
     expect(wrapper.findAll('.hbl-card')).toHaveLength(2);
     expect(wrapper.find('.hbl-card').text()).toContain('Wes + Aaron wins');
     expect(wrapper.findAll('.hbl-segment')).toHaveLength(6);
+    expect(wrapper.find('.hbl-segment').text()).toMatch(/^Front/);
+    expect(wrapper.text()).not.toContain('Segment ·');
     expect(wrapper.findAll('.hbl-toggle')).toHaveLength(2);
     expect(wrapper.find('.hbl-timeline').exists()).toBe(false);
 
@@ -274,6 +276,9 @@ describe('ResultsScreen', () => {
     expect(wrapper.text()).toContain('Skins Breakdown · gross');
     expect(wrapper.find('.skins-summary').text()).toContain('Wes 1');
     expect(wrapper.find('.skins-note').text()).toContain('Tied holes do not pay a skin here: 2');
+    expect(wrapper.text()).toContain('Front 9');
+    expect(wrapper.text()).toContain('Par 4 · Gross birdie');
+    expect(wrapper.find('.skin-chip.tied').text()).toContain('Par 5 · No skin');
     expect(wrapper.findAll('.skin-chip')).toHaveLength(2);
   });
 
