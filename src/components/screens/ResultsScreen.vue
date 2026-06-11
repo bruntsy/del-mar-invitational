@@ -498,6 +498,18 @@ function money(value: number): string {
   return `${value > 0 ? '+' : '-'}$${Math.abs(value)}`;
 }
 
+function cardLifeLabel(cards: number): string {
+  return `${cards} card${cards === 1 ? '' : 's'} left`;
+}
+
+function puttPokerStateLabel(coinHolder: string | null): string {
+  return coinHolder ? `Coin is with ${coinHolder}` : 'No penalty putts yet';
+}
+
+function puttPokerPotLabel(pot: number): string {
+  return `Pot is $${pot}`;
+}
+
 function betLabelParts(label: string): { contest: string; segment: string } {
   const [contest, segment] = label.split(' — ');
   return { contest, segment: segment ?? '' };
@@ -901,17 +913,21 @@ function goGroup() {
         <div class="pp-groups">
           <div v-for="group in puttPokerGroups" :key="group.name" class="pp-group">
             <div class="pp-group-hdr">{{ group.name }}</div>
-            <div class="pp-pot">Pot: <strong>${{ group.result.pot }}</strong></div>
-            <div class="pp-coin">
-              Current 3-putt marker:
-              <strong v-if="group.result.coinHolder">{{ group.result.coinHolder }}</strong>
-              <em v-else class="pp-coin-none">no 3-putts yet</em>
+            <div class="pp-state-grid">
+              <div class="pp-state-card">
+                <span>Pot</span>
+                <strong>{{ puttPokerPotLabel(group.result.pot) }}</strong>
+              </div>
+              <div class="pp-state-card">
+                <span>Coin state</span>
+                <strong :class="{ 'pp-coin-none': !group.result.coinHolder }">{{ puttPokerStateLabel(group.result.coinHolder) }}</strong>
+              </div>
             </div>
-            <div class="pp-token-label">Cards remaining</div>
+            <div class="pp-token-label">Card lives remaining</div>
             <div class="pp-cards">
               <div v-for="player in group.players" :key="player" class="pp-player">
                 <div class="pp-player-name">{{ player }}</div>
-                <div class="pp-card-count">{{ group.result.cards[player] }}</div>
+                <div class="pp-card-count">{{ cardLifeLabel(group.result.cards[player]) }}</div>
                 <div
                   v-if="puttPenaltyNote(group.result.threePuttCount[player], group.result.fourPuttCount[player])"
                   class="pp-note"
@@ -1833,15 +1849,17 @@ function goGroup() {
 .pp-groups { display: flex; flex-wrap: wrap; gap: 16px; }
 .pp-group { flex: 1; min-width: 180px; border: 1px solid #e4ddcd; border-radius: 8px; background: #fdfbf4; padding: 12px 14px; }
 .pp-group-hdr { font-weight: 800; color: #2f5d43; margin-bottom: 8px; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em; }
-.pp-coin { font-size: 0.82rem; color: #4a5a4f; margin-bottom: 8px; }
-.pp-coin-none { color: #9aa49a; font-style: italic; }
+.pp-state-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+.pp-state-card { border: 1px solid #e4ddcd; border-radius: 6px; background: #fffdf7; padding: 8px 10px; }
+.pp-state-card span { display: block; color: #8a9489; font-size: 0.64rem; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; }
+.pp-state-card strong { display: block; margin-top: 2px; color: #24362c; font-size: 0.84rem; line-height: 1.2; }
+.pp-state-card strong.pp-coin-none { color: #6a7a6f; }
 .pp-token-label { margin-bottom: 6px; color: #8a672f; font-size: 0.68rem; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; }
 .pp-cards { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .pp-player { text-align: center; min-width: 54px; border: 1px solid #e4ddcd; border-radius: 6px; background: #fffdf7; padding: 6px 8px; }
 .pp-player-name { font-size: 0.72rem; color: #6a7a6f; font-weight: 700; }
-.pp-card-count { font-size: 1rem; font-weight: 900; color: #2f5d43; }
+.pp-card-count { font-size: 0.78rem; font-weight: 900; color: #2f5d43; }
 .pp-note { font-size: 0.68rem; color: #b1462f; }
-.pp-pot { font-size: 0.9rem; color: #24362c; border-bottom: 1px solid #e4ddcd; padding-bottom: 8px; margin-bottom: 8px; }
 .pp-final-note { margin: 0; color: #6a7a6f; font-size: 0.74rem; font-weight: 700; }
 
 .rs-empty-note { color: #6a7a6f; }
@@ -2014,6 +2032,10 @@ function goGroup() {
 
   .skins-grid {
     grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+  }
+
+  .pp-state-grid {
+    grid-template-columns: 1fr;
   }
 
   .hbl-card-head {

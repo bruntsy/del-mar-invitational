@@ -270,12 +270,11 @@ describe('ResultsScreen', () => {
 
     expect(wrapper.text()).toContain('Putt Poker');
     expect(wrapper.find('.pp-groups').exists()).toBe(true);
-    expect(wrapper.text()).toContain('Current 3-putt marker');
-    expect(wrapper.text()).toContain('Cards remaining');
-    // marker holder is shown
-    expect(wrapper.find('.pp-coin strong').text()).toBe('Wes');
-    // pot line is present
-    expect(wrapper.find('.pp-pot').text()).toContain('$');
+    expect(wrapper.text()).toContain('Coin state');
+    expect(wrapper.text()).toContain('Card lives remaining');
+    expect(wrapper.text()).toContain('Coin is with Wes');
+    expect(wrapper.find('.pp-state-card').text()).toContain('Pot is $');
+    expect(wrapper.find('.pp-card-count').text()).toContain('cards left');
   });
 
   it('summarizes skins before the hole grid and explains tied holes', async () => {

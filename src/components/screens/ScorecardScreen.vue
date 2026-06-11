@@ -207,6 +207,18 @@ function puttSum(player: string, start: number, end: number): number | null {
   return any ? total : null;
 }
 
+function cardLifeLabel(cards: number): string {
+  return `${cards} card${cards === 1 ? '' : 's'} left`;
+}
+
+function puttPokerStateLabel(coinHolder: string | null): string {
+  return coinHolder ? `Coin is with ${coinHolder}` : 'No penalty putts yet';
+}
+
+function puttPokerPotLabel(pot: number): string {
+  return `Pot is $${pot}`;
+}
+
 const puttPokerEnabled = computed(() => store.games.puttPoker.enabled);
 const scrambleEnabled = computed(() => store.games.scramble4.enabled);
 const twoManScrambleEnabled = computed(() => store.games.twoManScramble.enabled);
@@ -1435,16 +1447,21 @@ const mobileMatchSummaries = computed(() =>
           <div v-for="group in puttGroups" :key="group.name" class="pp-group">
             <div class="pp-group-hdr">{{ group.name }}</div>
             <template v-for="result in [store.puttPokerFor(group.players)]" :key="group.name">
-              <div class="pp-pot">Pot: <strong>${{ result.pot }}</strong></div>
-              <div class="pp-coin">
-                <span>Coin status</span>
-                <strong v-if="result.coinHolder">{{ result.coinHolder }} holds the coin</strong>
-                <em v-else class="pp-coin-none">No 3-putts yet</em>
+              <div class="pp-state-grid">
+                <div class="pp-state-card">
+                  <span>Pot</span>
+                  <strong>{{ puttPokerPotLabel(result.pot) }}</strong>
+                </div>
+                <div class="pp-state-card">
+                  <span>Coin state</span>
+                  <strong :class="{ 'pp-coin-none': !result.coinHolder }">{{ puttPokerStateLabel(result.coinHolder) }}</strong>
+                </div>
               </div>
+              <div class="pp-token-label">Card lives remaining</div>
               <div class="pp-cards">
                 <div v-for="p in group.players" :key="p" class="pp-player">
                   <div class="pp-player-name">{{ p }}</div>
-                  <div class="pp-card-count">{{ result.cards[p] }} tokens</div>
+                  <div class="pp-card-count">{{ cardLifeLabel(result.cards[p]) }}</div>
                   <div
                     v-if="puttPenaltyNote(result.threePuttCount[p], result.fourPuttCount[p])"
                     class="pp-note"
@@ -2286,15 +2303,23 @@ const mobileMatchSummaries = computed(() =>
   margin-bottom: 6px;
 }
 
-.pp-coin {
+.pp-state-grid {
   display: grid;
-  gap: 2px;
-  font-size: 0.85rem;
-  color: #4a5a4f;
-  margin-bottom: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
-.pp-coin span {
+.pp-state-card {
+  border: 1px solid #e4ddcd;
+  border-radius: 6px;
+  background: #fffdf7;
+  padding: 9px 10px;
+}
+
+.pp-state-card span,
+.pp-token-label {
+  display: block;
   color: #8a9489;
   font-size: 0.68rem;
   font-weight: 800;
@@ -2302,8 +2327,20 @@ const mobileMatchSummaries = computed(() =>
   text-transform: uppercase;
 }
 
-.pp-coin strong { color: #8a672f; }
-.pp-coin-none { color: #5a6a5f; font-size: 0.82rem; font-style: normal; font-weight: 700; }
+.pp-state-card strong {
+  display: block;
+  margin-top: 3px;
+  color: #24362c;
+  font-size: 0.86rem;
+  line-height: 1.2;
+}
+
+.pp-state-card strong.pp-coin-none { color: #5a6a5f; }
+
+.pp-token-label {
+  margin-bottom: 8px;
+  color: #8a672f;
+}
 
 .pp-cards {
   display: flex;
@@ -2333,14 +2370,6 @@ const mobileMatchSummaries = computed(() =>
   color: #c0392b;
   margin-top: 2px;
 }
-
-.pp-pot {
-  margin: 0 0 10px;
-  font-size: 0.9rem;
-  color: #24362c;
-}
-
-.pp-pot strong { color: #2f5d43; }
 
 .sc-section-hdr {
   margin: 0 0 12px;

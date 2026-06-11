@@ -322,11 +322,12 @@ describe('ScorecardScreen', () => {
     expect(wrapper.find('.sc-puttpoker').exists()).toBe(true);
     expect(wrapper.text()).toContain('Putt Poker');
     // demo buy-in is $2 over 4 players -> $8 base pot, every player starts with 2 cards
-    expect(wrapper.text()).toContain('Pot: $8');
-    expect(wrapper.text()).toContain('Coin status');
-    expect(wrapper.text()).toContain('No 3-putts yet');
+    expect(wrapper.text()).toContain('Pot is $8');
+    expect(wrapper.text()).toContain('Coin state');
+    expect(wrapper.text()).toContain('No penalty putts yet');
+    expect(wrapper.text()).toContain('Card lives remaining');
     expect(wrapper.findAll('.pp-card-count')).toHaveLength(4);
-    expect(wrapper.find('.pp-card-count').text()).toContain('2 tokens');
+    expect(wrapper.find('.pp-card-count').text()).toContain('2 cards left');
   });
 
   it('shows group filter buttons when playing groups are defined', async () => {
@@ -567,8 +568,8 @@ describe('ScorecardScreen', () => {
 
     await nextTick();
     // coin moves to Wes and the pot grows by $1 over the $8 base
-    expect(wrapper.find('.pp-coin').text()).toContain('Wes holds the coin');
-    expect(wrapper.text()).toContain('Pot: $9');
+    expect(wrapper.find('.pp-state-grid').text()).toContain('Coin is with Wes');
+    expect(wrapper.text()).toContain('Pot is $9');
     expect(wrapper.text()).toContain('1x 3-putt');
   });
 });
