@@ -625,12 +625,12 @@ function money(value: number): string {
   return `${value > 0 ? '+' : '-'}$${Math.abs(value)}`;
 }
 
-function cardLifeLabel(cards: number): string {
-  return `${cards} card${cards === 1 ? '' : 's'} left`;
+function cardCountLabel(cards: number): string {
+  return `${cards} card${cards === 1 ? '' : 's'}`;
 }
 
 function puttPokerStateLabel(coinHolder: string | null): string {
-  return coinHolder ? `Coin is with ${coinHolder}` : 'No penalty putts yet';
+  return coinHolder ? `Coin is with ${coinHolder}` : 'No 3 putts yet';
 }
 
 function puttPokerPotLabel(pot: number): string {
@@ -1062,11 +1062,11 @@ function goGroup() {
                 <strong :class="{ 'pp-coin-none': !group.result.coinHolder }">{{ puttPokerStateLabel(group.result.coinHolder) }}</strong>
               </div>
             </div>
-            <div class="pp-token-label">Card lives remaining</div>
+            <div class="pp-token-label">Cards</div>
             <div class="pp-cards">
               <div v-for="player in group.players" :key="player" class="pp-player">
                 <div class="pp-player-name">{{ player }}</div>
-                <div class="pp-card-count">{{ cardLifeLabel(group.result.cards[player]) }}</div>
+                <div class="pp-card-count">{{ cardCountLabel(group.result.cards[player]) }}</div>
                 <div
                   v-if="puttPenaltyNote(group.result.threePuttCount[player], group.result.fourPuttCount[player])"
                   class="pp-note"

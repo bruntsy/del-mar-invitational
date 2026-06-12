@@ -207,12 +207,12 @@ function puttSum(player: string, start: number, end: number): number | null {
   return any ? total : null;
 }
 
-function cardLifeLabel(cards: number): string {
-  return `${cards} card${cards === 1 ? '' : 's'} left`;
+function cardCountLabel(cards: number): string {
+  return `${cards} card${cards === 1 ? '' : 's'}`;
 }
 
 function puttPokerStateLabel(coinHolder: string | null): string {
-  return coinHolder ? `Coin is with ${coinHolder}` : 'No penalty putts yet';
+  return coinHolder ? `Coin is with ${coinHolder}` : 'No 3 putts yet';
 }
 
 function puttPokerPotLabel(pot: number): string {
@@ -1457,11 +1457,11 @@ const mobileMatchSummaries = computed(() =>
                   <strong :class="{ 'pp-coin-none': !result.coinHolder }">{{ puttPokerStateLabel(result.coinHolder) }}</strong>
                 </div>
               </div>
-              <div class="pp-token-label">Card lives remaining</div>
+              <div class="pp-token-label">Cards</div>
               <div class="pp-cards">
                 <div v-for="p in group.players" :key="p" class="pp-player">
                   <div class="pp-player-name">{{ p }}</div>
-                  <div class="pp-card-count">{{ cardLifeLabel(result.cards[p]) }}</div>
+                  <div class="pp-card-count">{{ cardCountLabel(result.cards[p]) }}</div>
                   <div
                     v-if="puttPenaltyNote(result.threePuttCount[p], result.fourPuttCount[p])"
                     class="pp-note"

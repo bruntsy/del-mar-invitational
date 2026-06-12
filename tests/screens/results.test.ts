@@ -301,10 +301,12 @@ describe('ResultsScreen', () => {
     expect(wrapper.text()).toContain('Putt Poker');
     expect(wrapper.find('.pp-groups').exists()).toBe(true);
     expect(wrapper.text()).toContain('Coin state');
-    expect(wrapper.text()).toContain('Card lives remaining');
+    expect(wrapper.text()).toContain('Cards');
+    expect(wrapper.text()).not.toContain('Card lives remaining');
     expect(wrapper.text()).toContain('Coin is with Wes');
     expect(wrapper.find('.pp-state-card').text()).toContain('Pot is $');
-    expect(wrapper.find('.pp-card-count').text()).toContain('cards left');
+    expect(wrapper.find('.pp-card-count').text()).toContain('cards');
+    expect(wrapper.find('.pp-card-count').text()).not.toContain('left');
   });
 
   it('summarizes skins before the hole grid and explains tied holes', async () => {

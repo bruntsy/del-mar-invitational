@@ -2461,3 +2461,33 @@ more legible before the hole-by-hole detail.
 
 - Check the clearer HBL segment cards against live/Vercel event data with real
   pair names and mixed Front/Back/Overall outcomes.
+
+---
+
+## Checkpoint 50 — Putt Poker copy correction (2026-06-12)
+
+### Summary
+
+Corrected Putt Poker copy on scorecard and results so it matches the game:
+cards are a count to gain, not lives remaining.
+
+### Changes
+
+- **`src/components/screens/ScorecardScreen.vue`** — Changed the empty coin
+  state back to **No 3 putts yet**, changed **Card lives remaining** to
+  **Cards**, and changed player counts from `N cards left` to `N cards`.
+- **`src/components/screens/ResultsScreen.vue`** — Applied the same Putt Poker
+  wording corrections.
+- **`tests/screens/scorecard.test.ts`** and **`tests/screens/results.test.ts`**
+  — Updated assertions to lock the corrected language and guard against the
+  stale "lives remaining" / "left" wording returning.
+
+### Verification
+
+- `npm run test:run -- tests/screens/scorecard.test.ts tests/screens/results.test.ts` passed.
+- `npm run test:run` passed: 37 files, 342 tests.
+- `npm run build` passed (vue-tsc clean).
+
+### Next likely tasks
+
+- Re-check Putt Poker with real multi-group score entry during event rehearsal.

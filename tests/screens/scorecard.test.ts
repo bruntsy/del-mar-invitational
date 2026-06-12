@@ -324,10 +324,12 @@ describe('ScorecardScreen', () => {
     // demo buy-in is $2 over 4 players -> $8 base pot, every player starts with 2 cards
     expect(wrapper.text()).toContain('Pot is $8');
     expect(wrapper.text()).toContain('Coin state');
-    expect(wrapper.text()).toContain('No penalty putts yet');
-    expect(wrapper.text()).toContain('Card lives remaining');
+    expect(wrapper.text()).toContain('No 3 putts yet');
+    expect(wrapper.text()).toContain('Cards');
+    expect(wrapper.text()).not.toContain('Card lives remaining');
     expect(wrapper.findAll('.pp-card-count')).toHaveLength(4);
-    expect(wrapper.find('.pp-card-count').text()).toContain('2 cards left');
+    expect(wrapper.find('.pp-card-count').text()).toContain('2 cards');
+    expect(wrapper.find('.pp-card-count').text()).not.toContain('left');
   });
 
   it('shows group filter buttons when playing groups are defined', async () => {
