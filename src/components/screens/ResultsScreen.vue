@@ -249,12 +249,22 @@ function matchStatusState(winners: HoleWinner[]): { statusState: 'win' | 'push' 
   return { statusState: 'win', winnerSide: status.leader };
 }
 
-function segmentSummaryLabel(row: SegmentDisplayRow, aName: string, bName: string): string {
-  if (row.status === 'open') return 'In progress';
-  if (row.status === 'push') return 'Push';
+function segmentDisplayLabel(label: string): string {
+  if (label === 'Front') return 'Front 9';
+  if (label === 'Back') return 'Back 9';
+  return label;
+}
+
+function segmentScoreLabel(row: SegmentDisplayRow): string {
+  if (row.status === 'open' || row.a == null || row.b == null) return 'Open';
+  return `${row.a}-${row.b}`;
+}
+
+function segmentOutcomeLabel(row: SegmentDisplayRow, aName: string, bName: string): string {
+  if (row.status === 'open') return 'Not scored yet';
+  if (row.status === 'push') return 'All square';
   const winner = sideName(row.winnerSide, aName, bName);
-  if (row.a == null || row.b == null) return winner || 'In progress';
-  return `${winner} ${row.a}-${row.b}`;
+  return winner ? `${winner} wins` : 'Winner pending';
 }
 
 function holeWinnerSide(winnerTeamId: string | undefined, tied: boolean, incomplete: boolean, aId: string): HoleWinner {
@@ -916,12 +926,9 @@ function goGroup() {
                   class="hbl-segment"
                   :class="segmentClass(segment)"
                 >
-                  <span>{{ segment.label }}</span>
-                  <strong>
-                    <span :class="resultBadgeClass(segment.status, segment.winnerSide)">
-                      {{ segmentSummaryLabel(segment, match.aName, match.bName) }}
-                    </span>
-                  </strong>
+                  <span class="hbl-segment-label">{{ segmentDisplayLabel(segment.label) }}</span>
+                  <strong class="hbl-segment-score">{{ segmentScoreLabel(segment) }}</strong>
+                  <em class="hbl-segment-result">{{ segmentOutcomeLabel(segment, match.aName, match.bName) }}</em>
                 </div>
               </div>
 
@@ -1596,28 +1603,44 @@ function goGroup() {
 .hbl-segments {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
 }
 
 .hbl-segment {
   border: 1px solid #e4ddcd;
   border-radius: 8px;
   background: #f8f4ea;
-  padding: 8px 10px;
+  min-height: 94px;
+  padding: 12px;
 }
 
-.hbl-segment span {
+.hbl-segment-label,
+.hbl-segment-score,
+.hbl-segment-result {
   display: block;
+}
+
+.hbl-segment-label {
   color: #8a9489;
-  font-size: 0.68rem;
-  font-weight: 800;
+  font-size: 0.72rem;
+  font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.hbl-segment strong {
-  display: block;
-  margin-top: 3px;
+.hbl-segment-score {
+  margin-top: 10px;
+  color: #24362c;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.hbl-segment-result {
+  margin-top: 8px;
+  color: #4a5a4f;
+  font-size: 0.82rem;
+  font-style: normal;
+  font-weight: 850;
 }
 
 .hbl-segment.status-win {
@@ -1627,12 +1650,12 @@ function goGroup() {
 
 .hbl-segment.status-win.winner-a {
   border-color: #92b99b;
-  box-shadow: 3px 0 0 #2f5d43 inset;
+  box-shadow: 4px 0 0 #2f5d43 inset;
 }
 
 .hbl-segment.status-win.winner-b {
   border-color: #d8a18e;
-  box-shadow: 3px 0 0 #b1462f inset;
+  box-shadow: 4px 0 0 #b1462f inset;
 }
 
 .hbl-segment.status-push {
@@ -1642,6 +1665,7 @@ function goGroup() {
 
 .hbl-segment.status-open {
   color: #8a672f;
+  opacity: 0.68;
 }
 
 .hbl-toggle {

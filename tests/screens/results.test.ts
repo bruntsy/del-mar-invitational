@@ -219,7 +219,9 @@ describe('ResultsScreen', () => {
     expect(wrapper.findAll('.hbl-card')).toHaveLength(2);
     expect(wrapper.find('.hbl-card').text()).toContain('Wes + Aaron wins');
     expect(wrapper.findAll('.hbl-segment')).toHaveLength(6);
-    expect(wrapper.find('.hbl-segment').text()).toMatch(/^Front/);
+    expect(wrapper.find('.hbl-segment').text()).toContain('Front 9');
+    expect(wrapper.find('.hbl-segment').text()).toContain('9-0');
+    expect(wrapper.find('.hbl-segment').text()).toContain('Wes + Aaron wins');
     expect(wrapper.find('.hbl-card .result-badge.status-win.team-a').text()).toContain('Wes + Aaron wins');
     expect(wrapper.text()).not.toContain('Segment ·');
     expect(wrapper.findAll('.hbl-toggle')).toHaveLength(2);

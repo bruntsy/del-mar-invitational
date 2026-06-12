@@ -630,6 +630,8 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   Front/Back/Overall, with invalid-roster note when the round has ≠ 3 players),
   a per-group Putt Poker summary (coin holder, card counts, penalties, final
   pot), and a skins breakdown.
+- High Ball / Low Ball results use prominent Front 9 / Back 9 / Overall cards
+  that show the segment score and winner before the compact hole-by-hole detail.
 - The screen uses round-store getters for all scoring and formatting inputs; it
   does not recompute game math in the component.
 - Rounds can be marked complete or reopened locally from the results screen.

@@ -2425,3 +2425,39 @@ back to ambiguous result chips.
 - Check the team-game scoreboard cards against live/Vercel event data during
   the real event rehearsal and tune spacing/copy if actual pair names are
   longer.
+
+---
+
+## Checkpoint 49 — Results HBL segment clarity (2026-06-12)
+
+### Summary
+
+Made the Results screen High Ball / Low Ball Front / Back / Overall outcomes
+more legible before the hole-by-hole detail.
+
+### Changes
+
+- **`src/components/screens/ResultsScreen.vue`** — Replaced the compact
+  segment badge content with larger segment result cards:
+  - Front 9 / Back 9 / Overall labels.
+  - Prominent segment score.
+  - Plain-language outcome such as "Wes + Aaron wins" or "All square".
+  - Existing winner-side accent colors remain on the card.
+- Removed a stale HBL segment helper after the markup change.
+- **`tests/screens/results.test.ts`** — Updated HBL coverage to assert the
+  clearer Front 9 score/outcome card copy.
+- **`README.md`** — Documented the clearer HBL segment cards on Results.
+
+### Verification
+
+- `npm run test:run -- tests/screens/results.test.ts` passed.
+- `npm run test:run` passed: 37 files, 342 tests.
+- `npm run build` passed (vue-tsc clean).
+- Browser smoke on `/results` passed in local mode: route rendered, no
+  page-level horizontal overflow, no console errors. HBL segment-card content
+  is covered by the focused Results screen test.
+
+### Next likely tasks
+
+- Check the clearer HBL segment cards against live/Vercel event data with real
+  pair names and mixed Front/Back/Overall outcomes.
