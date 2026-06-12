@@ -189,7 +189,7 @@ describe('GroupScreen roster', () => {
     expect(wrapper.text()).toContain('No completed event rounds yet. Completed rounds will appear here after they are finished.');
   });
 
-  it('keeps event match details collapsed until requested', async () => {
+  it('renders event high ball / low ball as team-colored scoreboard cards', async () => {
     const group = useGroupStore();
     await group.createGroup('Event Group');
     onlineState.value = true;
@@ -236,13 +236,16 @@ describe('GroupScreen roster', () => {
     expect(wrapper.find('.event-leaders').text()).toContain('Best net average');
     expect(wrapper.find('.event-leaders').text()).toContain('Wes');
     expect(wrapper.find('.event-leaders').text()).toContain('Wes + Aaron');
-    expect(wrapper.find('.event-detail-toggle').exists()).toBe(true);
+    expect(wrapper.find('.hbl-match-card').exists()).toBe(true);
+    expect(wrapper.find('.hbl-match-card').text()).toContain('Match Play · Net · event points');
+    expect(wrapper.find('.hbl-match-card').text()).toContain('Seattle');
+    expect(wrapper.find('.hbl-match-card').text()).toContain('Cali');
+    expect(wrapper.find('.hbl-match-card').text()).toContain('Wes + Aaron');
+    expect(wrapper.find('.hbl-match-card').text()).toContain('Tito + Q');
+    expect(wrapper.find('.hbl-match-card').text()).toContain('Low Ball');
+    expect(wrapper.find('.hbl-match-card').text()).toContain('High Ball');
+    expect(wrapper.findAll('.hbl-segment-card')).toHaveLength(6);
+    expect(wrapper.find('.event-detail-toggle').exists()).toBe(false);
     expect(wrapper.find('.comp-chip').exists()).toBe(false);
-
-    await wrapper.find('.event-detail-toggle').trigger('click');
-    await flushPromises();
-
-    expect(wrapper.find('.comp-chip').exists()).toBe(true);
-    expect(wrapper.find('.comp-chip').text()).toContain('Seattle');
   });
 });

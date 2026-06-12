@@ -330,6 +330,8 @@ function eventDetailKey(roundIndex: number, row: EventRoundRow): string {
   return `${roundIndex}-${row.label}`;
 }
 
+type EventSide = 'team1' | 'team2';
+
 function rowTotals(row: EventRoundRow): { team1: number; team2: number } {
   return row.components.reduce(
     (acc, c) => ({ team1: acc.team1 + c.team1, team2: acc.team2 + c.team2 }),
@@ -351,6 +353,68 @@ function matchResultLabel(row: EventRoundRow): string {
   const totals = rowTotals(row);
   if (totals.team1 === 0 && totals.team2 === 0) return '—';
   return `${totals.team1} – ${totals.team2} pts`;
+}
+
+function eventSideTeamName(side: EventSide): string {
+  return side === 'team1' ? leaderboard.value.team1Name : leaderboard.value.team2Name;
+}
+
+function eventSidePlayers(row: EventRoundRow, side: EventSide): string[] {
+  return side === 'team1' ? row.aPlayers : row.bPlayers;
+}
+
+function eventSidePair(row: EventRoundRow, side: EventSide): string {
+  return pairLabel(eventSidePlayers(row, side));
+}
+
+function eventSideTotal(row: EventRoundRow, side: EventSide): number {
+  const totals = rowTotals(row);
+  return side === 'team1' ? totals.team1 : totals.team2;
+}
+
+function isHighBallLowBallRound(round: EventRoundConfig): boolean {
+  return round.format === 'twoManHighBallLowBall';
+}
+
+function hblRoundMeta(round: EventRoundConfig): string {
+  const mode = round.scoringMode === 'strokePlay' ? 'Stroke Play' : 'Match Play';
+  const basis = round.bestBallBet.type === 'gross' ? 'Gross' : 'Net';
+  return `${mode} · ${basis} · event points`;
+}
+
+function hblMatchState(row: EventRoundRow): string {
+  const winner = overallWinner(row);
+  if (winner === 'open') return 'No scoring yet';
+  if (winner === 'tie') return 'All square';
+  const side = winner as EventSide;
+  const complete = row.components.length > 0 && row.components.every((component) => component.winner !== 'open');
+  return `${eventSidePair(row, side)} ${complete ? 'wins' : 'leads'}`;
+}
+
+function hblSegmentName(component: EventComponent): string {
+  return component.label.replace(/^Low Ball\s+/, '').replace(/^High Ball\s+/, '');
+}
+
+function hblSegmentWinner(component: EventComponent, row: EventRoundRow): string {
+  if (component.winner === 'open') return 'Open';
+  if (component.winner === 'tie') return 'Push';
+  return eventSidePair(row, component.winner);
+}
+
+function hblSegmentScore(component: EventComponent): string {
+  if (component.winner === 'open') return 'Not scored';
+  return `${component.team1}-${component.team2}`;
+}
+
+function hblSegmentClass(component: EventComponent): string {
+  if (component.winner === 'team1') return 'hbl-segment-team1';
+  if (component.winner === 'team2') return 'hbl-segment-team2';
+  if (component.winner === 'tie') return 'hbl-segment-push';
+  return 'hbl-segment-open';
+}
+
+function hblSectionComponents(row: EventRoundRow, section: string): EventComponent[] {
+  return row.components.filter((component) => component.label.startsWith(section));
 }
 
 /** Components that have a decided/scored result, for the per-segment breakdown. */
@@ -804,29 +868,75 @@ const eventLeaderCards = computed<EventLeaderCard[]>(() => {
                   <template v-if="r.hasData && r.result.rows.length">
                     <div class="match-summary-list">
                       <template v-for="row in r.result.rows" :key="row.label">
-                        <div class="match-summary-row">
-                          <span class="match-label">{{ row.label }}</span>
-                          <span class="match-players" :class="{ 'match-winner': overallWinner(row) === 'team1' }">{{ row.aPlayers.join(' / ') }}</span>
-                          <span class="match-vs">vs</span>
-                          <span class="match-players" :class="{ 'match-winner': overallWinner(row) === 'team2' }">{{ row.bPlayers.join(' / ') }}</span>
-                          <span class="match-result">{{ matchResultLabel(row) }}</span>
-                        </div>
-                        <button
-                          v-if="scoredComponents(row).length"
-                          class="btn-text event-detail-toggle"
-                          type="button"
-                          @click="toggleEventDetails(eventDetailKey(r.roundIndex, row))"
-                        >
-                          {{ expandedEventDetails[eventDetailKey(r.roundIndex, row)] ? 'Hide match details' : 'View match details' }}
-                        </button>
-                        <div v-if="expandedEventDetails[eventDetailKey(r.roundIndex, row)] && scoredComponents(row).length" class="comp-breakdown">
-                          <span
-                            v-for="component in scoredComponents(row)"
-                            :key="`${row.label}-${component.label}`"
-                            class="comp-chip"
-                            :class="componentResultClass(component)"
-                          >{{ component.label }}: {{ componentResultLabel(component) }}</span>
-                        </div>
+                        <article v-if="isHighBallLowBallRound(r.result.round)" class="hbl-match-card">
+                          <div class="hbl-match-head">
+                            <div>
+                              <div class="hbl-match-label">{{ row.label }}</div>
+                              <div class="hbl-match-meta">{{ hblRoundMeta(r.result.round) }}</div>
+                            </div>
+                            <div class="hbl-match-score">
+                              <strong>{{ eventSideTotal(row, 'team1') }}-{{ eventSideTotal(row, 'team2') }}</strong>
+                              <span>{{ hblMatchState(row) }}</span>
+                            </div>
+                          </div>
+
+                          <div class="hbl-team-grid">
+                            <div class="hbl-team-block hbl-team1" :class="{ 'hbl-team-leading': overallWinner(row) === 'team1' }">
+                              <span>{{ eventSideTeamName('team1') }}</span>
+                              <strong>{{ eventSidePair(row, 'team1') }}</strong>
+                              <em>{{ eventSideTotal(row, 'team1') }} event pts</em>
+                            </div>
+                            <div class="hbl-team-block hbl-team2" :class="{ 'hbl-team-leading': overallWinner(row) === 'team2' }">
+                              <span>{{ eventSideTeamName('team2') }}</span>
+                              <strong>{{ eventSidePair(row, 'team2') }}</strong>
+                              <em>{{ eventSideTotal(row, 'team2') }} event pts</em>
+                            </div>
+                          </div>
+
+                          <div v-if="scoredComponents(row).length" class="hbl-section-stack">
+                            <section v-for="section in ['Low Ball', 'High Ball']" :key="section" class="hbl-section">
+                              <h4>{{ section }}</h4>
+                              <div class="hbl-segment-grid">
+                                <article
+                                  v-for="component in hblSectionComponents(row, section)"
+                                  :key="`${row.label}-${component.label}`"
+                                  class="hbl-segment-card"
+                                  :class="hblSegmentClass(component)"
+                                >
+                                  <span>{{ hblSegmentName(component) }}</span>
+                                  <strong>{{ hblSegmentWinner(component, row) }}</strong>
+                                  <em>{{ hblSegmentScore(component) }}</em>
+                                </article>
+                              </div>
+                            </section>
+                          </div>
+                          <p v-else class="hbl-empty">No scoring yet.</p>
+                        </article>
+                        <template v-else>
+                          <div class="match-summary-row">
+                            <span class="match-label">{{ row.label }}</span>
+                            <span class="match-players" :class="{ 'match-winner': overallWinner(row) === 'team1' }">{{ row.aPlayers.join(' / ') }}</span>
+                            <span class="match-vs">vs</span>
+                            <span class="match-players" :class="{ 'match-winner': overallWinner(row) === 'team2' }">{{ row.bPlayers.join(' / ') }}</span>
+                            <span class="match-result">{{ matchResultLabel(row) }}</span>
+                          </div>
+                          <button
+                            v-if="scoredComponents(row).length"
+                            class="btn-text event-detail-toggle"
+                            type="button"
+                            @click="toggleEventDetails(eventDetailKey(r.roundIndex, row))"
+                          >
+                            {{ expandedEventDetails[eventDetailKey(r.roundIndex, row)] ? 'Hide match details' : 'View match details' }}
+                          </button>
+                          <div v-if="expandedEventDetails[eventDetailKey(r.roundIndex, row)] && scoredComponents(row).length" class="comp-breakdown">
+                            <span
+                              v-for="component in scoredComponents(row)"
+                              :key="`${row.label}-${component.label}`"
+                              class="comp-chip"
+                              :class="componentResultClass(component)"
+                            >{{ component.label }}: {{ componentResultLabel(component) }}</span>
+                          </div>
+                        </template>
                       </template>
                     </div>
                   </template>
@@ -1683,6 +1793,206 @@ input[placeholder="ABCD"] {
   font-size: 0.82rem;
 }
 
+.hbl-match-card {
+  border: 1px solid #e3dbc9;
+  border-radius: 8px;
+  background: #fffdf7;
+  padding: 12px;
+  box-shadow: inset 4px 0 0 rgba(47, 93, 67, 0.18);
+}
+
+.hbl-match-card + .hbl-match-card,
+.hbl-match-card + .match-summary-row,
+.match-summary-row + .hbl-match-card {
+  margin-top: 10px;
+}
+
+.hbl-match-head,
+.hbl-team-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.hbl-match-label {
+  color: #24362c;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.hbl-match-meta {
+  margin-top: 2px;
+  color: #7a8a7f;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.hbl-match-score {
+  text-align: right;
+  color: #24362c;
+}
+
+.hbl-match-score strong {
+  display: block;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.hbl-match-score span {
+  display: block;
+  margin-top: 4px;
+  color: #4a6050;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.hbl-team-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 10px;
+}
+
+.hbl-team-block {
+  min-width: 0;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fbf7ed;
+  padding: 9px 10px;
+}
+
+.hbl-team-block span,
+.hbl-team-block em {
+  display: block;
+  font-style: normal;
+}
+
+.hbl-team-block span {
+  color: #7a8a7f;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hbl-team-block strong {
+  display: block;
+  margin-top: 4px;
+  color: #24362c;
+  font-size: 0.95rem;
+  line-height: 1.15;
+}
+
+.hbl-team-block em {
+  margin-top: 4px;
+  color: #607067;
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.hbl-team1 {
+  box-shadow: inset 4px 0 0 #2f5d43;
+}
+
+.hbl-team2 {
+  box-shadow: inset 4px 0 0 #9a6f24;
+}
+
+.hbl-team-leading.hbl-team1 {
+  background: rgba(47, 93, 67, 0.1);
+  border-color: rgba(47, 93, 67, 0.32);
+}
+
+.hbl-team-leading.hbl-team2 {
+  background: rgba(154, 111, 36, 0.11);
+  border-color: rgba(154, 111, 36, 0.34);
+}
+
+.hbl-section-stack {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.hbl-section h4 {
+  margin: 0 0 6px;
+  color: #24362c;
+  font-size: 0.82rem;
+}
+
+.hbl-segment-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.hbl-segment-card {
+  min-width: 0;
+  border: 1px solid #e5dece;
+  border-radius: 8px;
+  background: #f5f1e8;
+  padding: 8px;
+}
+
+.hbl-segment-card span,
+.hbl-segment-card strong,
+.hbl-segment-card em {
+  display: block;
+}
+
+.hbl-segment-card span {
+  color: #7a8a7f;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hbl-segment-card strong {
+  margin-top: 5px;
+  color: #24362c;
+  font-size: 0.84rem;
+  line-height: 1.18;
+}
+
+.hbl-segment-card em {
+  margin-top: 4px;
+  color: #607067;
+  font-size: 0.74rem;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.hbl-segment-team1 {
+  background: rgba(47, 93, 67, 0.1);
+  border-color: rgba(47, 93, 67, 0.28);
+  box-shadow: inset 3px 0 0 #2f5d43;
+}
+
+.hbl-segment-team2 {
+  background: rgba(154, 111, 36, 0.11);
+  border-color: rgba(154, 111, 36, 0.3);
+  box-shadow: inset 3px 0 0 #9a6f24;
+}
+
+.hbl-segment-push {
+  background: #f2eee4;
+}
+
+.hbl-segment-open {
+  opacity: 0.62;
+}
+
+.hbl-empty {
+  margin: 12px 0 0;
+  border: 1px dashed #ded6c7;
+  border-radius: 8px;
+  background: #f7f3ea;
+  color: #7a8a7f;
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 10px;
+}
+
 .event-detail-toggle {
   margin-left: 52px;
   font-size: 0.78rem;
@@ -1761,6 +2071,16 @@ input[placeholder="ABCD"] {
   .event-teams,
   .event-leader-grid {
     grid-template-columns: 1fr;
+  }
+
+  .hbl-match-head,
+  .hbl-team-grid,
+  .hbl-segment-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hbl-match-score {
+    text-align: left;
   }
 
   .event-vs {

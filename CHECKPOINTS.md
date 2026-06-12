@@ -2345,3 +2345,41 @@ golf course card and less like a flat metadata line.
 
 - Continue small visual polish slices from the spec, favoring display-only
   changes that do not alter scoring math or persisted state.
+
+---
+
+## Checkpoint 47 — High Ball / Low Ball team scoreboard cards (2026-06-11)
+
+### Summary
+
+Reworked the group dashboard's event High Ball / Low Ball match presentation
+from ambiguous result chips into team-colored scoreboard cards.
+
+### Changes
+
+- **`src/components/screens/GroupScreen.vue`** — For
+  `twoManHighBallLowBall` event rounds, each match now shows:
+  - Match-level score and winner/leader summary.
+  - Two team-colored side blocks with event team names, pair names, and points.
+  - Low Ball and High Ball sections with Front / Back / Overall cards that
+    name the winning pair, show the score, and use winner-side color accents.
+  - A quiet "No scoring yet" state instead of six open chips.
+- Non-HBL event formats keep the existing compact match-row/detail behavior.
+- **`tests/screens/group.test.ts`** — Replaced the old collapsed-chip assertion
+  with coverage for the HBL scoreboard structure.
+- **`README.md`** — Documented the HBL team-colored scoreboard behavior.
+
+### Verification
+
+- `npm run test:run -- tests/screens/group.test.ts` passed.
+- `npm run test:run` passed: 37 files, 341 tests.
+- `npm run build` passed (vue-tsc clean).
+- Browser smoke on `/group` passed in local offline mode: route rendered, no
+  page-level horizontal overflow, no console errors. The HBL event scoreboard
+  card itself is covered by the focused Group screen test because the local
+  browser has no Supabase-backed event fixture.
+
+### Next likely tasks
+
+- Check the HBL scoreboard against the live/Vercel event data during the real
+  event rehearsal and tune spacing/copy if the actual pair names are longer.
