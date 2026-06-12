@@ -83,6 +83,7 @@ describe('ResultsScreen', () => {
     expect(story.text()).toContain('Top net');
     expect(story.text()).toContain('Skins leader');
     expect(story.text()).toContain('Aaron · 6');
+    expect(story.text()).not.toContain('all in one share-ready view');
   });
 
   it('emphasizes settlement payments and shows losses with a minus sign', async () => {

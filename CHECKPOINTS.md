@@ -2191,6 +2191,11 @@ scoring logic.
 ### Verification
 
 - `npm run test:run -- tests/screens/results.test.ts` passed.
+- `npm run test:run` passed: 37 files, 342 tests.
+- `npm run build` passed (vue-tsc clean).
+- Browser smoke on `/results` passed in local mode: route rendered, no
+  page-level horizontal overflow, no console errors, and the removed filler copy
+  was absent.
 - `npm run test:run` passed: 37 files, 341 tests.
 - `npm run build` passed (vue-tsc clean).
 - Browser smoke on `/results` passed on desktop and 390px mobile viewport:
@@ -2530,3 +2535,28 @@ winning pair inside the same colored chip as the segment score.
 
 - Re-check the live scorecard chips on Vercel with real event data and mixed
   Team 1 / Team 2 / push outcomes.
+
+---
+
+## Checkpoint 52 — Results story card copy trim (2026-06-12)
+
+### Summary
+
+Removed the generic explanatory sentence from the Results story card so the
+section only shows the round headline and actual derived facts.
+
+### Changes
+
+- **`src/components/screens/ResultsScreen.vue`** — Removed the `roundStory`
+  subhead field, the story-card paragraph, and its now-unused CSS.
+- **`tests/screens/results.test.ts`** — Added coverage to keep the filler
+  "all in one share-ready view" copy from returning.
+
+### Verification
+
+- `npm run test:run -- tests/screens/results.test.ts` passed.
+
+### Next likely tasks
+
+- Re-check the Results story card on Vercel with real event data and make sure
+  the headline/fact density feels right without explanatory copy.

@@ -167,7 +167,6 @@ const expandedHblDetails = ref<Record<string, boolean>>({});
 
 interface RoundStory {
   headline: string;
-  subhead: string;
   facts: Array<{ label: string; value: string; note?: string }>;
 }
 
@@ -572,9 +571,6 @@ const roundStory = computed<RoundStory>(() => {
   const headline = event
     ? (eventOutcome ?? { headline: 'Round still taking shape' }).headline.replace('wins,', `wins ${event.name},`)
     : teamOutcomeStory?.headline ?? 'Round still taking shape';
-  const subhead = event
-    ? 'Round points, player scoring, skins, and money all in one share-ready view.'
-    : 'Team net, player scoring, skins, and money all in one share-ready view.';
   const facts: RoundStory['facts'] = [];
 
   if (event) {
@@ -613,7 +609,7 @@ const roundStory = computed<RoundStory>(() => {
     });
   }
 
-  return { headline, subhead, facts };
+  return { headline, facts };
 });
 
 function dash(value: number | null | undefined): string {
@@ -753,7 +749,6 @@ function goGroup() {
         <div class="story-main">
           <span>Story of the round</span>
           <h2>{{ roundStory.headline }}</h2>
-          <p>{{ roundStory.subhead }}</p>
         </div>
         <div class="story-facts">
           <div v-for="fact in roundStory.facts" :key="fact.label" class="story-fact">
@@ -1268,14 +1263,6 @@ function goGroup() {
   color: #24362c;
   font-size: 1.22rem;
   line-height: 1.15;
-}
-
-.story-main p {
-  margin: 0;
-  color: #6a7a6f;
-  font-size: 0.82rem;
-  font-weight: 700;
-  line-height: 1.35;
 }
 
 .story-facts {
