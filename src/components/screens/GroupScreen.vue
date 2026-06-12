@@ -372,14 +372,14 @@ function eventSideTotal(row: EventRoundRow, side: EventSide): number {
   return side === 'team1' ? totals.team1 : totals.team2;
 }
 
-function isHighBallLowBallRound(round: EventRoundConfig): boolean {
-  return round.format === 'twoManHighBallLowBall';
+function isTeamScoreboardRound(round: EventRoundConfig): boolean {
+  return ['bestBallNassau', 'twoManBestBallAggy', 'twoManHighBallLowBall', 'scramble2v2Nassau', 'fourManScramble'].includes(round.format);
 }
 
-function hblRoundMeta(round: EventRoundConfig): string {
+function eventRoundScoreboardMeta(round: EventRoundConfig): string {
   const mode = round.scoringMode === 'strokePlay' ? 'Stroke Play' : 'Match Play';
   const basis = round.bestBallBet.type === 'gross' ? 'Gross' : 'Net';
-  return `${mode} · ${basis} · event points`;
+  return `${eventFormatLabel(round.format)} · ${mode} · ${basis} · event points`;
 }
 
 function hblMatchState(row: EventRoundRow): string {
@@ -392,7 +392,11 @@ function hblMatchState(row: EventRoundRow): string {
 }
 
 function hblSegmentName(component: EventComponent): string {
-  return component.label.replace(/^Low Ball\s+/, '').replace(/^High Ball\s+/, '');
+  return component.label
+    .replace(/^Low Ball\s+/, '')
+    .replace(/^High Ball\s+/, '')
+    .replace(/^Best Ball\s+/, '')
+    .replace(/^Aggy\s+/, '');
 }
 
 function hblSegmentWinner(component: EventComponent, row: EventRoundRow): string {
@@ -413,8 +417,25 @@ function hblSegmentClass(component: EventComponent): string {
   return 'hbl-segment-open';
 }
 
-function hblSectionComponents(row: EventRoundRow, section: string): EventComponent[] {
-  return row.components.filter((component) => component.label.startsWith(section));
+function eventScoreboardSectionLabel(component: EventComponent): string {
+  if (component.label.startsWith('Low Ball')) return 'Low Ball';
+  if (component.label.startsWith('High Ball')) return 'High Ball';
+  if (component.label.startsWith('Best Ball')) return 'Best Ball';
+  if (component.label.startsWith('Aggy')) return 'Aggy';
+  return 'Segments';
+}
+
+function eventScoreboardSections(row: EventRoundRow): { label: string; components: EventComponent[] }[] {
+  const sections = new Map<string, EventComponent[]>();
+  for (const component of row.components) {
+    const label = eventScoreboardSectionLabel(component);
+    sections.set(label, [...(sections.get(label) ?? []), component]);
+  }
+
+  const order = ['Low Ball', 'High Ball', 'Best Ball', 'Aggy', 'Segments'];
+  return [...sections.entries()]
+    .sort(([a], [b]) => order.indexOf(a) - order.indexOf(b))
+    .map(([label, components]) => ({ label, components }));
 }
 
 /** Components that have a decided/scored result, for the per-segment breakdown. */
@@ -868,11 +889,11 @@ const eventLeaderCards = computed<EventLeaderCard[]>(() => {
                   <template v-if="r.hasData && r.result.rows.length">
                     <div class="match-summary-list">
                       <template v-for="row in r.result.rows" :key="row.label">
-                        <article v-if="isHighBallLowBallRound(r.result.round)" class="hbl-match-card">
+                        <article v-if="isTeamScoreboardRound(r.result.round)" class="hbl-match-card">
                           <div class="hbl-match-head">
                             <div>
                               <div class="hbl-match-label">{{ row.label }}</div>
-                              <div class="hbl-match-meta">{{ hblRoundMeta(r.result.round) }}</div>
+                              <div class="hbl-match-meta">{{ eventRoundScoreboardMeta(r.result.round) }}</div>
                             </div>
                             <div class="hbl-match-score">
                               <strong>{{ eventSideTotal(row, 'team1') }}-{{ eventSideTotal(row, 'team2') }}</strong>
@@ -894,11 +915,11 @@ const eventLeaderCards = computed<EventLeaderCard[]>(() => {
                           </div>
 
                           <div v-if="scoredComponents(row).length" class="hbl-section-stack">
-                            <section v-for="section in ['Low Ball', 'High Ball']" :key="section" class="hbl-section">
-                              <h4>{{ section }}</h4>
+                            <section v-for="section in eventScoreboardSections(row)" :key="section.label" class="hbl-section">
+                              <h4>{{ section.label }}</h4>
                               <div class="hbl-segment-grid">
                                 <article
-                                  v-for="component in hblSectionComponents(row, section)"
+                                  v-for="component in section.components"
                                   :key="`${row.label}-${component.label}`"
                                   class="hbl-segment-card"
                                   :class="hblSegmentClass(component)"

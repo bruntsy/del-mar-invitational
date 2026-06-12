@@ -2383,3 +2383,45 @@ from ambiguous result chips into team-colored scoreboard cards.
 
 - Check the HBL scoreboard against the live/Vercel event data during the real
   event rehearsal and tune spacing/copy if the actual pair names are longer.
+
+---
+
+## Checkpoint 48 — Team-game scoreboard card expansion (2026-06-11)
+
+### Summary
+
+Expanded the team-colored event scoreboard card treatment beyond High Ball /
+Low Ball so Best Ball, Best Ball + Aggy, and scramble event rounds do not fall
+back to ambiguous result chips.
+
+### Changes
+
+- **`src/components/screens/GroupScreen.vue`** — Generalized the event match
+  scoreboard path for `bestBallNassau`, `twoManBestBallAggy`,
+  `twoManHighBallLowBall`, `scramble2v2Nassau`, and `fourManScramble`.
+  Components are grouped into readable sections:
+  - Low Ball / High Ball for HBL.
+  - Best Ball / Aggy for Best Ball + Aggy.
+  - Segments for Best Ball Nassau and scramble formats.
+- Segment cards continue to name the winning pair/team directly and use
+  winner-side color accents.
+- **`tests/screens/group.test.ts`** — Added Best Ball + Aggy coverage for the
+  generalized scoreboard structure.
+- **`README.md`** — Updated the event dashboard description to list the broader
+  team-game scoreboard behavior.
+
+### Verification
+
+- `npm run test:run -- tests/screens/group.test.ts` passed.
+- `npm run test:run` passed: 37 files, 342 tests.
+- `npm run build` passed (vue-tsc clean).
+- Browser smoke on `/group` passed in local offline mode: route rendered, no
+  page-level horizontal overflow, no console errors. Team-game scoreboard
+  cards are covered by focused Group screen tests because the local browser has
+  no Supabase-backed event fixture.
+
+### Next likely tasks
+
+- Check the team-game scoreboard cards against live/Vercel event data during
+  the real event rehearsal and tune spacing/copy if actual pair names are
+  longer.

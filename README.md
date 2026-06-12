@@ -699,9 +699,10 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   leaderboard: live standings with leading-team highlight, per-round breakdown cards
   with Front/Back/Overall match tables, Launch buttons for unlinked rounds, and
   event leader cards for contributed points, closing points, skins won, holes
-  won, best pair record, most valuable match, and best net average. High Ball /
-  Low Ball event rounds use team-colored match scoreboard cards so segment
-  winners are named directly instead of encoded as ambiguous score chips.
+  won, best pair record, most valuable match, and best net average. Event team
+  games use team-colored match scoreboard cards for Best Ball, Best Ball +
+  Aggy, High Ball / Low Ball, and scramble formats so segment winners are
+  named directly instead of encoded as ambiguous score chips.
 
 ## Realtime Sync
 

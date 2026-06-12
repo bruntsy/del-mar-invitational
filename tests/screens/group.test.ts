@@ -248,4 +248,53 @@ describe('GroupScreen roster', () => {
     expect(wrapper.find('.event-detail-toggle').exists()).toBe(false);
     expect(wrapper.find('.comp-chip').exists()).toBe(false);
   });
+
+  it('renders best ball + aggy event matches with the same team scoreboard treatment', async () => {
+    const group = useGroupStore();
+    await group.createGroup('Event Group');
+    onlineState.value = true;
+
+    const roundStore = useRoundStore();
+    const event = useEventStore();
+    const { round, players } = demoRound();
+    round.id = 'event-round-1';
+    round.completed = true;
+    round.games.bestBallAggy.enabled = true;
+    round.games.bestBallAggy.scoringMode = 'match';
+    round.pairMatches = [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }];
+    roundStore.setRound(round, players);
+    fillCard(roundStore, 'Wes', 4);
+    fillCard(roundStore, 'Aaron', 5);
+    fillCard(roundStore, 'Tito', 5);
+    fillCard(roundStore, 'Q', 6);
+
+    const config = defaultEventConfig(['Wes', 'Aaron', 'Tito', 'Q']);
+    config.teamNames = { team1: 'Seattle', team2: 'Cali' };
+    config.team1 = ['Wes', 'Aaron'];
+    config.team2 = ['Tito', 'Q'];
+    config.rounds = [{
+      ...config.rounds[0],
+      name: 'Round 1',
+      format: 'twoManBestBallAggy',
+      course: round.course,
+      roundId: 'event-round-1',
+      pairMatches: [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }],
+    }];
+    event.event = { id: 'event-1', groupId: 'g1', name: 'Event Test 6.10', status: 'active', config };
+
+    const wrapper = mountGroup();
+    await flushPromises();
+
+    const card = wrapper.find('.hbl-match-card');
+    expect(card.exists()).toBe(true);
+    expect(card.text()).toContain('2v2 Best Ball + Aggy');
+    expect(card.text()).toContain('Seattle');
+    expect(card.text()).toContain('Cali');
+    expect(card.text()).toContain('Wes + Aaron');
+    expect(card.text()).toContain('Best Ball');
+    expect(card.text()).toContain('Aggy');
+    expect(wrapper.findAll('.hbl-segment-card')).toHaveLength(6);
+    expect(wrapper.find('.event-detail-toggle').exists()).toBe(false);
+    expect(wrapper.find('.comp-chip').exists()).toBe(false);
+  });
 });
