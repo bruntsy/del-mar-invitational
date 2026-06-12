@@ -2591,3 +2591,34 @@ Back / Overall results are easier to scan and less visually noisy.
 
 - Check the neutral segment cards against the live event data on desktop and
   mobile, especially mixed winner/push rows.
+
+---
+
+## Checkpoint 54 — Results HBL segment visual de-clutter (2026-06-12)
+
+### Summary
+
+Matched the Results High Ball / Low Ball segment cards to the calmer neutral
+event-card treatment.
+
+### Changes
+
+- **`src/components/screens/ResultsScreen.vue`** — Removed the tinted green /
+  red / tan fills from HBL Front / Back / Overall segment cards.
+- Winner state now uses a subtle left-side accent plus matching score/result
+  text color.
+- Removed the duplicate contest status line below each Low Ball / High Ball
+  heading because the result badge already carries that message.
+
+### Verification
+
+- `npm run test:run -- tests/screens/results.test.ts` passed.
+- `npm run test:run` passed: 37 files, 342 tests.
+- `npm run build` passed (vue-tsc clean).
+- Browser smoke on `/results` passed in local mode: route rendered, no
+  page-level horizontal overflow, no console errors.
+
+### Next likely tasks
+
+- Re-check the Results HBL section with live event data to confirm the neutral
+  cards read clearly with mixed Team 1 / Team 2 / push results.

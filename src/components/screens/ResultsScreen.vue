@@ -909,7 +909,6 @@ function goGroup() {
               <div class="hbl-card-head">
                 <div>
                   <h3>{{ contest.label }}</h3>
-                  <p>{{ contest.status }}</p>
                 </div>
                 <span :class="resultBadgeClass(contest.statusState, contest.winnerSide)">{{ contest.status }}</span>
               </div>
@@ -1581,12 +1580,6 @@ function goGroup() {
   font-size: 1rem;
 }
 
-.hbl-card p {
-  margin: 3px 0 0;
-  color: #4a5a4f;
-  font-weight: 800;
-}
-
 .hbl-segments {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1594,11 +1587,11 @@ function goGroup() {
 }
 
 .hbl-segment {
-  border: 1px solid #e4ddcd;
+  border: 1px solid #e1d8c7;
   border-radius: 8px;
-  background: #f8f4ea;
+  background: #fffdf7;
   min-height: 94px;
-  padding: 12px;
+  padding: 12px 12px 12px 14px;
 }
 
 .hbl-segment-label,
@@ -1631,23 +1624,29 @@ function goGroup() {
 }
 
 .hbl-segment.status-win {
-  border-color: #cddfcf;
-  background: #f3faf2;
+  border-color: #e1d8c7;
 }
 
 .hbl-segment.status-win.winner-a {
-  border-color: #92b99b;
-  box-shadow: 4px 0 0 #2f5d43 inset;
+  border-left: 4px solid #2f5d43;
 }
 
 .hbl-segment.status-win.winner-b {
-  border-color: #d8a18e;
-  box-shadow: 4px 0 0 #b1462f inset;
+  border-left: 4px solid #b1462f;
+}
+
+.hbl-segment.status-win.winner-a .hbl-segment-score,
+.hbl-segment.status-win.winner-a .hbl-segment-result {
+  color: #2f5d43;
+}
+
+.hbl-segment.status-win.winner-b .hbl-segment-score,
+.hbl-segment.status-win.winner-b .hbl-segment-result {
+  color: #9b3d30;
 }
 
 .hbl-segment.status-push {
-  border-color: #eadfca;
-  background: #fbf6ea;
+  border-left: 4px solid #b89149;
 }
 
 .hbl-segment.status-open {
