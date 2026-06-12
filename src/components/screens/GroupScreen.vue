@@ -2041,8 +2041,8 @@ input[placeholder="ABCD"] {
 }
 
 .comp-chip.comp-team2 {
-  background: rgba(176, 132, 22, 0.16);
-  color: #8a672f;
+  background: rgba(155, 61, 48, 0.14);
+  color: #9b3d30;
 }
 
 .event-settings {

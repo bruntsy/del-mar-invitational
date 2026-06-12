@@ -704,7 +704,9 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   won, best pair record, most valuable match, and best net average. Event team
   games use team-colored match scoreboard cards for Best Ball, Best Ball +
   Aggy, High Ball / Low Ball, and scramble formats so segment winners are
-  named directly instead of encoded as ambiguous score chips.
+  named directly instead of encoded as ambiguous score chips. The scorecard
+  live-event chip view also names the winning pair inside the same colored chip
+  as the segment score.
 
 ## Realtime Sync
 

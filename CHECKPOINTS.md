@@ -2491,3 +2491,42 @@ cards are a count to gain, not lives remaining.
 ### Next likely tasks
 
 - Re-check Putt Poker with real multi-group score entry during event rehearsal.
+
+---
+
+## Checkpoint 51 — Scorecard segment chip clarity (2026-06-12)
+
+### Summary
+
+Made the scorecard live-event segment chips self-explanatory by naming the
+winning pair inside the same colored chip as the segment score.
+
+### Changes
+
+- **`src/components/screens/ScorecardScreen.vue`** — Updated live event chips
+  for HBL, Best Ball + Aggy, and Two-Man Scramble so a decided segment reads
+  winner-first, such as `Low Ball Back: Cole + Tom 1-0`, instead of showing an
+  ambiguous side-ordered score like `0-1`.
+- Pushes now read as `Push X-X`; open segments still read as `open`.
+- Detailed match-play segment chips now use the same winner-first label for
+  Front / Back / Overall.
+- **`src/components/screens/GroupScreen.vue`** — Aligned the fallback Team 2
+  chip color with the scorecard Team 2 chip color.
+- **`tests/screens/scorecard.test.ts`** — Updated scorecard coverage to assert
+  winner-named segment chips.
+- **`README.md`** — Documented the clearer live-event chip behavior.
+
+### Verification
+
+- `npm run test:run -- tests/screens/scorecard.test.ts tests/screens/group.test.ts` passed.
+- `npm run test:run` passed: 37 files, 342 tests.
+- `npm run build` passed (vue-tsc clean).
+- Browser smoke on `/group` passed in local offline mode: route rendered, no
+  page-level horizontal overflow, no console errors. Live event chip content is
+  covered by the focused Scorecard screen test because the local browser has no
+  Supabase-backed event fixture.
+
+### Next likely tasks
+
+- Re-check the live scorecard chips on Vercel with real event data and mixed
+  Team 1 / Team 2 / push outcomes.

@@ -301,7 +301,7 @@ interface MpContest {
   name: string;
   holes: MpHole[];
   finalLabel: string;
-  segments: Array<{ label: string; a: number | null; b: number | null; status: string }>;
+  segments: Array<{ label: string; a: number | null; b: number | null; status: string; resultLabel: string }>;
 }
 interface MpMatch {
   label: string;
@@ -358,6 +358,8 @@ function segmentChips(
   results: Array<{ label: string; result: SegmentResult }>,
   aId: string,
   bId: string,
+  aLabel: string,
+  bLabel: string,
   mode: 'stroke' | 'match',
 ): MpContest['segments'] {
   return results.map(({ label, result }) => {
@@ -365,7 +367,17 @@ function segmentChips(
     const a = result.incomplete || !map ? null : map[aId] ?? null;
     const b = result.incomplete || !map ? null : map[bId] ?? null;
     const status = result.incomplete ? 'open' : result.pushed ? 'push' : result.winnerTeamId === aId ? 'a' : result.winnerTeamId === bId ? 'b' : 'open';
-    return { label, a, b, status };
+    const resultLabel =
+      a == null || b == null
+        ? 'Open'
+        : status === 'a'
+          ? `${aLabel} ${a}-${b}`
+          : status === 'b'
+            ? `${bLabel} ${b}-${a}`
+            : status === 'push'
+              ? `Push ${a}-${b}`
+              : `${a}-${b}`;
+    return { label, a, b, status, resultLabel };
   });
 }
 
@@ -389,7 +401,7 @@ function panelsFromBestBallAggyResults(results: BestBallAggyResult[], basis: str
               { label: 'Front', result: res.segmentResults.bestBall.front },
               { label: 'Back', result: res.segmentResults.bestBall.back },
               { label: 'Overall', result: res.segmentResults.bestBall.overall },
-            ], tA.id, tB.id, res.scoringMode)),
+            ], tA.id, tB.id, tA.players.join(' + '), tB.players.join(' + '), res.scoringMode)),
           buildContest('Aggregate', res.holeResults,
             (hr, s) => hr.teamScores[id(s)]?.aggyScore ?? null,
             (hr) => toSide(hr.aggyWinnerTeamId, hr.aggyTied, hr.incomplete, tA.id),
@@ -397,7 +409,7 @@ function panelsFromBestBallAggyResults(results: BestBallAggyResult[], basis: str
               { label: 'Front', result: res.segmentResults.aggy.front },
               { label: 'Back', result: res.segmentResults.aggy.back },
               { label: 'Overall', result: res.segmentResults.aggy.overall },
-            ], tA.id, tB.id, res.scoringMode)),
+            ], tA.id, tB.id, tA.players.join(' + '), tB.players.join(' + '), res.scoringMode)),
         ],
       };
     }),
@@ -424,7 +436,7 @@ function panelsFromHighLowResults(results: HighBallLowBallResult[], basis: strin
               { label: 'Front', result: res.segmentResults.lowBall.front },
               { label: 'Back', result: res.segmentResults.lowBall.back },
               { label: 'Overall', result: res.segmentResults.lowBall.overall },
-            ], tA.id, tB.id, res.scoringMode)),
+            ], tA.id, tB.id, tA.players.join(' + '), tB.players.join(' + '), res.scoringMode)),
           buildContest('High Ball', res.holeResults,
             (hr, s) => hr.teamScores[id(s)]?.highBallScore ?? null,
             (hr) => toSide(hr.highBallWinnerTeamId, hr.highBallTied, hr.incomplete, tA.id),
@@ -432,7 +444,7 @@ function panelsFromHighLowResults(results: HighBallLowBallResult[], basis: strin
               { label: 'Front', result: res.segmentResults.highBall.front },
               { label: 'Back', result: res.segmentResults.highBall.back },
               { label: 'Overall', result: res.segmentResults.highBall.overall },
-            ], tA.id, tB.id, res.scoringMode)),
+            ], tA.id, tB.id, tA.players.join(' + '), tB.players.join(' + '), res.scoringMode)),
         ],
       };
     }),
@@ -459,7 +471,7 @@ function panelsFromTwoManScrambleResults(results: TwoManScrambleResult[]): MpPan
               { label: 'Front', result: res.segmentResults.front },
               { label: 'Back', result: res.segmentResults.back },
               { label: 'Overall', result: res.segmentResults.overall },
-            ], tA.id, tB.id, res.scoringMode)),
+            ], tA.id, tB.id, tA.players.join(' + '), tB.players.join(' + '), res.scoringMode)),
         ],
       };
     }),
@@ -570,9 +582,11 @@ function eventComponentClass(component: EventComponent): string {
   return 'event-chip-open';
 }
 
-function eventComponentLabel(component: EventComponent): string {
+function eventComponentLabel(component: EventComponent, row: EventRoundRow): string {
   if (component.winner === 'open') return `${component.label}: open`;
-  return `${component.label}: ${component.team1}-${component.team2}`;
+  if (component.winner === 'team1') return `${component.label}: ${row.aPlayers.join(' + ')} ${component.team1}-${component.team2}`;
+  if (component.winner === 'team2') return `${component.label}: ${row.bPlayers.join(' + ')} ${component.team2}-${component.team1}`;
+  return `${component.label}: Push ${component.team1}-${component.team2}`;
 }
 
 function sideInitials(label: string): string {
@@ -1307,7 +1321,7 @@ const mobileMatchSummaries = computed(() =>
                 class="event-chip"
                 :class="eventComponentClass(component)"
               >
-                {{ eventComponentLabel(component) }}
+                {{ eventComponentLabel(component, row) }}
               </span>
             </div>
           </div>
@@ -1337,7 +1351,7 @@ const mobileMatchSummaries = computed(() =>
                   class="mp-segment-chip"
                   :class="`mp-segment-${segment.status}`"
                 >
-                  {{ segment.label }}: {{ segment.a == null || segment.b == null ? 'open' : `${segment.a}-${segment.b}` }}
+                  {{ segment.label }}: {{ segment.resultLabel }}
                 </span>
               </div>
               <div class="sc-table-wrap">
@@ -1889,6 +1903,7 @@ const mobileMatchSummaries = computed(() =>
   padding: 3px 9px;
   font-size: 0.76rem;
   font-weight: 800;
+  line-height: 1.25;
   background: #ece8da;
   color: #4a5a4f;
 }
@@ -2004,6 +2019,7 @@ const mobileMatchSummaries = computed(() =>
   padding: 2px 8px;
   font-size: 0.72rem;
   font-weight: 800;
+  line-height: 1.25;
 }
 
 .mp-segment-a {
