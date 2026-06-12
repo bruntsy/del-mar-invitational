@@ -2234,6 +2234,12 @@ transparent stats derived from existing linked-round event results.
 ### Verification
 
 - `npm run test:run -- tests/screens/group.test.ts` passed.
+- `npm run test:run` passed: 37 files, 342 tests.
+- `npm run build` passed (vue-tsc clean).
+- Browser smoke on `/group` passed in local offline mode: route rendered, no
+  page-level horizontal overflow, no console errors. Event segment card content
+  is covered by the focused Group screen tests because the local browser has no
+  Supabase-backed event fixture.
 - `npm run test:run` passed: 37 files, 341 tests.
 - `npm run build` passed (vue-tsc clean).
 - Browser smoke on `/group` passed in local offline mode: route rendered, no
@@ -2560,3 +2566,28 @@ section only shows the round headline and actual derived facts.
 
 - Re-check the Results story card on Vercel with real event data and make sure
   the headline/fact density feels right without explanatory copy.
+
+---
+
+## Checkpoint 53 — Team segment card visual de-clutter (2026-06-12)
+
+### Summary
+
+Removed the colored background fills from Group event segment cards so Front /
+Back / Overall results are easier to scan and less visually noisy.
+
+### Changes
+
+- **`src/components/screens/GroupScreen.vue`** — Changed HBL / team-game
+  segment cards to use neutral card backgrounds with a subtle left-side team
+  accent and matching winner/result text color.
+- Team 1 / Team 2 / push state remains visible without tinting the entire card.
+
+### Verification
+
+- `npm run test:run -- tests/screens/group.test.ts` passed.
+
+### Next likely tasks
+
+- Check the neutral segment cards against the live event data on desktop and
+  mobile, especially mixed winner/push rows.

@@ -1948,10 +1948,10 @@ input[placeholder="ABCD"] {
 
 .hbl-segment-card {
   min-width: 0;
-  border: 1px solid #e5dece;
+  border: 1px solid #e1d8c7;
   border-radius: 8px;
-  background: #f5f1e8;
-  padding: 8px;
+  background: #fffdf7;
+  padding: 9px 10px 9px 12px;
 }
 
 .hbl-segment-card span,
@@ -1984,19 +1984,25 @@ input[placeholder="ABCD"] {
 }
 
 .hbl-segment-team1 {
-  background: rgba(47, 93, 67, 0.1);
-  border-color: rgba(47, 93, 67, 0.28);
-  box-shadow: inset 3px 0 0 #2f5d43;
+  border-left: 4px solid #2f5d43;
 }
 
 .hbl-segment-team2 {
-  background: rgba(154, 111, 36, 0.11);
-  border-color: rgba(154, 111, 36, 0.3);
-  box-shadow: inset 3px 0 0 #9a6f24;
+  border-left: 4px solid #9b3d30;
+}
+
+.hbl-segment-team1 strong,
+.hbl-segment-team1 em {
+  color: #2f5d43;
+}
+
+.hbl-segment-team2 strong,
+.hbl-segment-team2 em {
+  color: #9b3d30;
 }
 
 .hbl-segment-push {
-  background: #f2eee4;
+  border-left: 4px solid #b89149;
 }
 
 .hbl-segment-open {
