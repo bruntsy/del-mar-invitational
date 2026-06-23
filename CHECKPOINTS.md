@@ -3394,3 +3394,33 @@ Best Ball + Aggy scoring on gross or net basis.
 - Smoke a live four-player ad hoc Rotation Sixes round on mobile and verify the
   six-hole match panel/result section feels readable with real names and partial
   scoring.
+
+---
+
+## Checkpoint 75 — Rotation Sixes Setup Polish (2026-06-23)
+
+### Summary
+
+Cleaned up the Rotation Sixes setup card so the desktop settings no longer
+crowd or clip the variant picker, and the same controls stack predictably on
+mobile.
+
+### Changes
+
+- **`src/components/screens/SetupScreen.vue`** — Added a dedicated
+  `rotation-six-settings` layout with purpose-built fields for variant, score
+  basis, stake, helper copy, and rotation preview.
+- Kept the three variant choices visible as equal-width buttons on desktop, then
+  stacked them on narrow mobile screens.
+- **`README.md`** — Documented the dedicated Rotation Sixes setup layout.
+
+### Verification
+
+- `npm run test:run -- tests/screens/setup.test.ts` passed: 31 tests.
+- `npm run test:run` passed: 38 files, 369 tests.
+- `npm run build` passed.
+
+### Next likely tasks
+
+- Recheck the live Rotation Sixes setup card in both desktop and mobile widths
+  after deploy.

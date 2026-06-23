@@ -620,7 +620,9 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   named players, previews the three six-hole partner rotations, supports
   gross/net Best Ball, High / Low, or Best Ball + Aggy, and blocks V1
   coexistence with fixed-team/pair-match games while allowing Skins and Putt
-  Poker.
+  Poker. Its setup settings use a dedicated compact layout so the three variant
+  choices, score basis, stake, helper text, and rotation preview stay readable
+  on desktop and stack cleanly on mobile.
 - Course search calls the public `course-search` Edge Function through
   `src/services/courseSearch.ts`. `src/domain/courseSearch.ts` filters usable
   18-hole tees, collapses duplicate tee sets, repairs invalid stroke indexes,

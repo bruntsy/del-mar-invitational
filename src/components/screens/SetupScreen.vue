@@ -1068,23 +1068,23 @@ function goGroup() {
           <button v-if="form.games.rotationSixes.enabled" class="btn-ghost sm game-settings-toggle" type="button" :aria-expanded="!!mobileGameSettingsOpen.rotationSixes" @click="toggleGameSettings('rotationSixes')">
             {{ mobileGameSettingsOpen.rotationSixes ? 'Hide settings' : 'Settings' }}
           </button>
-          <div v-if="form.games.rotationSixes.enabled" class="game-subconfig game-settings-panel">
-            <div class="sub-row">
+          <div v-if="form.games.rotationSixes.enabled" class="game-subconfig game-settings-panel rotation-six-settings">
+            <div class="rotation-field rotation-field-wide">
               <span class="sub-label">Variant</span>
-              <div class="seg-ctrl">
+              <div class="seg-ctrl rotation-variant-control">
                 <button class="seg-btn" :class="{ active: form.games.rotationSixes.variant === 'best_ball' }" type="button" @click="form.games.rotationSixes.variant = 'best_ball'">Best Ball</button>
                 <button class="seg-btn" :class="{ active: form.games.rotationSixes.variant === 'high_low' }" type="button" @click="form.games.rotationSixes.variant = 'high_low'">High / Low</button>
                 <button class="seg-btn" :class="{ active: form.games.rotationSixes.variant === 'best_ball_aggy' }" type="button" @click="form.games.rotationSixes.variant = 'best_ball_aggy'">Best Ball + Aggy</button>
               </div>
             </div>
-            <div class="sub-row">
+            <div class="rotation-field">
               <span class="sub-label">Score basis</span>
               <div class="seg-ctrl">
                 <button class="seg-btn" :class="{ active: form.games.rotationSixes.scoreBasis === 'net' }" type="button" @click="form.games.rotationSixes.scoreBasis = 'net'">Net</button>
                 <button class="seg-btn" :class="{ active: form.games.rotationSixes.scoreBasis === 'gross' }" type="button" @click="form.games.rotationSixes.scoreBasis = 'gross'">Gross</button>
               </div>
             </div>
-            <div class="sub-row">
+            <div class="rotation-field rotation-stake-field">
               <span class="sub-label">Stake</span>
               <label class="bet-field">$ / player / match<input v-model.number="form.games.rotationSixes.stakePerPlayer" class="form-input sm" type="number" min="0" /></label>
             </div>
@@ -2627,6 +2627,83 @@ label {
 
 .game-subconfig .sub-row {
   display: contents;
+}
+
+.rotation-six-settings {
+  grid-template-columns: minmax(280px, 1.35fr) minmax(170px, 0.65fr) minmax(140px, 0.5fr);
+  align-items: start;
+}
+
+.rotation-six-settings .rotation-field,
+.rotation-six-settings .game-helper,
+.rotation-six-settings .rotation-preview {
+  min-width: 0;
+}
+
+.rotation-field {
+  display: grid;
+  gap: 7px;
+  align-content: start;
+}
+
+.rotation-field .sub-label {
+  min-width: 0;
+  color: #4a6050;
+  font-size: 0.8rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rotation-six-settings .seg-ctrl {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.rotation-variant-control {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(92px, 1fr));
+  width: 100%;
+}
+
+.rotation-variant-control .seg-btn {
+  min-width: 0;
+  padding: 8px 10px;
+  white-space: normal;
+}
+
+.rotation-stake-field .bet-field {
+  align-items: flex-start;
+  width: 100%;
+}
+
+.rotation-stake-field .form-input {
+  width: 118px;
+}
+
+.rotation-six-settings .game-helper {
+  grid-column: 1 / -1;
+  color: #5f7066;
+  font-size: 0.76rem;
+}
+
+.rotation-six-settings .rotation-preview {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 760px) {
+  .rotation-six-settings {
+    grid-template-columns: 1fr;
+  }
+
+  .rotation-variant-control {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .rotation-six-settings .seg-ctrl {
+    width: 100%;
+  }
 }
 
 .pg-header {
