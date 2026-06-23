@@ -602,6 +602,9 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 - On mobile, the sticky setup action bar shows checklist progress such as
   `3 of 5 ready`, the current blocking issue, and compact side-by-side actions
   with larger tap targets for inputs, toggles, and buttons.
+- On mobile, the default course now counts as ready when the built-in par values
+  are usable, so the footer points at real blockers instead of implying course
+  search is mandatory.
 - On mobile, completed Course and Players cards collapse to compact summary
   headers with an explicit Edit/Hide control, reducing setup-scroll distance
   while keeping desktop setup fully expanded.

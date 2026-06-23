@@ -351,9 +351,12 @@ const firstBlockingIssue = computed(() => errors.value[0] ?? '');
 
 const hasEventContext = computed(() => event.pendingRoundLink != null);
 const rosterReadOnly = computed(() => hasEventContext.value);
+const courseReady = computed(() => form.par.every((value) => Number(value)));
+const courseStepLabel = computed(() => (courseSet.value ? 'Complete' : 'Default'));
+const courseStepStatus = computed(() => (courseSet.value ? 'Course selected' : 'Default course'));
 
 const setupSteps = computed(() => [
-  { label: 'Course', complete: courseSet.value },
+  { label: courseSet.value ? 'Course' : 'Default course', complete: courseReady.value },
   { label: 'Players', complete: playersEntered.value },
   ...(!hasEventContext.value ? [{ label: 'Games', complete: selectedGameCount.value > 0 }] : []),
   { label: 'Teams', complete: team1.value.length > 0 && team2.value.length > 0 },
@@ -369,7 +372,7 @@ const teamsReady = computed(() => (
 ));
 const courseMobileSummary = computed(() => courseSet.value
   ? `${courseSummaryName.value} · ${form.teeName || 'Tee'} · Par ${courseParTotal.value}`
-  : 'Search and select the tee for this round');
+  : `Using ${form.teeName || 'default'} tees · Par ${courseParTotal.value}`);
 const playersMobileSummary = computed(() => {
   if (!namedPlayers.value.length) return 'Add players for this round';
   const count = `${namedPlayers.value.length} player${namedPlayers.value.length === 1 ? '' : 's'}`;
@@ -716,18 +719,18 @@ function goGroup() {
     <section
       class="setup-card checklist-card"
       :class="{
-        'is-mobile-collapsible': courseSet,
-        'is-mobile-collapsed': courseSet && !mobileSetupOpen.course,
+        'is-mobile-collapsible': courseReady,
+        'is-mobile-collapsed': courseReady && !mobileSetupOpen.course,
       }"
     >
       <div class="setup-section-head">
         <div>
-          <span class="step-pill">{{ courseSet ? 'Complete' : 'Needed' }}</span>
+          <span class="step-pill">{{ courseStepLabel }}</span>
           <h2 class="setup-hdr">Course</h2>
           <p class="mobile-section-summary">{{ courseMobileSummary }}</p>
         </div>
         <button
-          v-if="courseSet"
+          v-if="courseReady"
           class="btn-ghost sm section-mobile-toggle"
           type="button"
           :aria-expanded="mobileSetupOpen.course"
@@ -815,6 +818,7 @@ function goGroup() {
           </div>
 
           <p v-if="courseSearchError" class="course-search-error">{{ courseSearchError }}</p>
+          <p class="course-default-note">{{ courseStepStatus }}. Search only if you want a specific tee/rating.</p>
         </template>
       </div>
     </section>
@@ -1500,6 +1504,14 @@ function goGroup() {
   color: #b4473a;
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.course-default-note {
+  margin: 2px 0 0;
+  color: #607067;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .field-grid,

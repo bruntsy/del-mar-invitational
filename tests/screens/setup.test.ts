@@ -89,7 +89,13 @@ describe('SetupScreen', () => {
 
     // default form has empty player names -> teams empty -> disabled
     expect(start.attributes('disabled')).toBeDefined();
-    expect(wrapper.find('.setup-action-status').text()).toContain('0 of 5 ready');
+    expect(wrapper.find('.setup-action-status').text()).toContain('1 of 5 ready');
+    expect(wrapper.find('.setup-action-status').text()).toContain('Select at least one game');
+    const courseCard = wrapper.findAll('.setup-card')[0];
+    expect(courseCard.classes()).toContain('is-mobile-collapsed');
+    expect(courseCard.find('.step-pill').text()).toBe('Default');
+    expect(courseCard.find('.mobile-section-summary').text()).toContain('Using Blue tees');
+    expect(wrapper.text()).toContain('Default course. Search only if you want a specific tee/rating.');
     expect(wrapper.text()).toContain('needs at least one player');
   });
 

@@ -2770,3 +2770,44 @@ they are ready.
 
 - Revisit mobile setup as a full flow from blank state to Start round and tune
   any remaining vertical spacing or summary wording in context.
+
+---
+
+## Checkpoint 59 — Mobile setup flow polish (2026-06-22)
+
+### Summary
+
+Ran the full mobile setup flow from blank state to ready-to-start and tightened
+the first-screen checklist behavior.
+
+### Changes
+
+- **`src/components/screens/SetupScreen.vue`** — Made the built-in default
+  course count as a ready setup step when its par values are usable, matching
+  the actual start validation.
+- Changed the blank-course mobile summary from a required-search prompt to a
+  default-course summary (`Using Blue tees · Par 72`) with a small note that
+  search is only needed for a specific tee/rating.
+- Allowed the default Course card to collapse on mobile with Edit/Hide controls,
+  reducing first-screen setup height before player entry.
+- **`tests/screens/setup.test.ts`** — Updated setup-status coverage so blank
+  setup starts at `1 of 5 ready`, shows the real first blocker, and verifies the
+  default Course card collapsed state.
+- **`README.md`** — Documented that the mobile footer now treats the usable
+  default course as ready.
+
+### Verification
+
+- `npm run test:run -- tests/screens/setup.test.ts` passed.
+- `npm run test:run` passed: 37 files, 345 tests.
+- `npm run build` passed.
+- Browser smoke on `/setup` at 390x844 passed: no horizontal overflow, no
+  console errors, the default Course card collapsed to a compact `Using Blue
+  tees · Par 72` summary, the footer started at `1 of 5 ready` with the real
+  blocker, and the filled flow reached `5 of 5 ready` with Start enabled.
+
+### Next likely tasks
+
+- Move to the next mobile UX pass: scorecard ergonomics on phone-sized screens,
+  especially scoring speed, hole navigation, active game context, and avoiding
+  unnecessary scroll while entering scores.
