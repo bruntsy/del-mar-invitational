@@ -3127,3 +3127,48 @@ lower pair-game section only decides 2v2 matchups.
 - Rehearse the ad hoc pair-game setup on a phone-width browser against the live
   event roster and confirm the event setup pair-match pattern feels consistent
   across both flows.
+
+---
+
+## Checkpoint 68 — Mobile score-entry defaults and match dialog (2026-06-23)
+
+### Summary
+
+Made mobile score entry faster by saving sensible defaults as soon as a hole is
+viewed and moved mobile match details behind a focused Open dialog.
+
+### Changes
+
+- **`src/components/screens/ScorecardScreen.vue`** — Mobile hole view now writes
+  missing visible player scores as the hole's par and missing visible player
+  putts as 2 immediately, preserving any existing values.
+- Mobile score steppers now increment/decrement from par when a score was blank,
+  and putt steppers increment/decrement from 2 when a putt was blank.
+- Mobile putt entry is always visible for individual player rows, even when Putt
+  Poker is not enabled.
+- Tightened the mobile score/putt row grid to avoid horizontal overflow on phone
+  widths.
+- The compact mobile match rows now use Open as a real control that launches a
+  match-specific scorecard dialog. The full desktop match panels are hidden by
+  default in mobile hole view.
+- **`tests/screens/scorecard.test.ts`** — Added/updated coverage for par defaults,
+  2-putt defaults, preserved existing values, two-man scramble team defaults,
+  always-visible mobile putts, and the mobile match scorecard dialog.
+- **`README.md`** — Documented mobile score/putt defaults and the match Open
+  dialog behavior.
+
+### Verification
+
+- `npm run test:run -- tests/screens/scorecard.test.ts` passed: 28 tests.
+- `npm run test:run` passed: 37 files, 352 tests.
+- `npm run build` passed.
+- Browser note: local 390px smoke was attempted, but Playwright CLI dropped its
+  session and the cached Playwright browser was unavailable; installed Chrome
+  also aborted in headless mode. Layout behavior is covered by component tests
+  and should be rechecked in the live mobile browser after deployment.
+
+### Next likely tasks
+
+- Recheck the deployed scorecard on iPhone Safari against an event high/low
+  round, confirming no horizontal overflow and that Open shows the expected
+  match scorecard dialog.

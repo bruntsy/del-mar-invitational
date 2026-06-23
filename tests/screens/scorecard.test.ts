@@ -460,9 +460,54 @@ describe('ScorecardScreen', () => {
     expect(wrapper.find('.mobile-match-status').text()).toContain('High Ball / Low Ball');
     expect(wrapper.find('.mobile-match-status').text()).toContain('Low Ball');
     expect(wrapper.find('.mobile-match-status').text()).toContain('Wes + Aaron vs Tito + Q');
+    expect(wrapper.find('.mp-live').exists()).toBe(false);
     expect(wrapper.findAll('.mobile-player-row')).toHaveLength(2);
     expect(wrapper.find('.mobile-player-row').text()).toContain('Wes');
     expect(wrapper.findAll('.mobile-player-row')[1].text()).toContain('Tito');
+  });
+
+  it('mobile match Open shows a focused match scorecard dialog', async () => {
+    stubMobileViewport();
+    const roundStore = useRoundStore();
+    const eventStore = useEventStore();
+    const { round, players } = demoRound();
+    round.id = 'event-round-1';
+    round.groupId = 'g1';
+    round.games = cloneDefaultGames();
+    round.teamNames = { team1: 'Seattle', team2: 'Cali' };
+    round.team1 = ['Wes', 'Aaron'];
+    round.team2 = ['Tito', 'Q'];
+    round.pairMatches = [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }];
+    round.playingGroups = [{ name: 'Group 1', players: ['Wes', 'Tito'] }];
+    roundStore.setRound(round, players);
+
+    const config = defaultEventConfig(['Wes', 'Aaron', 'Tito', 'Q']);
+    config.teamNames = { team1: 'Seattle', team2: 'Cali' };
+    config.rounds[0] = {
+      ...config.rounds[0],
+      name: 'Round 1',
+      format: 'twoManHighBallLowBall',
+      roundId: 'event-round-1',
+      pairMatches: [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }],
+    };
+    eventStore.event = { id: 'event-1', groupId: 'g1', name: 'Event Test', status: 'active', config };
+
+    const wrapper = mountScorecard();
+    await nextTick();
+
+    expect(wrapper.find('.mobile-match-dialog').exists()).toBe(false);
+    await wrapper.find('.mobile-match-open').trigger('click');
+    await nextTick();
+
+    expect(wrapper.find('.mobile-match-dialog').exists()).toBe(true);
+    expect(wrapper.find('.mobile-match-dialog').text()).toContain('High Ball / Low Ball');
+    expect(wrapper.find('.mobile-match-dialog').text()).toContain('Low Ball');
+    expect(wrapper.find('.mobile-match-dialog').text()).toContain('Wes + Aaron vs Tito + Q');
+    expect(wrapper.find('.mobile-match-dialog .mp-table').exists()).toBe(true);
+
+    await wrapper.find('.mobile-dialog-head button').trigger('click');
+    await nextTick();
+    expect(wrapper.find('.mobile-match-dialog').exists()).toBe(false);
   });
 
   it('mobile hole card shows players, score steppers, and hole navigation', async () => {
@@ -476,10 +521,11 @@ describe('ScorecardScreen', () => {
 
     expect(wrapper.find('.mobile-hole-num').text()).toBe('Hole 1');
     expect(wrapper.findAll('.mobile-player-row')).toHaveLength(4);
-    expect(wrapper.find('.mobile-hole-status').text()).toContain('Missing 4');
-    expect(wrapper.find('.mobile-hole-status').text()).toContain('Wes');
+    expect(wrapper.find('.mobile-hole-status').text()).toContain('Hole complete');
     expect(wrapper.find('.mobile-score-key').text()).toContain('Stroke hole');
-    expect(wrapper.find('.mobile-field-error').text()).toContain('Missing');
+    expect(wrapper.findAll('.mobile-score-block')).toHaveLength(8);
+    expect(store.readScore('Wes', 0)).toBe(4);
+    expect(store.readPutt('Wes', 0)).toBe(2);
 
     // navigate to hole 2
     const navBtns = wrapper.find('.mobile-hole-nav').findAll('button');
@@ -511,10 +557,11 @@ describe('ScorecardScreen', () => {
     await nextTick();
 
     expect(wrapper.find('.mobile-hole-num').text()).toBe('Hole 3');
-    expect(wrapper.find('.mobile-hole-status').text()).toContain('Missing 4');
+    expect(wrapper.find('.mobile-hole-status').text()).toContain('Hole complete');
+    expect(store.readScore('Wes', 2)).toBe(3);
   });
 
-  it('mobile score stepper increments the score via the store', async () => {
+  it('mobile score stepper increments from the default par score', async () => {
     stubMobileViewport();
     const store = useRoundStore();
     const { round, players } = demoRound();
@@ -531,16 +578,13 @@ describe('ScorecardScreen', () => {
     await plusBtn.trigger('click');
     await wrapper.vm.$nextTick();
 
-    // base 0 + 3 increments → max(1, 3) = 3
-    expect(store.readScore('Wes', 0)).toBe(3);
+    expect(store.readScore('Wes', 0)).toBe(7);
   });
 
-  it('mobile Putt Poker rows group score and putt entry while recording putts', async () => {
+  it('mobile rows always include putt entry and default putts to two', async () => {
     stubMobileViewport();
     const store = useRoundStore();
     const { round, players } = demoRound();
-    round.games = cloneDefaultGames();
-    round.games.puttPoker.enabled = true;
     store.setRound(round, players);
 
     const wrapper = mountScorecard();
@@ -554,32 +598,31 @@ describe('ScorecardScreen', () => {
     expect(blocks).toHaveLength(2);
     expect(blocks[0].text()).toContain('Score');
     expect(blocks[1].text()).toContain('Putts');
+    expect(store.readPutt('Wes', 0)).toBe(2);
 
     const puttPlus = blocks[1].findAll('.stepper-btn')[1];
     await puttPlus.trigger('click');
     await puttPlus.trigger('click');
     await nextTick();
 
-    expect(store.readPutt('Wes', 0)).toBe(2);
+    expect(store.readPutt('Wes', 0)).toBe(4);
   });
 
-  it('mobile fill-par shortcut fills only missing player scores on the active hole', async () => {
+  it('mobile defaults preserve existing score and putt values', async () => {
     stubMobileViewport();
     const store = useRoundStore();
     const { round, players } = demoRound();
     store.setRound(round, players);
     store.setScore('Wes', 0, 3);
+    store.setPutt('Wes', 0, 1);
 
     const wrapper = mountScorecard();
     await nextTick();
 
-    const fillPar = wrapper.find('.mobile-fill-par');
-    expect(fillPar.text()).toContain('Fill missing par 4');
-    await fillPar.trigger('click');
-    await nextTick();
-
     expect(store.readScore('Wes', 0)).toBe(3);
+    expect(store.readPutt('Wes', 0)).toBe(1);
     expect(store.readScore('Aaron', 0)).toBe(4);
+    expect(store.readPutt('Aaron', 0)).toBe(2);
     expect(store.readScore('Tito', 0)).toBe(4);
     expect(store.readScore('Q', 0)).toBe(4);
     expect(wrapper.find('.mobile-hole-status').text()).toContain('Hole complete');
@@ -609,12 +652,12 @@ describe('ScorecardScreen', () => {
     await plusBtn.trigger('click');
     await nextTick();
 
-    expect(store.readTeamScore(twoManScrambleTeamKey(0, 'a'), 0)).toBe(2);
+    expect(store.readTeamScore(twoManScrambleTeamKey(0, 'a'), 0)).toBe(6);
     expect(store.readScore('Wes', 0)).toBeNull();
     expect(wrapper.find('.mobile-hole-strip .strip-btn').classes()).toContain('filled');
   });
 
-  it('mobile fill-par shortcut writes two-man scramble team scores', async () => {
+  it('mobile defaults write two-man scramble team scores', async () => {
     stubMobileViewport();
     const store = useRoundStore();
     const { round, players } = demoRound();
@@ -625,9 +668,6 @@ describe('ScorecardScreen', () => {
     store.setRound(round, players);
 
     const wrapper = mountScorecard();
-    await nextTick();
-
-    await wrapper.find('.mobile-fill-par').trigger('click');
     await nextTick();
 
     expect(store.readTeamScore(twoManScrambleTeamKey(0, 'a'), 0)).toBe(4);

@@ -578,9 +578,11 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   hole number/par/SI header, per-player score and putt steppers (−/input/+),
   and an 18-button hole strip for quick navigation. The current hole is persisted
   to `dmi_mobile_hole_<roundId|local>` in localStorage.
-- On mobile Putt Poker rounds, score and putt controls sit in a compact paired
-  row per player so Score and Putts can be scanned together without changing
-  score or putt persistence.
+- On mobile, viewed holes save missing player scores as par and missing player
+  putts as 2 immediately, so the displayed score/putt steppers and stored round
+  state stay in sync. Existing values are preserved.
+- Mobile score and putt controls sit in a compact paired row per player even
+  when Putt Poker is off, so putt entry remains available from the hole card.
 - The mobile card keeps View full scorecard and Results actions in a compact
   in-flow row after the hole strip, so navigation stays close without covering
   score entry controls.
@@ -590,8 +592,9 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   scores on the active hole, including two-man scramble team-score rows.
 - For event/team match formats, the mobile card keeps current-hole match context
   beside score entry with contest name, side-vs-side labels, hole score, and
-  live status. Event team context stays compact on phones so the score rows
-  remain close to the active-hole controls.
+  an Open button that launches a focused match scorecard dialog. Event team
+  context stays compact on phones so the score rows remain close to the
+  active-hole controls.
 
 ### Setup Screen (rewrite)
 

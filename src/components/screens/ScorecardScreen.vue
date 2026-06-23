@@ -756,6 +756,7 @@ const mobileHoleKey = computed(() => `dmi_mobile_hole_${store.round?.id ?? 'loca
 const holeView = ref(false);
 const fullScorecardOpen = ref(false);
 const mobileHole = ref(0);
+const openMobileMatchKey = ref<string | null>(null);
 
 function loadMobileHole() {
   try {
@@ -787,25 +788,24 @@ function nextHole() {
 }
 
 function adjustScore(player: string, delta: number) {
-  const current = store.readScore(player, mobileHole.value) ?? 0;
+  const current = store.readScore(player, mobileHole.value) ?? par.value[mobileHole.value] ?? 0;
   const next = Math.max(1, current + delta);
   store.setScore(player, mobileHole.value, next);
 }
 
 function adjustTeamScore(teamKey: string, delta: number) {
-  const current = store.readTeamScore(teamKey, mobileHole.value) ?? 0;
+  const current = store.readTeamScore(teamKey, mobileHole.value) ?? par.value[mobileHole.value] ?? 0;
   const next = Math.max(1, current + delta);
   store.setTeamScore(teamKey, mobileHole.value, next);
 }
 
 function adjustPutt(player: string, delta: number) {
-  const current = store.readPutt(player, mobileHole.value) ?? 0;
+  const current = store.readPutt(player, mobileHole.value) ?? 2;
   const next = Math.max(0, current + delta);
   store.setPutt(player, mobileHole.value, next);
 }
 
-function fillMissingMobileScoresWithPar() {
-  const hole = mobileHole.value;
+function fillMissingMobileScoresWithPar(hole = mobileHole.value) {
   const holePar = par.value[hole];
   if (!holePar) return;
   if (twoManScrambleEnabled.value) {
@@ -816,6 +816,13 @@ function fillMissingMobileScoresWithPar() {
   }
   for (const player of mobilePlayers.value) {
     if (store.readScore(player, hole) == null) store.setScore(player, hole, holePar);
+  }
+}
+
+function fillMissingMobilePutts(hole = mobileHole.value) {
+  if (twoManScrambleEnabled.value) return;
+  for (const player of mobilePlayers.value) {
+    if (store.readPutt(player, hole) == null) store.setPutt(player, hole, 2);
   }
 }
 
@@ -861,6 +868,10 @@ const mobileNextOpenLabel = computed(() => {
 const mobileFillParDisabled = computed(() => mobileCurrentMissing.value.length === 0);
 const mobileFillParLabel = computed(() => `Fill missing par ${par.value[mobileHole.value] ?? ''}`.trim());
 
+function mobileMatchKey(game: string, match: string, contest: string) {
+  return `${game}-${match}-${contest}`;
+}
+
 const mobileMatchSummaries = computed(() =>
   matchPlayPanels.value.flatMap((panel) =>
     panel.matches
@@ -874,7 +885,7 @@ const mobileMatchSummaries = computed(() =>
         match.contests.map((contest) => {
         const hole = contest.holes.find((h) => h.hole === mobileHole.value + 1);
         return {
-          key: `${panel.gameLabel}-${match.label}-${contest.name}`,
+          key: mobileMatchKey(panel.gameLabel, match.label, contest.name),
           game: `${panel.gameLabel} · ${contest.name}`,
           match: `${match.sideA} vs ${match.sideB}`,
           score: hole ? `${hole.a ?? '–'}-${hole.b ?? '–'}` : '–',
@@ -884,6 +895,44 @@ const mobileMatchSummaries = computed(() =>
       }),
     ),
   ).filter((summary) => summary.status),
+);
+
+const mobileOpenMatchDetail = computed(() => {
+  const key = openMobileMatchKey.value;
+  if (!key) return null;
+  for (const panel of matchPlayPanels.value) {
+    for (const match of panel.matches) {
+      for (const contest of match.contests) {
+        if (mobileMatchKey(panel.gameLabel, match.label, contest.name) === key) {
+          return { panel, match, contest };
+        }
+      }
+    }
+  }
+  return null;
+});
+
+function toggleMobileMatchDetail(key: string) {
+  openMobileMatchKey.value = openMobileMatchKey.value === key ? null : key;
+}
+
+function ensureMobileHoleDefaults() {
+  if (!holeView.value) return;
+  fillMissingMobileScoresWithPar(mobileHole.value);
+  fillMissingMobilePutts(mobileHole.value);
+}
+
+watch(
+  () => [
+    holeView.value,
+    mobileHole.value,
+    twoManScrambleEnabled.value,
+    par.value[mobileHole.value],
+    mobilePlayers.value.join('|'),
+    mobileScrambleTeams.value.map((team) => team.key).join('|'),
+  ],
+  () => ensureMobileHoleDefaults(),
+  { immediate: true, flush: 'post' },
 );
 </script>
 
@@ -956,7 +1005,7 @@ const mobileMatchSummaries = computed(() =>
             class="btn-ghost mobile-fill-par"
             type="button"
             :disabled="mobileFillParDisabled"
-            @click="fillMissingMobileScoresWithPar"
+            @click="() => fillMissingMobileScoresWithPar()"
           >
             {{ mobileFillParLabel }}
           </button>
@@ -981,7 +1030,9 @@ const mobileMatchSummaries = computed(() =>
               <em>{{ summary.match }}</em>
             </div>
             <strong :class="`mobile-match-${summary.winner ?? 'open'}`">{{ summary.score }}</strong>
-            <b>{{ summary.status }}</b>
+            <button class="mobile-match-open" type="button" @click="toggleMobileMatchDetail(summary.key)">
+              {{ openMobileMatchKey === summary.key ? 'Close' : 'Open' }}
+            </button>
           </div>
         </div>
 
@@ -1028,8 +1079,7 @@ const mobileMatchSummaries = computed(() =>
           <div
             v-for="player in mobilePlayers"
             :key="player"
-            class="mobile-player-row"
-            :class="{ 'mobile-player-row-putts': puttPokerEnabled }"
+            class="mobile-player-row mobile-player-row-putts"
           >
             <div class="mobile-player-meta">
               <div class="mobile-player-name">{{ player }}</div>
@@ -1057,7 +1107,7 @@ const mobileMatchSummaries = computed(() =>
                 </div>
                 <div v-if="store.readScore(player, mobileHole) == null" class="mobile-field-error">Missing</div>
               </div>
-              <div v-if="puttPokerEnabled" class="mobile-score-block">
+              <div class="mobile-score-block">
                 <div class="mobile-field-label">Putts</div>
                 <div class="mobile-stepper" :class="puttColorClass(store.readPutt(player, mobileHole))">
                   <button class="stepper-btn" type="button" @click="adjustPutt(player, -1)">−</button>
@@ -1101,6 +1151,57 @@ const mobileMatchSummaries = computed(() =>
           </button>
           <button class="btn-primary mobile-results-action" type="button" @click="goResults">Results →</button>
         </div>
+      </div>
+
+      <div v-if="mobileOpenMatchDetail" class="mobile-dialog-backdrop" role="presentation" @click.self="openMobileMatchKey = null">
+        <section class="mobile-match-dialog" role="dialog" aria-modal="true" aria-label="Match scorecard">
+          <div class="mobile-dialog-head">
+            <div>
+              <span>{{ mobileOpenMatchDetail.panel.gameLabel }}</span>
+              <strong>{{ mobileOpenMatchDetail.contest.name }}</strong>
+              <em>{{ mobileOpenMatchDetail.match.sideA }} vs {{ mobileOpenMatchDetail.match.sideB }}</em>
+            </div>
+            <button class="btn-ghost sm" type="button" @click="openMobileMatchKey = null">Close</button>
+          </div>
+          <div v-if="mobileOpenMatchDetail.contest.segments.length" class="mp-segments">
+            <span
+              v-for="segment in mobileOpenMatchDetail.contest.segments"
+              :key="`mobile-${segment.label}`"
+              class="mp-segment-chip"
+              :class="`mp-segment-${segment.status}`"
+            >
+              {{ segment.label }}: {{ segment.resultLabel }}
+            </span>
+          </div>
+          <div class="sc-table-wrap mobile-dialog-table">
+            <table class="sc-table mp-table">
+              <thead>
+                <tr class="row-holes">
+                  <th class="col-name">Hole</th>
+                  <th v-for="hole in mobileOpenMatchDetail.contest.holes" :key="`mh-${hole.hole}`">{{ hole.hole }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="name-cell">{{ mobileOpenMatchDetail.match.sideA }}</td>
+                  <td v-for="hole in mobileOpenMatchDetail.contest.holes" :key="`ma-${hole.hole}`" class="mp-score" :class="{ 'mp-win': hole.winner === 'a' }">{{ hole.a ?? '–' }}</td>
+                </tr>
+                <tr>
+                  <td class="name-cell">{{ mobileOpenMatchDetail.match.sideB }}</td>
+                  <td v-for="hole in mobileOpenMatchDetail.contest.holes" :key="`mb-${hole.hole}`" class="mp-score" :class="{ 'mp-win': hole.winner === 'b' }">{{ hole.b ?? '–' }}</td>
+                </tr>
+                <tr>
+                  <td class="name-cell">Result</td>
+                  <td v-for="hole in mobileOpenMatchDetail.contest.holes" :key="`mr-${hole.hole}`" class="mp-result" :class="`mp-w-${hole.winner ?? 'pending'}`">{{ holeMark(hole.winner, mobileOpenMatchDetail.match) }}</td>
+                </tr>
+                <tr>
+                  <td class="name-cell">Thru</td>
+                  <td v-for="hole in mobileOpenMatchDetail.contest.holes" :key="`ms-${hole.hole}`" class="mp-thru" :class="`mp-lead-${hole.leader ?? 'none'}`" :title="hole.status">{{ hole.short }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
 
       <div v-if="!holeView || fullScorecardOpen" class="score-legend" aria-label="Scorecard key">
@@ -1427,7 +1528,7 @@ const mobileMatchSummaries = computed(() =>
         </div>
       </section>
 
-      <section v-if="hasMatchPlayPanels" class="mp-live">
+      <section v-if="hasMatchPlayPanels && !holeView" class="mp-live">
         <div v-for="panel in matchPlayPanels" :key="panel.gameLabel" class="mp-panel">
           <div class="mp-panel-title">
             <span>{{ panel.gameLabel }}</span>
@@ -2524,6 +2625,9 @@ const mobileMatchSummaries = computed(() =>
 
 /* Mobile hole card */
 .mobile-card {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
   border: 1px solid #d7cebd;
   border-radius: 10px;
   background: #f8f4ea;
@@ -2940,10 +3044,12 @@ const mobileMatchSummaries = computed(() =>
   white-space: nowrap;
 }
 
-.mobile-match-row b {
+.mobile-match-open {
   border-radius: 999px;
+  border: 0;
   background: #edf2ec;
   color: #2f5d43;
+  cursor: pointer;
   font-size: 0.66rem;
   font-weight: 900;
   line-height: 1;
@@ -2974,6 +3080,9 @@ const mobileMatchSummaries = computed(() =>
 }
 
 .mobile-player-row {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -2986,7 +3095,7 @@ const mobileMatchSummaries = computed(() =>
 
 .mobile-player-row-putts {
   display: grid;
-  grid-template-columns: minmax(76px, 0.7fr) minmax(246px, 2.3fr);
+  grid-template-columns: minmax(70px, 0.7fr) minmax(0, 2.3fr);
   align-items: center;
   gap: 8px;
 }
@@ -3023,6 +3132,8 @@ const mobileMatchSummaries = computed(() =>
 }
 
 .mobile-entry-controls {
+  min-width: 0;
+  width: 100%;
   display: flex;
   align-items: flex-start;
   justify-content: flex-end;
@@ -3045,12 +3156,12 @@ const mobileMatchSummaries = computed(() =>
 }
 
 .mobile-player-row-putts .stepper-btn {
-  min-width: 40px;
+  min-width: 36px;
   padding-inline: 8px;
 }
 
 .mobile-player-row-putts .mobile-score-input {
-  width: 40px;
+  width: 36px;
 }
 
 .mobile-field-label {
@@ -3173,6 +3284,71 @@ const mobileMatchSummaries = computed(() =>
   width: 100%;
   min-height: 44px;
   padding-inline: 10px;
+}
+
+.mobile-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  align-items: end;
+  background: rgb(36 54 44 / 42%);
+  padding: 18px 10px;
+}
+
+.mobile-match-dialog {
+  display: grid;
+  gap: 10px;
+  max-height: 82vh;
+  overflow: hidden;
+  border: 1px solid #d7cebd;
+  border-radius: 10px;
+  background: #fdfbf4;
+  padding: 12px;
+  box-shadow: 0 18px 46px rgb(36 54 44 / 28%);
+}
+
+.mobile-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mobile-dialog-head div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.mobile-dialog-head span {
+  color: #8a672f;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mobile-dialog-head strong {
+  color: #24362c;
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.mobile-dialog-head em {
+  overflow: hidden;
+  color: #4a5a4f;
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-dialog-table {
+  max-height: 58vh;
+  margin: 0;
+  overflow: auto;
 }
 
 .sc-empty {
