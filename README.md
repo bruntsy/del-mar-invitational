@@ -623,6 +623,10 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   Poker. Its setup settings use a dedicated compact layout so the three variant
   choices, score basis, stake, helper text, and rotation preview stay readable
   on desktop and stack cleanly on mobile.
+- On the scorecard, Rotation Sixes suppresses fixed Team A/Team B grouping:
+  score entry shows the four golfers together, mobile does not auto-filter to a
+  setup team, and the visible match context comes from the active six-hole
+  rotation.
 - Course search calls the public `course-search` Edge Function through
   `src/services/courseSearch.ts`. `src/domain/courseSearch.ts` filters usable
   18-hole tees, collapses duplicate tee sets, repairs invalid stroke indexes,

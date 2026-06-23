@@ -3424,3 +3424,38 @@ mobile.
 
 - Recheck the live Rotation Sixes setup card in both desktop and mobile widths
   after deploy.
+
+---
+
+## Checkpoint 76 — Rotation Sixes Scorecard Context (2026-06-23)
+
+### Summary
+
+Fixed Rotation Sixes scorecard context so the rotating-pair game no longer uses
+the fixed setup teams as the score entry structure.
+
+### Changes
+
+- **`src/components/screens/ScorecardScreen.vue`** — Rotation Sixes no longer
+  falls back to Team A/Team B as playing groups when no explicit playing groups
+  exist.
+- Score entry for Rotation Sixes now renders one four-golfer roster section
+  instead of fixed team dividers.
+- Mobile Rotation Sixes now shows the active six-hole match context, including
+  the current rotation segment, pairing, scoring basis, and match score.
+- Mobile match summaries ignore Rotation Sixes matches that do not include the
+  current hole, so only the active six-hole match appears.
+- **`tests/screens/scorecard.test.ts`** — Added regression coverage for desktop
+  roster rendering and mobile active-match behavior.
+- **`README.md`** — Documented Rotation Sixes scorecard grouping behavior.
+
+### Verification
+
+- `npm run test:run -- tests/screens/scorecard.test.ts` passed: 32 tests.
+- `npm run test:run` passed: 38 files, 371 tests.
+- `npm run build` passed.
+
+### Next likely tasks
+
+- Smoke the live Rotation Sixes scorecard on a phone-width viewport and verify
+  holes 1-6, 7-12, and 13-18 switch the match context cleanly.

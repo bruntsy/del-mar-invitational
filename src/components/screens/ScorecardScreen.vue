@@ -224,6 +224,7 @@ function puttPokerPotLabel(pot: number): string {
 const puttPokerEnabled = computed(() => store.games.puttPoker.enabled);
 const scrambleEnabled = computed(() => store.games.scramble4.enabled);
 const twoManScrambleEnabled = computed(() => store.games.twoManScramble.enabled);
+const rotationSixesEnabled = computed(() => store.games.rotationSixes.enabled);
 const skinsEnabled = computed(() => store.games.skins.enabled);
 const skinBasisLabel = computed(() => (store.games.skins.type === 'gross' ? 'Gross' : 'Net'));
 const skinHoles = computed(() => store.skins.holeResults);
@@ -608,6 +609,27 @@ function rotationMatchLabel(match: RotationSixesMatchResult): string {
   return `${winner} wins ${Math.max(match.sideAPoints, match.sideBPoints)}-${Math.min(match.sideAPoints, match.sideBPoints)}`;
 }
 
+const currentRotationMatch = computed(() => {
+  if (!rotationSixesEnabled.value) return null;
+  const result = store.rotationSixesResult;
+  if (!result?.valid) return null;
+  return result.matches.find((match) => {
+    const [start, end] = match.match.holes;
+    return mobileHole.value >= start && mobileHole.value < end;
+  }) ?? null;
+});
+
+const mobileRotationContext = computed(() => {
+  const match = currentRotationMatch.value;
+  if (!match) return null;
+  return {
+    label: match.match.label,
+    matchup: `${match.match.sideA.join(' + ')} vs ${match.match.sideB.join(' + ')}`,
+    basis: `${titleCase(store.games.rotationSixes.scoreBasis)} ${rotationVariantLabel(store.games.rotationSixes.variant)}`,
+    status: rotationMatchLabel(match),
+  };
+});
+
 function panelsFromRotationSixesResult(result: RotationSixesResult | null): MpPanel | null {
   if (!result?.valid || !result.matches.length) return null;
   return {
@@ -848,6 +870,7 @@ const playingGroups = computed(() => {
   if (!r) return [];
   const defined = (r.playingGroups || []).filter((g) => g.players.length > 0);
   if (defined.length) return defined;
+  if (rotationSixesEnabled.value) return [];
   return teamRows.value.map((t) => ({ name: t.label, players: t.players }));
 });
 
@@ -905,6 +928,16 @@ interface DisplaySection {
 const displaySections = computed<DisplaySection[]>(() => {
   const round = store.round;
   if (!round) return [];
+
+  if (rotationSixesEnabled.value) {
+    return [{
+      key: 'rotation-sixes-roster',
+      type: 'teamSection' as const,
+      name: 'Rotation Sixes golfers',
+      teamKey: null,
+      players: store.playerNames.slice(0, 4),
+    }];
+  }
 
   if (!groupModeActive.value) {
     return filteredTeamRows.value.map((team) => ({
@@ -1082,6 +1115,7 @@ const mobileMatchSummaries = computed(() =>
       .flatMap((match) =>
         match.contests.map((contest) => {
         const hole = contest.holes.find((h) => h.hole === mobileHole.value + 1);
+        if (!hole) return null;
         return {
           key: mobileMatchKey(panel.gameLabel, match.label, contest.name),
           game: mobileContestLabel(panel.gameLabel, contest.name),
@@ -1093,7 +1127,7 @@ const mobileMatchSummaries = computed(() =>
         };
       }),
     ),
-  ).filter((summary) => summary.status),
+  ).filter((summary): summary is NonNullable<typeof summary> => !!summary?.status),
 );
 
 const mobileOpenMatchDetail = computed(() => {
@@ -1218,6 +1252,18 @@ watch(
           <div v-if="eventRoundScore" class="mobile-event-score">
             <span>Round total</span>
             <strong>{{ eventRoundScore.team1Name }} {{ eventRoundScore.team1 }} - {{ eventRoundScore.team2 }} {{ eventRoundScore.team2Name }}</strong>
+          </div>
+        </div>
+
+        <div v-else-if="mobileRotationContext" class="mobile-event-context mobile-rotation-context">
+          <div>
+            <span class="mobile-event-label">{{ mobileRotationContext.label }}</span>
+            <strong class="mobile-event-matchup">{{ mobileRotationContext.matchup }}</strong>
+            <small>{{ mobileRotationContext.basis }}</small>
+          </div>
+          <div class="mobile-event-score">
+            <span>Match score</span>
+            <strong>{{ mobileRotationContext.status }}</strong>
           </div>
         </div>
 
@@ -2928,6 +2974,17 @@ watch(
 
 .mobile-event-matchup {
   margin-top: 2px;
+}
+
+.mobile-rotation-context small {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: #66766b;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mobile-event-score {

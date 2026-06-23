@@ -437,6 +437,59 @@ describe('ScorecardScreen', () => {
     expect(wrapper.find('.mp-live').text()).toContain('Wes + Aaron wins 6-0');
   });
 
+  it('renders Rotation Sixes score entry as one four-golfer roster instead of fixed teams', () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.games = cloneDefaultGames();
+    round.games.rotationSixes.enabled = true;
+    round.teamNames = { team1: 'Sea', team2: 'Cal' };
+    round.team1 = ['Wes', 'Aaron'];
+    round.team2 = ['Tito', 'Q'];
+    round.playingGroups = [];
+    store.setRound(round, players);
+
+    const wrapper = mountScorecard();
+    const tableText = wrapper.find('.sc-table-wrap').text();
+    const dividers = wrapper.findAll('.row-team-divider').map((row) => row.text());
+
+    expect(tableText).toContain('Rotation Sixes golfers');
+    expect(dividers).toHaveLength(1);
+    expect(dividers[0]).toContain('Wes · Aaron · Tito · Q');
+    expect(dividers[0]).not.toContain('Sea');
+    expect(dividers[0]).not.toContain('Cal');
+  });
+
+  it('mobile Rotation Sixes shows all golfers and only the current six-hole match', async () => {
+    stubMobileViewport();
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.id = 'rotation-mobile';
+    round.games = cloneDefaultGames();
+    round.games.rotationSixes.enabled = true;
+    round.games.rotationSixes.variant = 'best_ball';
+    round.games.rotationSixes.scoreBasis = 'gross';
+    round.teamNames = { team1: 'Sea', team2: 'Cal' };
+    round.team1 = ['Wes', 'Aaron'];
+    round.team2 = ['Tito', 'Q'];
+    round.playingGroups = [];
+    localStorage.setItem('dmi_mobile_hole_rotation-mobile', '6');
+    store.setRound(round, players);
+
+    const wrapper = mountScorecard();
+    await nextTick();
+
+    expect(wrapper.find('.group-filter').exists()).toBe(false);
+    expect(wrapper.find('.mobile-rotation-context').text()).toContain('Holes 7-12');
+    expect(wrapper.find('.mobile-rotation-context').text()).toContain('Wes + Tito vs Aaron + Q');
+    expect(wrapper.findAll('.mobile-player-row')).toHaveLength(4);
+    expect(wrapper.find('.mobile-players').text()).toContain('Wes');
+    expect(wrapper.find('.mobile-players').text()).toContain('Aaron');
+    expect(wrapper.find('.mobile-players').text()).toContain('Tito');
+    expect(wrapper.find('.mobile-players').text()).toContain('Q');
+    expect(wrapper.find('.mobile-match-status').text()).toContain('Wes + Tito vs Aaron + Q');
+    expect(wrapper.find('.mobile-match-status').text()).not.toContain('Wes + Aaron vs Tito + Q');
+  });
+
   it('mobile event scorecard defaults to one playing group with team context', async () => {
     stubMobileViewport();
     const roundStore = useRoundStore();
