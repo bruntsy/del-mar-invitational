@@ -3244,3 +3244,42 @@ readable pair labels.
 
 - Recheck a live event high/low round on mobile and confirm the dialog's bet
   cards and Match row are legible with real player names.
+
+---
+
+## Checkpoint 71 — Mobile scorecard clutter reduction (2026-06-23)
+
+### Summary
+
+Cleaned up the mobile hole-scoring card so score entry remains the primary task
+while event/team match context stays visible but quieter.
+
+### Changes
+
+- **`src/components/screens/ScorecardScreen.vue`** — Replaced the larger
+  complete/missing banner with a compact status chip that shows entered-count
+  detail once the viewed hole has defaulted or been scored.
+- Hid the `Fill missing par N` shortcut when the current mobile hole is already
+  complete, reducing disabled-button clutter after defaults have been saved.
+- Reframed the event context as a compact group/team-score strip instead of
+  repeating team rosters in the active scoring path.
+- Shortened inline mobile match rows to contest labels such as `Low Ball` and
+  `High Ball`; the Open dialog still contains full game and match detail.
+- Added a shared Score/Putts header for individual mobile player rows and kept
+  per-input accessible labels so the row controls stay compact without losing
+  clarity.
+- **`tests/screens/scorecard.test.ts`** — Updated mobile scorecard coverage for
+  the compact event strip, short match labels, status detail, hidden completed
+  fill action, and shared Score/Putts header.
+- **`README.md`** — Documented the cleaned-up mobile scoring hierarchy.
+
+### Verification
+
+- `npm run test:run -- tests/screens/scorecard.test.ts` passed: 29 tests.
+- `npm run test:run` passed: 37 files, 355 tests.
+- `npm run build` passed.
+
+### Next likely tasks
+
+- Recheck the deployed event scorecard on iPhone Safari and tune the exact
+  spacing if real player/team names feel cramped.

@@ -581,20 +581,23 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 - On mobile, viewed holes save missing player scores as par and missing player
   putts as 2 immediately, so the displayed score/putt steppers and stored round
   state stay in sync. Existing values are preserved.
-- Mobile score and putt controls sit in a compact paired row per player even
-  when Putt Poker is off, so putt entry remains available from the hole card.
+- Mobile score and putt controls sit in a compact paired row per player with a
+  shared Score/Putts header, even when Putt Poker is off, so putt entry remains
+  available from the hole card without repeating labels on every row.
 - The mobile card keeps View full scorecard and Results actions in a compact
   in-flow row after the hole strip, so navigation stays close without covering
   score entry controls.
-- The mobile hole card shows a compact `Missing N` / `Hole complete` status and
-  its forward action jumps to the next incomplete hole when possible.
-- The mobile card includes a `Fill missing par N` shortcut that fills only blank
-  scores on the active hole, including two-man scramble team-score rows.
+- The mobile hole card shows a compact `Missing N` / `Hole complete` status
+  chip with entered-count detail, and its forward action jumps to the next
+  incomplete hole when possible.
+- The mobile card shows `Fill missing par N` only when there are blank scores on
+  the active hole; the shortcut fills only blanks, including two-man scramble
+  team-score rows.
 - For event/team match formats, the mobile card keeps current-hole match context
-  beside score entry with contest name, side-vs-side labels, hole score, and
-  an Open button that launches a focused match scorecard dialog. Event team
-  context stays compact on phones so the score rows remain close to the
-  active-hole controls.
+  beside score entry with shorter contest labels, side-vs-side labels, hole
+  score, and an Open button that launches a focused match scorecard dialog. Event
+  team context is a compact group/round-score strip so the score rows remain
+  close to the active-hole controls.
 - The match scorecard dialog shows Front, Back, and Overall bet status cards
   above the hole table, including live match-play standings such as `1 up thru
   3`, and uses readable pair initials in the Match row instead of A/B codes.

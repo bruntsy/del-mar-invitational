@@ -455,11 +455,11 @@ describe('ScorecardScreen', () => {
     expect(wrapper.find('.group-filter').text()).toContain('Playing group');
     expect(wrapper.findAll('.group-filter .gf-btn')).toHaveLength(2);
     expect(wrapper.find('.mobile-event-context').text()).toContain('Group 1');
-    expect(wrapper.find('.mobile-event-teams').exists()).toBe(true);
-    expect(wrapper.find('.mobile-event-context').text()).toContain('Seattle: Wes');
-    expect(wrapper.find('.mobile-event-context').text()).toContain('Cali: Tito');
-    expect(wrapper.find('.mobile-event-context').text()).toContain('Round points');
-    expect(wrapper.find('.mobile-match-status').text()).toContain('High Ball / Low Ball');
+    expect(wrapper.find('.mobile-event-context').text()).toContain('Seattle vs Cali');
+    expect(wrapper.find('.mobile-event-context').text()).toContain('Seattle');
+    expect(wrapper.find('.mobile-event-context').text()).toContain('Cali');
+    expect(wrapper.find('.mobile-event-context').text()).not.toContain('Round points');
+    expect(wrapper.find('.mobile-match-status').text()).not.toContain('High Ball / Low Ball');
     expect(wrapper.find('.mobile-match-status').text()).toContain('Low Ball');
     expect(wrapper.find('.mobile-match-status').text()).toContain('Wes + Aaron vs Tito + Q');
     expect(wrapper.find('.mp-live').exists()).toBe(false);
@@ -569,6 +569,7 @@ describe('ScorecardScreen', () => {
 
     expect(wrapper.find('.mobile-event-context').text()).toContain('Group 1');
     expect(wrapper.find('.mobile-hole-status').text()).toContain('Hole complete');
+    expect(wrapper.find('.mobile-hole-status').text()).toContain('2 of 2 entered');
     expect(roundStore.readScore('Wes', 0)).toBe(4);
     expect(roundStore.readScore('Tito', 0)).toBe(4);
     expect(roundStore.readPutt('Wes', 0)).toBe(2);
@@ -589,7 +590,9 @@ describe('ScorecardScreen', () => {
     expect(wrapper.find('.mobile-hole-num').text()).toBe('Hole 1');
     expect(wrapper.findAll('.mobile-player-row')).toHaveLength(4);
     expect(wrapper.find('.mobile-hole-status').text()).toContain('Hole complete');
-    expect(wrapper.find('.mobile-score-key').text()).toContain('Stroke hole');
+    expect(wrapper.find('.mobile-score-key').text()).toContain('Stroke');
+    expect(wrapper.find('.mobile-entry-header').text()).toContain('Score');
+    expect(wrapper.find('.mobile-entry-header').text()).toContain('Putts');
     expect(wrapper.findAll('.mobile-score-block')).toHaveLength(8);
     expect(store.readScore('Wes', 0)).toBe(4);
     expect(store.readPutt('Wes', 0)).toBe(2);
@@ -617,7 +620,7 @@ describe('ScorecardScreen', () => {
 
     expect(wrapper.find('.mobile-hole-num').text()).toBe('Hole 1');
     expect(wrapper.find('.mobile-hole-status').text()).toContain('Hole complete');
-    expect(wrapper.find('.mobile-hole-status').text()).toContain('Ready for the next hole');
+    expect(wrapper.find('.mobile-hole-status').text()).toContain('4 of 4 entered');
     expect(wrapper.find('.mobile-next-hole').text()).toContain('Next open: 3');
 
     await wrapper.find('.mobile-next-hole').trigger('click');
@@ -663,8 +666,8 @@ describe('ScorecardScreen', () => {
 
     const blocks = firstRow.findAll('.mobile-score-block');
     expect(blocks).toHaveLength(2);
-    expect(blocks[0].text()).toContain('Score');
-    expect(blocks[1].text()).toContain('Putts');
+    expect(wrapper.find('.mobile-entry-header').text()).toContain('Score');
+    expect(wrapper.find('.mobile-entry-header').text()).toContain('Putts');
     expect(store.readPutt('Wes', 0)).toBe(2);
 
     const puttPlus = blocks[1].findAll('.stepper-btn')[1];
@@ -693,7 +696,7 @@ describe('ScorecardScreen', () => {
     expect(store.readScore('Tito', 0)).toBe(4);
     expect(store.readScore('Q', 0)).toBe(4);
     expect(wrapper.find('.mobile-hole-status').text()).toContain('Hole complete');
-    expect(wrapper.find('.mobile-fill-par').attributes('disabled')).toBeDefined();
+    expect(wrapper.find('.mobile-fill-par').exists()).toBe(false);
   });
 
   it('mobile two-man scramble scores pair rows instead of individual players', async () => {
@@ -709,7 +712,7 @@ describe('ScorecardScreen', () => {
     const wrapper = mountScorecard();
     await nextTick();
 
-    expect(wrapper.find('.mobile-score-key').text()).toContain('one team score per side');
+    expect(wrapper.find('.mobile-score-key').text()).toContain('Team score per side');
     expect(wrapper.findAll('.mobile-scramble-row')).toHaveLength(2);
     expect(wrapper.findAll('.mobile-player-row')).toHaveLength(2);
     expect(wrapper.find('.mobile-scramble-row').text()).toContain('Wes + Aaron');

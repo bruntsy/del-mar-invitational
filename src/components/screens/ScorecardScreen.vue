@@ -959,12 +959,25 @@ const mobileHoleStatus = computed(() => {
     ? `Missing ${mobileCurrentMissing.value.length}`
     : 'Hole complete';
 });
+const mobileEntryCount = computed(() => (twoManScrambleEnabled.value ? mobileScrambleTeams.value.length : mobilePlayers.value.length));
 const mobileNextOpenLabel = computed(() => {
   const nextOpen = nextIncompleteHole();
   return nextOpen == null ? 'Next hole' : `Next open: ${nextOpen + 1}`;
 });
 const mobileFillParDisabled = computed(() => mobileCurrentMissing.value.length === 0);
 const mobileFillParLabel = computed(() => `Fill missing par ${par.value[mobileHole.value] ?? ''}`.trim());
+const mobileStatusDetail = computed(() => {
+  if (mobileCurrentMissing.value.length) return mobileCurrentMissing.value.join(' · ');
+  if (!mobileEntryCount.value) return '';
+  return `${mobileEntryCount.value} of ${mobileEntryCount.value} entered`;
+});
+
+function mobileContestLabel(game: string, contest: string): string {
+  if (game === 'High Ball / Low Ball') return contest;
+  if (game === 'Best Ball + Aggy') return contest;
+  if (game === 'Two-Man Scramble') return 'Scramble';
+  return contest || game;
+}
 
 function mobileMatchKey(game: string, match: string, contest: string) {
   return `${game}-${match}-${contest}`;
@@ -984,7 +997,7 @@ const mobileMatchSummaries = computed(() =>
         const hole = contest.holes.find((h) => h.hole === mobileHole.value + 1);
         return {
           key: mobileMatchKey(panel.gameLabel, match.label, contest.name),
-          game: `${panel.gameLabel} · ${contest.name}`,
+          game: mobileContestLabel(panel.gameLabel, contest.name),
           match: `${match.sideA} vs ${match.sideB}`,
           score: hole ? `${hole.a ?? '–'}-${hole.b ?? '–'}` : '–',
           status: hole?.status && hole.status !== 'Pending' ? hole.status : 'Open',
@@ -1092,17 +1105,15 @@ watch(
           </button>
         </div>
 
-        <div class="mobile-hole-status" :class="{ complete: mobileCurrentMissing.length === 0 }">
-          <strong>{{ mobileHoleStatus }}</strong>
-          <span v-if="mobileCurrentMissing.length">{{ mobileCurrentMissing.join(' · ') }}</span>
-          <span v-else>Ready for the next hole.</span>
-        </div>
-
-        <div class="mobile-hole-actions">
+        <div class="mobile-hole-utility">
+          <div class="mobile-hole-status" :class="{ complete: mobileCurrentMissing.length === 0 }">
+            <strong>{{ mobileHoleStatus }}</strong>
+            <span>{{ mobileStatusDetail }}</span>
+          </div>
           <button
+            v-if="!mobileFillParDisabled"
             class="btn-ghost mobile-fill-par"
             type="button"
-            :disabled="mobileFillParDisabled"
             @click="() => fillMissingMobileScoresWithPar()"
           >
             {{ mobileFillParLabel }}
@@ -1110,13 +1121,13 @@ watch(
         </div>
 
         <div v-if="mobileEventGroupContext" class="mobile-event-context">
-          <div class="mobile-event-teams">
+          <div>
             <span class="mobile-event-label">{{ mobileEventGroupContext.groupName }}</span>
-            <strong>{{ mobileEventGroupContext.team1Name }}: {{ mobileEventGroupContext.team1.join(' + ') || 'No players' }}</strong>
-            <strong>{{ mobileEventGroupContext.team2Name }}: {{ mobileEventGroupContext.team2.join(' + ') || 'No players' }}</strong>
+            <strong class="mobile-event-matchup">
+              {{ mobileEventGroupContext.team1Name }} vs {{ mobileEventGroupContext.team2Name }}
+            </strong>
           </div>
           <div v-if="eventRoundScore" class="mobile-event-score">
-            <span>{{ eventRoundScore.label }}</span>
             <strong>{{ eventRoundScore.team1Name }} {{ eventRoundScore.team1 }} - {{ eventRoundScore.team2 }} {{ eventRoundScore.team2Name }}</strong>
           </div>
         </div>
@@ -1134,16 +1145,15 @@ watch(
           </div>
         </div>
 
-        <div class="mobile-score-key">
+        <div class="mobile-score-key" :title="twoManScrambleEnabled ? 'Two-Man Scramble uses one gross team score per side.' : 'Dot means stroke received. Green marks birdie or better. Red marks bogey or worse.'">
           <template v-if="twoManScrambleEnabled">
-            <span>Two-Man Scramble: one team score per side</span>
-            <span>Gross team score</span>
+            <span>Team score per side</span>
           </template>
           <template v-else>
-            <span><i class="mobile-stroke-dot">●</i> Stroke hole</span>
+            <span><i class="mobile-stroke-dot">●</i> Stroke</span>
           </template>
-          <span>Green = birdie</span>
-          <span>Red = bogey or worse</span>
+          <span>Green birdie</span>
+          <span>Red bogey+</span>
         </div>
 
         <div v-if="twoManScrambleEnabled" class="mobile-players">
@@ -1174,6 +1184,11 @@ watch(
         </div>
 
         <div v-else class="mobile-players">
+          <div class="mobile-entry-header" aria-hidden="true">
+            <span></span>
+            <span>Score</span>
+            <span>Putts</span>
+          </div>
           <div
             v-for="player in mobilePlayers"
             :key="player"
@@ -1188,7 +1203,6 @@ watch(
             </div>
             <div class="mobile-entry-controls">
               <div class="mobile-score-block">
-                <div class="mobile-field-label">Score</div>
                 <div class="mobile-stepper" :class="scoreColorClass(store.readScore(player, mobileHole), par[mobileHole])">
                   <button class="stepper-btn" type="button" @click="adjustScore(player, -1)">−</button>
                   <input
@@ -1197,6 +1211,7 @@ watch(
                     min="1"
                     max="20"
                     class="mobile-score-input"
+                    :aria-label="`${player} score`"
                     :value="store.readScore(player, mobileHole) ?? ''"
                     @input="onScoreInput(player, mobileHole, ($event.target as HTMLInputElement).value)"
                     @focus="($event.target as HTMLInputElement).select()"
@@ -1206,7 +1221,6 @@ watch(
                 <div v-if="store.readScore(player, mobileHole) == null" class="mobile-field-error">Missing</div>
               </div>
               <div class="mobile-score-block">
-                <div class="mobile-field-label">Putts</div>
                 <div class="mobile-stepper" :class="puttColorClass(store.readPutt(player, mobileHole))">
                   <button class="stepper-btn" type="button" @click="adjustPutt(player, -1)">−</button>
                   <input
@@ -1215,6 +1229,7 @@ watch(
                     min="0"
                     max="9"
                     class="mobile-score-input"
+                    :aria-label="`${player} putts`"
                     :value="store.readPutt(player, mobileHole) ?? ''"
                     @input="onPuttInput(player, mobileHole, ($event.target as HTMLInputElement).value)"
                     @focus="($event.target as HTMLInputElement).select()"
@@ -2791,26 +2806,18 @@ watch(
 
 .mobile-event-context {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(92px, auto);
-  gap: 8px;
+  grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr);
+  gap: 10px;
   align-items: center;
   border: 1px solid #d7cebd;
   border-radius: 8px;
   background: #fffdf7;
-  padding: 8px 10px;
+  padding: 7px 10px;
   margin: 0 0 8px;
 }
 
-.mobile-event-teams {
-  display: flex;
-  min-width: 0;
-  flex-wrap: wrap;
-  gap: 2px 8px;
-  align-items: center;
-}
-
 .mobile-event-context strong {
-  display: inline-block;
+  display: block;
   min-width: 0;
   overflow: hidden;
   color: #24362c;
@@ -2829,6 +2836,10 @@ watch(
   text-transform: uppercase;
 }
 
+.mobile-event-matchup {
+  margin-top: 2px;
+}
+
 .mobile-event-score {
   border-left: 1px solid #e4ddcd;
   padding-left: 8px;
@@ -2837,7 +2848,7 @@ watch(
 
 .mobile-event-score strong {
   color: #2f5d43;
-  font-size: 0.82rem;
+  font-size: 0.86rem;
   white-space: nowrap;
 }
 
@@ -3074,17 +3085,25 @@ watch(
   white-space: nowrap;
 }
 
+.mobile-hole-utility {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: stretch;
+  margin: 0 0 12px;
+}
+
 .mobile-hole-status {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 8px;
+  gap: 6px;
   align-items: center;
   border: 1px solid #e0c4c0;
-  border-radius: 8px;
+  border-radius: 999px;
   background: #f9eeec;
   color: #9b3d30;
-  margin: 0 0 12px;
-  padding: 8px 10px;
+  min-height: 34px;
+  padding: 5px 10px;
 }
 
 .mobile-hole-status.complete {
@@ -3094,7 +3113,7 @@ watch(
 }
 
 .mobile-hole-status strong {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 900;
   text-transform: uppercase;
 }
@@ -3103,25 +3122,19 @@ watch(
   min-width: 0;
   overflow: hidden;
   color: #5a6a5f;
-  font-size: 0.76rem;
+  font-size: 0.68rem;
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.mobile-hole-actions {
-  display: flex;
-  justify-content: stretch;
-  margin: -4px 0 12px;
-}
-
 .mobile-fill-par {
-  width: 100%;
-  min-height: 40px;
-  padding: 7px 10px;
+  min-height: 34px;
+  padding: 5px 10px;
   color: #2f5d43;
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   font-weight: 900;
+  white-space: nowrap;
 }
 
 .mobile-fill-par:disabled {
@@ -3148,7 +3161,7 @@ watch(
 .mobile-match-row span {
   display: block;
   color: #8a672f;
-  font-size: 0.64rem;
+  font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -3190,7 +3203,7 @@ watch(
   display: block;
   overflow: hidden;
   color: #5a6a5f;
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-style: normal;
   font-weight: 750;
   line-height: 1.2;
@@ -3214,10 +3227,10 @@ watch(
 .mobile-score-key {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 10px;
-  margin: 0 0 12px;
+  gap: 5px 8px;
+  margin: 0 0 8px;
   color: #6a7a6f;
-  font-size: 0.7rem;
+  font-size: 0.64rem;
   font-weight: 700;
 }
 
@@ -3229,8 +3242,22 @@ watch(
 
 .mobile-players {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 12px;
+}
+
+.mobile-entry-header {
+  display: grid;
+  grid-template-columns: minmax(70px, 0.7fr) repeat(2, minmax(0, 1.15fr));
+  gap: 8px;
+  align-items: end;
+  margin: -2px 10px -2px;
+  color: #8a9489;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
 }
 
 .mobile-player-row {
@@ -3282,7 +3309,7 @@ watch(
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
 }
 
 .mobile-entry-controls {
