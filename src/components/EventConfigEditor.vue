@@ -75,14 +75,8 @@ const validationErrors = computed(() => {
       errors.push(`${roundName} money bet cannot be negative.`);
     }
 
-    if (usesPairMatches(round)) {
-      round.pairMatches.forEach((match, mi) => {
-        if (match.a.length !== 2) errors.push(`${roundName} match ${mi + 1} needs two ${draft.value.teamNames.team1 || 'Team A'} players.`);
-        if (match.b.length !== 2) errors.push(`${roundName} match ${mi + 1} needs two ${draft.value.teamNames.team2 || 'Team B'} players.`);
-      });
-      for (const duplicate of duplicatePairPlayers(round)) {
-        errors.push(`${roundName} uses ${duplicate} in multiple matches.`);
-      }
+    for (const duplicate of duplicatePairPlayers(round)) {
+      errors.push(`${roundName} uses ${duplicate} in multiple matches.`);
     }
   });
 
@@ -99,9 +93,14 @@ const validationWarnings = computed(() => {
 
   draft.value.rounds.forEach((round, ri) => {
     if (!usesPairMatches(round)) return;
+    const roundName = round.name || `Round ${ri + 1}`;
+    round.pairMatches.forEach((match, mi) => {
+      if (match.a.length !== 2) warnings.push(`${roundName} match ${mi + 1} needs two ${draft.value.teamNames.team1 || 'Team A'} players before launch.`);
+      if (match.b.length !== 2) warnings.push(`${roundName} match ${mi + 1} needs two ${draft.value.teamNames.team2 || 'Team B'} players before launch.`);
+    });
     const used = new Set(round.pairMatches.flatMap((match) => [...match.a, ...match.b]));
     const omitted = [...draft.value.team1, ...draft.value.team2].filter((player) => !used.has(player));
-    if (omitted.length) warnings.push(`${round.name || `Round ${ri + 1}`} leaves out ${omitted.join(', ')}.`);
+    if (omitted.length) warnings.push(`${roundName} leaves out ${omitted.join(', ')}.`);
   });
 
   return warnings;
@@ -827,7 +826,7 @@ function save() {
         </ul>
       </template>
       <template v-if="validationWarnings.length">
-        <strong>Review before saving:</strong>
+        <strong>Review before launching:</strong>
         <ul>
           <li v-for="warning in validationWarnings" :key="warning">{{ warning }}</li>
         </ul>

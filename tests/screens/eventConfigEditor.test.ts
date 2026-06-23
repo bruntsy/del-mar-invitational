@@ -94,6 +94,25 @@ describe('EventConfigEditor', () => {
     expect(wrapper.emitted('save')).toBeUndefined();
   });
 
+  it('allows saving draft events when future pair matches are incomplete', async () => {
+    const event = testEvent();
+    event.config.rounds[1].format = 'twoManHighBallLowBall';
+    event.config.rounds[1].pairMatches = [{ a: [], b: [] }];
+    event.config.rounds[2].format = 'twoManHighBallLowBall';
+    event.config.rounds[2].pairMatches = [{ a: ['Joe'], b: [] }];
+    const wrapper = mountEditor(event);
+
+    expect(wrapper.text()).toContain('Review before launching:');
+    expect(wrapper.text()).toContain('Round 2 match 1 needs two Seattle players before launch.');
+    expect(wrapper.text()).toContain('Round 3 match 1 needs two Cali players before launch.');
+    expect(wrapper.text()).not.toContain('Fix 4 issues before saving');
+    expect(wrapper.find('.ece-actions .btn-primary').attributes('disabled')).toBeUndefined();
+
+    await wrapper.find('.ece-actions .btn-primary').trigger('click');
+
+    expect(wrapper.emitted('save')).toHaveLength(1);
+  });
+
   it('confirms before canceling dirty edits', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
     const wrapper = mountEditor();

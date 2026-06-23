@@ -647,6 +647,13 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   and assignments are written into `round.playingGroups` and drive the scorecard
   group filter and putt poker per-group panel.
 
+### Event Configuration (rewrite)
+
+- Event config can be saved as a draft while future rounds still need courses
+  or pair-match assignments. The group screen blocks launching an incomplete
+  round, but the editor no longer forces every future round to be fully built
+  before saving the event.
+
 ### Results Screen (rewrite)
 
 - `src/components/screens/ResultsScreen.vue`, routed at `/results`, renders the

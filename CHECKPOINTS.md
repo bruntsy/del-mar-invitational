@@ -3049,3 +3049,40 @@ near the active hole without pushing score entry as far down the phone screen.
 - Continue mobile scorecard ergonomics by rehearsing a credentialed online event
   round in the browser, where active event data can load through Supabase, and
   tune any remaining event-only spacing from that real flow.
+
+---
+
+## Checkpoint 66 — Event draft save validation (2026-06-23)
+
+### Summary
+
+Fixed event setup so future rounds can stay unfinished while the event itself
+is saved as a draft.
+
+### Changes
+
+- **`src/components/EventConfigEditor.vue`** — Changed incomplete pair-match
+  assignments from hard save errors into launch-time review warnings.
+- Kept true event/config errors as save blockers: blank event/team names,
+  unassigned or double-assigned players, negative points, negative side-game
+  buy-ins, and duplicate players inside a round's matches.
+- Changed warning copy from `Review before saving` to `Review before launching`
+  so users know they can save now and finish round setup later.
+- Launch readiness remains enforced on the group screen through
+  `roundReadinessIssue(...)`, so incomplete rounds still show Finish setup and
+  cannot be launched until course/game/pairing requirements are satisfied.
+- **`tests/screens/eventConfigEditor.test.ts`** — Added coverage that future
+  incomplete pair matches warn but do not disable Save changes.
+- **`README.md`** — Documented draft event saving.
+
+### Verification
+
+- `npm run test:run -- tests/screens/eventConfigEditor.test.ts` passed: 6 tests.
+- `npm run test:run` passed: 37 files, 350 tests.
+- `npm run build` passed.
+
+### Next likely tasks
+
+- Re-check the live mobile event editor on the deployed rewrite URL and confirm
+  that Save changes stays enabled when only future rounds are incomplete, while
+  those rounds still require Finish setup before launch.
