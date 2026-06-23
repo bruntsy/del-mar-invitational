@@ -455,6 +455,9 @@ describe('ScorecardScreen', () => {
     expect(wrapper.find('.mobile-event-context').text()).toContain('Seattle: Wes');
     expect(wrapper.find('.mobile-event-context').text()).toContain('Cali: Tito');
     expect(wrapper.find('.mobile-event-context').text()).toContain('Round points');
+    expect(wrapper.find('.mobile-match-status').text()).toContain('High Ball / Low Ball');
+    expect(wrapper.find('.mobile-match-status').text()).toContain('Low Ball');
+    expect(wrapper.find('.mobile-match-status').text()).toContain('Wes + Aaron vs Tito + Q');
     expect(wrapper.findAll('.mobile-player-row')).toHaveLength(2);
     expect(wrapper.find('.mobile-player-row').text()).toContain('Wes');
     expect(wrapper.findAll('.mobile-player-row')[1].text()).toContain('Tito');

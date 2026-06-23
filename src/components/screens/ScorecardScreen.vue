@@ -846,18 +846,27 @@ const mobileNextOpenLabel = computed(() => {
 
 const mobileMatchSummaries = computed(() =>
   matchPlayPanels.value.flatMap((panel) =>
-    panel.matches.flatMap((match) =>
-      match.contests.map((contest) => {
+    panel.matches
+      .filter((match) => {
+        if (selectedGroupIndex.value < 0) return true;
+        const active = activeGroupPlayers.value;
+        const matchPlayers = [...match.sideA.split(' + '), ...match.sideB.split(' + ')];
+        return matchPlayers.some((player) => active.has(player));
+      })
+      .flatMap((match) =>
+        match.contests.map((contest) => {
         const hole = contest.holes.find((h) => h.hole === mobileHole.value + 1);
         return {
           key: `${panel.gameLabel}-${match.label}-${contest.name}`,
-          game: contest.name,
+          game: `${panel.gameLabel} · ${contest.name}`,
           match: `${match.sideA} vs ${match.sideB}`,
-          status: hole?.status && hole.status !== 'Pending' ? hole.status : contest.finalLabel,
+          score: hole ? `${hole.a ?? '–'}-${hole.b ?? '–'}` : '–',
+          status: hole?.status && hole.status !== 'Pending' ? hole.status : 'Open',
+          winner: hole?.winner ?? null,
         };
       }),
     ),
-  ).filter((summary) => summary.status && summary.status !== 'Pending'),
+  ).filter((summary) => summary.status),
 );
 </script>
 
@@ -939,9 +948,12 @@ const mobileMatchSummaries = computed(() =>
 
         <div v-if="mobileMatchSummaries.length" class="mobile-match-status">
           <div v-for="summary in mobileMatchSummaries" :key="summary.key" class="mobile-match-row">
-            <span>{{ summary.game }}</span>
-            <strong>{{ summary.status }}</strong>
-            <em>{{ summary.match }}</em>
+            <div>
+              <span>{{ summary.game }}</span>
+              <em>{{ summary.match }}</em>
+            </div>
+            <strong :class="`mobile-match-${summary.winner ?? 'open'}`">{{ summary.score }}</strong>
+            <b>{{ summary.status }}</b>
           </div>
         </div>
 
@@ -2794,36 +2806,83 @@ const mobileMatchSummaries = computed(() =>
 
 .mobile-match-status {
   display: grid;
-  gap: 8px;
-  margin: 0 0 14px;
+  gap: 6px;
+  margin: 0 0 12px;
 }
 
 .mobile-match-row {
   display: grid;
-  gap: 2px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
   border: 1px solid #e4ddcd;
   border-radius: 8px;
   background: #fffdf7;
-  padding: 9px 10px;
+  padding: 8px 10px;
 }
 
 .mobile-match-row span {
+  display: block;
   color: #8a672f;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  line-height: 1.15;
 }
 
 .mobile-match-row strong {
+  min-width: 48px;
+  border: 1px solid #d7cebd;
+  border-radius: 999px;
+  background: #f8f4ea;
+  color: #24362c;
+  font-size: 0.88rem;
+  font-weight: 900;
+  padding: 4px 8px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.mobile-match-row strong.mobile-match-a {
+  border-color: #b8d4c0;
+  background: #e8f0e8;
   color: #2f5d43;
-  font-size: 1rem;
+}
+
+.mobile-match-row strong.mobile-match-b {
+  border-color: #e0c4c0;
+  background: #f8e8e3;
+  color: #9b3d30;
+}
+
+.mobile-match-row strong.mobile-match-tie {
+  border-color: #dfcfaa;
+  background: #f4ead4;
+  color: #8a672f;
 }
 
 .mobile-match-row em {
+  display: block;
+  overflow: hidden;
   color: #5a6a5f;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-style: normal;
+  font-weight: 750;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-match-row b {
+  border-radius: 999px;
+  background: #edf2ec;
+  color: #2f5d43;
+  font-size: 0.7rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 6px 8px;
+  white-space: nowrap;
 }
 
 .mobile-score-key {

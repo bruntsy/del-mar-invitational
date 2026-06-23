@@ -2851,3 +2851,43 @@ state obvious and reducing taps while moving through incomplete holes.
 - Continue mobile scorecard ergonomics with a tighter active-game context near
   the score entry area, especially for event/team games where the current hole
   should make the match state immediately obvious.
+
+---
+
+## Checkpoint 61 — Mobile scorecard match context (2026-06-22)
+
+### Summary
+
+Continued the mobile scorecard ergonomics pass by bringing current-hole team
+match context closer to score entry.
+
+### Changes
+
+- **`src/components/screens/ScorecardScreen.vue`** — Expanded the mobile match
+  strip to show the game/contest name, side-vs-side matchup, current-hole score,
+  and live status for each active match contest.
+- Kept the strip derived from existing `matchPlayPanels`, so event rounds and
+  standalone team formats share the same display-only data path.
+- Filtered match context to the selected playing group when a group filter is
+  active, reducing noise for phone scoring.
+- Styled the current-hole score as a compact badge with winner/tie/open states
+  instead of a full secondary table.
+- **`tests/screens/scorecard.test.ts`** — Added mobile event scorecard coverage
+  that verifies High Ball / Low Ball current-hole match context appears near
+  the mobile scoring card.
+- **`README.md`** — Documented the mobile current-hole match context.
+
+### Verification
+
+- `npm run test:run -- tests/screens/scorecard.test.ts` passed: 24 tests.
+- `npm run test:run` passed: 37 files, 346 tests.
+- `npm run build` passed.
+- Browser smoke on `/scorecard` at 390x844 passed on the local demo round: no
+  horizontal overflow and no console warnings/errors after the match-strip CSS
+  changes. Event/team match context is covered by the mounted mobile event test.
+
+### Next likely tasks
+
+- Continue mobile scorecard ergonomics with faster score entry controls, such as
+  default-to-par actions or reducing taps for common score values, while keeping
+  the full scorecard secondary on phones.
