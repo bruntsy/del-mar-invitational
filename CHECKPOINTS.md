@@ -2734,3 +2734,39 @@ less dominated by configuration fields.
 
 - Continue mobile setup polish with Teams & matchups / Playing Groups so the
   remaining lower setup sections are easier to scan after games are selected.
+
+---
+
+## Checkpoint 58 — Mobile teams and groups compression (2026-06-22)
+
+### Summary
+
+Continued the mobile setup pass by compressing the lower setup sections after
+they are ready.
+
+### Changes
+
+- **`src/components/screens/SetupScreen.vue`** — Added mobile-only collapsed
+  summary states for completed Teams & matchups and Playing groups cards.
+- Added concise summaries for team counts, team-set counts, and playing-group
+  membership, plus Edit/Hide controls to reopen the full controls.
+- Kept assignment, team-set, group-name, and player-move controls mounted so
+  existing setup behavior is unchanged.
+- **`tests/screens/setup.test.ts`** — Added coverage for collapsed lower setup
+  sections and their Edit toggles.
+- **`README.md`** — Documented the mobile lower-section compression behavior.
+
+### Verification
+
+- `npm run test:run -- tests/screens/setup.test.ts` passed.
+- `npm run test:run` passed: 37 files, 345 tests.
+- `npm run build` passed.
+- Browser smoke on `/setup` at 390x844 passed: no horizontal overflow, no
+  console errors, Teams & matchups and Playing groups collapsed to compact
+  summaries after player entry, and both reopened cleanly with Edit/Hide
+  toggles.
+
+### Next likely tasks
+
+- Revisit mobile setup as a full flow from blank state to Start round and tune
+  any remaining vertical spacing or summary wording in context.

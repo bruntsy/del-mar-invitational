@@ -224,6 +224,35 @@ describe('SetupScreen', () => {
     expect(settingsToggle.attributes('aria-expanded')).toBe('true');
   });
 
+  it('collapses completed team and playing group setup on mobile until edit is requested', async () => {
+    const wrapper = mountSetup();
+
+    await fillDefaultPlayers(wrapper);
+
+    const teamsCard = wrapper.findAll('.setup-card').find((card) => card.text().includes('Teams & matchups'));
+    const groupsCard = wrapper.findAll('.setup-card').find((card) => card.text().includes('Playing groups'));
+    expect(teamsCard).toBeDefined();
+    expect(groupsCard).toBeDefined();
+
+    expect(teamsCard!.classes()).toContain('is-mobile-collapsed');
+    expect(teamsCard!.find('.mobile-section-summary').text()).toContain('Team 1: 2');
+    expect(teamsCard!.find('.mobile-section-summary').text()).toContain('Team 2: 2');
+
+    expect(groupsCard!.classes()).toContain('is-mobile-collapsed');
+    expect(groupsCard!.find('.mobile-section-summary').text()).toContain('Group 1');
+    expect(groupsCard!.find('.mobile-section-summary').text()).toContain('Ann');
+
+    const teamsToggle = teamsCard!.find('.section-mobile-toggle');
+    await teamsToggle.trigger('click');
+    expect(teamsCard!.classes()).not.toContain('is-mobile-collapsed');
+    expect(teamsToggle.text()).toBe('Hide');
+
+    const groupsToggle = groupsCard!.find('.section-mobile-toggle');
+    await groupsToggle.trigger('click');
+    expect(groupsCard!.classes()).not.toContain('is-mobile-collapsed');
+    expect(groupsToggle.text()).toBe('Hide');
+  });
+
   it('fills course fields from selected search tee', async () => {
     const store = useRoundStore();
     mockSearchCourses.mockResolvedValue([

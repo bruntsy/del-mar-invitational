@@ -84,7 +84,7 @@ const selectedTeeKey = ref('');
 const courseSearching = ref(false);
 const courseSearchError = ref('');
 const showCourseScorecard = ref(false);
-const mobileSetupOpen = reactive({ course: false, players: false });
+const mobileSetupOpen = reactive({ course: false, players: false, teams: false, groups: false });
 const mobileGameSettingsOpen = reactive<Record<string, boolean>>({});
 // True once a real course is in the form (prefilled from edit/event, or picked
 // from search). Drives whether we show the read-only scorecard + "Change course"
@@ -362,6 +362,11 @@ const setupSteps = computed(() => [
 const completedSetupSteps = computed(() => setupSteps.value.filter((step) => step.complete).length);
 const setupProgressLabel = computed(() => `${completedSetupSteps.value} of ${setupSteps.value.length} ready`);
 const nextSetupStep = computed(() => setupSteps.value.find((step) => !step.complete)?.label ?? 'Ready');
+const teamsReady = computed(() => (
+  team1.value.length > 0
+  && team2.value.length > 0
+  && (!showPairMatches.value || cleanedPairMatches.value.length > 0)
+));
 const courseMobileSummary = computed(() => courseSet.value
   ? `${courseSummaryName.value} · ${form.teeName || 'Tee'} · Par ${courseParTotal.value}`
   : 'Search and select the tee for this round');
@@ -369,6 +374,24 @@ const playersMobileSummary = computed(() => {
   if (!namedPlayers.value.length) return 'Add players for this round';
   const count = `${namedPlayers.value.length} player${namedPlayers.value.length === 1 ? '' : 's'}`;
   return duplicateNames.value ? `${count} · duplicate names` : count;
+});
+const teamsMobileSummary = computed(() => {
+  const base = `${form.teamNames.team1}: ${team1.value.length} · ${form.teamNames.team2}: ${team2.value.length}`;
+  if (!showPairMatches.value) return base;
+  return `${base} · ${cleanedPairMatches.value.length} team set${cleanedPairMatches.value.length === 1 ? '' : 's'}`;
+});
+const playingGroupsReady = computed(() => (
+  displayPlayingGroups.value.length > 0
+  && displayPlayingGroups.value.every((group) => group.players.length > 0)
+));
+const playingGroupsMobileSummary = computed(() => {
+  if (!displayPlayingGroups.value.length) return 'Auto-assigns after players are added';
+  return displayPlayingGroups.value
+    .map((group, index) => {
+      const name = form.playingGroupNames[index] || group.name;
+      return `${name}: ${group.players.join(' / ')}`;
+    })
+    .join(' · ');
 });
 
 // --- Pair-match builder (Side A vs Side B) ------------------------------
@@ -1040,104 +1063,146 @@ function goGroup() {
       </div>
     </section>
 
-    <section v-if="!hasEventContext && namedPlayers.length" class="setup-card checklist-card">
+    <section
+      v-if="!hasEventContext && namedPlayers.length"
+      class="setup-card checklist-card"
+      :class="{
+        'is-mobile-collapsible': teamsReady,
+        'is-mobile-collapsed': teamsReady && !mobileSetupOpen.teams,
+      }"
+    >
       <div class="pg-header">
         <div>
           <span class="step-pill">{{ team1.length }} vs {{ team2.length }}</span>
           <h2 class="setup-hdr">Teams &amp; matchups</h2>
+          <p class="mobile-section-summary">{{ teamsMobileSummary }}</p>
         </div>
-        <button v-if="showPairMatches" class="btn-ghost sm" type="button" @click="addPairMatch">+ Add team set</button>
-      </div>
-      <p class="pg-hint">Assign round teams first. Team sets appear when a selected game needs a specific matchup.</p>
-
-      <div class="team-name-grid">
-        <label>Team 1 name<input v-model="form.teamNames.team1" class="form-input" /></label>
-        <label>Team 2 name<input v-model="form.teamNames.team2" class="form-input" /></label>
-      </div>
-
-      <div class="team-assignment-list">
-        <div v-for="player in namedPlayers" :key="`assign-${player.name}`" class="team-assignment-row">
-          <strong>{{ player.name }}</strong>
-          <div class="team-toggle">
-            <button class="seg-btn" :class="{ active: player.team === 'team1' }" type="button" @click="setPlayerTeam(player, 'team1')">{{ form.teamNames.team1 }}</button>
-            <button class="seg-btn" :class="{ active: player.team === 'team2' }" type="button" @click="setPlayerTeam(player, 'team2')">{{ form.teamNames.team2 }}</button>
-          </div>
+        <div class="section-head-actions">
+          <button
+            v-if="teamsReady"
+            class="btn-ghost sm section-mobile-toggle"
+            type="button"
+            :aria-expanded="mobileSetupOpen.teams"
+            @click="mobileSetupOpen.teams = !mobileSetupOpen.teams"
+          >
+            {{ mobileSetupOpen.teams ? 'Hide' : 'Edit' }}
+          </button>
+          <button v-if="showPairMatches" class="btn-ghost sm" type="button" @click="addPairMatch">+ Add team set</button>
         </div>
       </div>
+      <div class="mobile-collapsible-body">
+        <p class="pg-hint">Assign round teams first. Team sets appear when a selected game needs a specific matchup.</p>
 
-      <div v-if="showPairMatches" class="pm-list">
-        <div v-for="(_match, mi) in form.pairMatches" :key="mi" class="pair-match-builder">
-          <div class="pm-builder-head">
-            <strong>Team Set {{ mi + 1 }}</strong>
-            <button class="btn-remove" type="button" title="Remove team set" @click="removePairMatch(mi)">✕</button>
+        <div class="team-name-grid">
+          <label>Team 1 name<input v-model="form.teamNames.team1" class="form-input" /></label>
+          <label>Team 2 name<input v-model="form.teamNames.team2" class="form-input" /></label>
+        </div>
+
+        <div class="team-assignment-list">
+          <div v-for="player in namedPlayers" :key="`assign-${player.name}`" class="team-assignment-row">
+            <strong>{{ player.name }}</strong>
+            <div class="team-toggle">
+              <button class="seg-btn" :class="{ active: player.team === 'team1' }" type="button" @click="setPlayerTeam(player, 'team1')">{{ form.teamNames.team1 }}</button>
+              <button class="seg-btn" :class="{ active: player.team === 'team2' }" type="button" @click="setPlayerTeam(player, 'team2')">{{ form.teamNames.team2 }}</button>
+            </div>
           </div>
-          <div class="pm-assign-list">
-            <div v-for="p in namedPlayers" :key="`pm-${mi}-${p.name}`" class="pm-assign-row">
-              <strong>{{ p.name }}</strong>
-              <div class="team-toggle three">
-                <button class="seg-btn" :class="{ active: pairSide(mi, p.name.trim()) === 'a' }" type="button" @click="setPairSide(mi, p.name.trim(), 'a')">Team A</button>
-                <button class="seg-btn" :class="{ active: pairSide(mi, p.name.trim()) === 'b' }" type="button" @click="setPairSide(mi, p.name.trim(), 'b')">Team B</button>
-                <button class="seg-btn" :class="{ active: pairSide(mi, p.name.trim()) === 'sit' }" type="button" @click="setPairSide(mi, p.name.trim(), 'sit')">Sit</button>
+        </div>
+
+        <div v-if="showPairMatches" class="pm-list">
+          <div v-for="(_match, mi) in form.pairMatches" :key="mi" class="pair-match-builder">
+            <div class="pm-builder-head">
+              <strong>Team Set {{ mi + 1 }}</strong>
+              <button class="btn-remove" type="button" title="Remove team set" @click="removePairMatch(mi)">✕</button>
+            </div>
+            <div class="pm-assign-list">
+              <div v-for="p in namedPlayers" :key="`pm-${mi}-${p.name}`" class="pm-assign-row">
+                <strong>{{ p.name }}</strong>
+                <div class="team-toggle three">
+                  <button class="seg-btn" :class="{ active: pairSide(mi, p.name.trim()) === 'a' }" type="button" @click="setPairSide(mi, p.name.trim(), 'a')">Team A</button>
+                  <button class="seg-btn" :class="{ active: pairSide(mi, p.name.trim()) === 'b' }" type="button" @click="setPairSide(mi, p.name.trim(), 'b')">Team B</button>
+                  <button class="seg-btn" :class="{ active: pairSide(mi, p.name.trim()) === 'sit' }" type="button" @click="setPairSide(mi, p.name.trim(), 'sit')">Sit</button>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div v-if="matchSummaries.length" class="pm-summaries">
-        <h3 class="sub-hdr">Team Summary</h3>
-        <div v-for="m in matchSummaries" :key="m.index" class="pm-summary">
-          <div class="pm-summary-head">
-            <strong>Team Set {{ m.index + 1 }}</strong>
-            <span class="pm-summary-group">{{ m.group }}</span>
+        <div v-if="matchSummaries.length" class="pm-summaries">
+          <h3 class="sub-hdr">Team Summary</h3>
+          <div v-for="m in matchSummaries" :key="m.index" class="pm-summary">
+            <div class="pm-summary-head">
+              <strong>Team Set {{ m.index + 1 }}</strong>
+              <span class="pm-summary-group">{{ m.group }}</span>
+            </div>
+            <div class="pm-summary-vs">
+              <span>{{ m.a }}</span>
+              <em>vs</em>
+              <span>{{ m.b }}</span>
+            </div>
+            <ul class="pm-summary-games">
+              <li v-for="(g, gi) in m.games" :key="gi">
+                {{ g.label }} · {{ g.basis }} {{ g.mode }} · {{ g.bet }}
+              </li>
+            </ul>
           </div>
-          <div class="pm-summary-vs">
-            <span>{{ m.a }}</span>
-            <em>vs</em>
-            <span>{{ m.b }}</span>
-          </div>
-          <ul class="pm-summary-games">
-            <li v-for="(g, gi) in m.games" :key="gi">
-              {{ g.label }} · {{ g.basis }} {{ g.mode }} · {{ g.bet }}
-            </li>
-          </ul>
         </div>
       </div>
     </section>
 
-    <section v-if="namedPlayers.length >= 2" class="setup-card checklist-card">
+    <section
+      v-if="namedPlayers.length >= 2"
+      class="setup-card checklist-card"
+      :class="{
+        'is-mobile-collapsible': playingGroupsReady,
+        'is-mobile-collapsed': playingGroupsReady && !mobileSetupOpen.groups,
+      }"
+    >
       <div class="pg-header">
         <div>
           <span class="step-pill">{{ displayPlayingGroups.length }} group{{ displayPlayingGroups.length === 1 ? '' : 's' }}</span>
           <h2 class="setup-hdr">Playing groups</h2>
+          <p class="mobile-section-summary">{{ playingGroupsMobileSummary }}</p>
         </div>
-        <button v-if="form.playingGroupCustom" class="btn-ghost sm" type="button" @click="resetCustomGroups">Reset to auto</button>
+        <div class="section-head-actions">
+          <button
+            v-if="playingGroupsReady"
+            class="btn-ghost sm section-mobile-toggle"
+            type="button"
+            :aria-expanded="mobileSetupOpen.groups"
+            @click="mobileSetupOpen.groups = !mobileSetupOpen.groups"
+          >
+            {{ mobileSetupOpen.groups ? 'Hide' : 'Edit' }}
+          </button>
+          <button v-if="form.playingGroupCustom" class="btn-ghost sm" type="button" @click="resetCustomGroups">Reset to auto</button>
+        </div>
       </div>
-      <p class="pg-hint">Set who is playing together on the course. {{ form.playingGroupCustom ? 'Manually assigned.' : 'Auto-assigned from team sets or team order.' }}</p>
-      <div class="pg-list">
-        <div v-for="(group, gi) in displayPlayingGroups" :key="gi" class="pg-group">
-          <input
-            class="form-input pg-name-input"
-            :placeholder="group.name"
-            :value="form.playingGroupNames[gi] || ''"
-            @input="form.playingGroupNames[gi] = ($event.target as HTMLInputElement).value"
-          />
-          <div class="pg-players">
-            <span v-for="player in group.players" :key="player" class="pg-player-chip">
-              <span>{{ player }}</span>
-              <select
-                v-if="displayPlayingGroups.length > 1"
-                class="pg-move-select"
-                :value="gi"
-                @change="movePlayerToGroup(player, Number(($event.target as HTMLSelectElement).value))"
-              >
-                <option v-for="(g, i) in displayPlayingGroups" :key="i" :value="i" :disabled="i === gi">
-                  {{ form.playingGroupNames[i] || g.name }}
-                </option>
-              </select>
-            </span>
+      <div class="mobile-collapsible-body">
+        <p class="pg-hint">Set who is playing together on the course. {{ form.playingGroupCustom ? 'Manually assigned.' : 'Auto-assigned from team sets or team order.' }}</p>
+        <div class="pg-list">
+          <div v-for="(group, gi) in displayPlayingGroups" :key="gi" class="pg-group">
+            <input
+              class="form-input pg-name-input"
+              :placeholder="group.name"
+              :value="form.playingGroupNames[gi] || ''"
+              @input="form.playingGroupNames[gi] = ($event.target as HTMLInputElement).value"
+            />
+            <div class="pg-players">
+              <span v-for="player in group.players" :key="player" class="pg-player-chip">
+                <span>{{ player }}</span>
+                <select
+                  v-if="displayPlayingGroups.length > 1"
+                  class="pg-move-select"
+                  :value="gi"
+                  @change="movePlayerToGroup(player, Number(($event.target as HTMLSelectElement).value))"
+                >
+                  <option v-for="(g, i) in displayPlayingGroups" :key="i" :value="i" :disabled="i === gi">
+                    {{ form.playingGroupNames[i] || g.name }}
+                  </option>
+                </select>
+              </span>
+            </div>
+            <p v-if="groupMatchup(group.players)" class="pg-matchup">Matchup: {{ groupMatchup(group.players) }}</p>
           </div>
-          <p v-if="groupMatchup(group.players)" class="pg-matchup">Matchup: {{ groupMatchup(group.players) }}</p>
         </div>
       </div>
     </section>
@@ -1241,6 +1306,13 @@ function goGroup() {
 .mobile-section-summary,
 .section-mobile-toggle {
   display: none;
+}
+
+.section-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .sub-hdr {
@@ -2221,6 +2293,9 @@ label {
     font-size: 0.84rem;
     font-weight: 750;
     line-height: 1.3;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .section-mobile-toggle {
@@ -2230,6 +2305,17 @@ label {
     min-width: 74px;
     min-height: 40px;
     padding: 7px 12px;
+  }
+
+  .section-head-actions {
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 74px;
+  }
+
+  .section-head-actions .btn-ghost {
+    min-height: 40px;
+    padding: 7px 10px;
   }
 
   .course-summary-actions,
