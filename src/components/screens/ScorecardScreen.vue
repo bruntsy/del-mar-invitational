@@ -1025,7 +1025,12 @@ const mobileMatchSummaries = computed(() =>
         </div>
 
         <div v-else class="mobile-players">
-          <div v-for="player in mobilePlayers" :key="player" class="mobile-player-row">
+          <div
+            v-for="player in mobilePlayers"
+            :key="player"
+            class="mobile-player-row"
+            :class="{ 'mobile-player-row-putts': puttPokerEnabled }"
+          >
             <div class="mobile-player-meta">
               <div class="mobile-player-name">{{ player }}</div>
               <div class="mobile-player-hcp">
@@ -1033,39 +1038,41 @@ const mobileMatchSummaries = computed(() =>
                 <span v-if="getsStrokeHere(player, mobileHole)" class="mobile-stroke-dot">●</span>
               </div>
             </div>
-            <div class="mobile-score-block">
-              <div class="mobile-field-label">Score</div>
-              <div class="mobile-stepper" :class="scoreColorClass(store.readScore(player, mobileHole), par[mobileHole])">
-                <button class="stepper-btn" type="button" @click="adjustScore(player, -1)">−</button>
-                <input
-                  type="number"
-                  inputmode="numeric"
-                  min="1"
-                  max="20"
-                  class="mobile-score-input"
-                  :value="store.readScore(player, mobileHole) ?? ''"
-                  @input="onScoreInput(player, mobileHole, ($event.target as HTMLInputElement).value)"
-                  @focus="($event.target as HTMLInputElement).select()"
-                />
-                <button class="stepper-btn" type="button" @click="adjustScore(player, 1)">+</button>
+            <div class="mobile-entry-controls">
+              <div class="mobile-score-block">
+                <div class="mobile-field-label">Score</div>
+                <div class="mobile-stepper" :class="scoreColorClass(store.readScore(player, mobileHole), par[mobileHole])">
+                  <button class="stepper-btn" type="button" @click="adjustScore(player, -1)">−</button>
+                  <input
+                    type="number"
+                    inputmode="numeric"
+                    min="1"
+                    max="20"
+                    class="mobile-score-input"
+                    :value="store.readScore(player, mobileHole) ?? ''"
+                    @input="onScoreInput(player, mobileHole, ($event.target as HTMLInputElement).value)"
+                    @focus="($event.target as HTMLInputElement).select()"
+                  />
+                  <button class="stepper-btn" type="button" @click="adjustScore(player, 1)">+</button>
+                </div>
+                <div v-if="store.readScore(player, mobileHole) == null" class="mobile-field-error">Missing</div>
               </div>
-              <div v-if="store.readScore(player, mobileHole) == null" class="mobile-field-error">Missing</div>
-            </div>
-            <div v-if="puttPokerEnabled" class="mobile-score-block">
-              <div class="mobile-field-label">Putts</div>
-              <div class="mobile-stepper" :class="puttColorClass(store.readPutt(player, mobileHole))">
-                <button class="stepper-btn" type="button" @click="adjustPutt(player, -1)">−</button>
-                <input
-                  type="number"
-                  inputmode="numeric"
-                  min="0"
-                  max="9"
-                  class="mobile-score-input"
-                  :value="store.readPutt(player, mobileHole) ?? ''"
-                  @input="onPuttInput(player, mobileHole, ($event.target as HTMLInputElement).value)"
-                  @focus="($event.target as HTMLInputElement).select()"
-                />
-                <button class="stepper-btn" type="button" @click="adjustPutt(player, 1)">+</button>
+              <div v-if="puttPokerEnabled" class="mobile-score-block">
+                <div class="mobile-field-label">Putts</div>
+                <div class="mobile-stepper" :class="puttColorClass(store.readPutt(player, mobileHole))">
+                  <button class="stepper-btn" type="button" @click="adjustPutt(player, -1)">−</button>
+                  <input
+                    type="number"
+                    inputmode="numeric"
+                    min="0"
+                    max="9"
+                    class="mobile-score-input"
+                    :value="store.readPutt(player, mobileHole) ?? ''"
+                    @input="onPuttInput(player, mobileHole, ($event.target as HTMLInputElement).value)"
+                    @focus="($event.target as HTMLInputElement).select()"
+                  />
+                  <button class="stepper-btn" type="button" @click="adjustPutt(player, 1)">+</button>
+                </div>
               </div>
             </div>
           </div>
@@ -2965,6 +2972,13 @@ const mobileMatchSummaries = computed(() =>
   padding: 10px 12px;
 }
 
+.mobile-player-row-putts {
+  display: grid;
+  grid-template-columns: minmax(76px, 0.7fr) minmax(246px, 2.3fr);
+  align-items: center;
+  gap: 8px;
+}
+
 .mobile-player-meta {
   flex: 1;
   min-width: 80px;
@@ -2994,6 +3008,37 @@ const mobileMatchSummaries = computed(() =>
   flex-direction: column;
   align-items: center;
   gap: 4px;
+}
+
+.mobile-entry-controls {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.mobile-player-row-putts .mobile-entry-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.mobile-player-row-putts .mobile-score-block {
+  min-width: 0;
+}
+
+.mobile-player-row-putts .mobile-stepper {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.mobile-player-row-putts .stepper-btn {
+  min-width: 40px;
+  padding-inline: 8px;
+}
+
+.mobile-player-row-putts .mobile-score-input {
+  width: 40px;
 }
 
 .mobile-field-label {
@@ -3058,6 +3103,16 @@ const mobileMatchSummaries = computed(() =>
 .mobile-stepper.score-birdie { background: #cdeccd; }
 .mobile-stepper.score-bogey { background: #f3dede; }
 .mobile-stepper.score-double { background: #e6c4c4; }
+
+@media (max-width: 360px) {
+  .mobile-player-row-putts {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-player-row-putts .mobile-entry-controls {
+    width: 100%;
+  }
+}
 
 .mobile-hole-strip {
   display: flex;

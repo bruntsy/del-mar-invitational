@@ -2928,3 +2928,44 @@ score-entry shortcut for common par holes.
 - Continue mobile scorecard ergonomics by reducing vertical scanning in the
   scoring rows, likely by tightening player-row layout or adding a clearer
   score/putt rhythm for Putt Poker rounds.
+
+---
+
+## Checkpoint 63 — Mobile scorecard entry row rhythm (2026-06-23)
+
+### Summary
+
+Continued the mobile scorecard ergonomics pass by tightening score and putt
+entry rows for Putt Poker rounds.
+
+### Changes
+
+- **`src/components/screens/ScorecardScreen.vue`** — Grouped each mobile
+  player's Score and Putts controls inside one compact entry-control area when
+  Putt Poker is enabled.
+- Added a mobile-specific two-column score/putt rhythm so the player name,
+  handicap, score stepper, and putt stepper scan as one row on a 390px phone.
+- Kept non-Putt Poker player rows and two-man scramble team-score rows on their
+  existing behavior and data paths.
+- Did not change scoring logic, putt logic, or persistence shape; the layout
+  still writes through the existing `setScore` and `setPutt` handlers.
+- **`tests/screens/scorecard.test.ts`** — Added mobile Putt Poker coverage that
+  verifies Score and Putts are grouped and that putt steppers still update the
+  store.
+- **`README.md`** — Documented the compact mobile Putt Poker entry rows.
+
+### Verification
+
+- `npm run test:run -- tests/screens/scorecard.test.ts` passed: 27 tests.
+- `npm run test:run` passed: 37 files, 349 tests.
+- `npm run build` passed.
+- Browser smoke on `/scorecard` at 390x844 passed: mobile Putt Poker rows
+  rendered Score and Putts as paired controls, the first player's putt `+`
+  updated the putt input, there was no horizontal overflow, and no console
+  warnings/errors were reported.
+
+### Next likely tasks
+
+- Continue mobile scorecard ergonomics by reviewing the full phone scoring flow
+  in context, especially the spacing between active-hole context, entry rows,
+  and the hole strip after several games are enabled.

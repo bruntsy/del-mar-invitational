@@ -578,6 +578,9 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   hole number/par/SI header, per-player score and putt steppers (−/input/+),
   and an 18-button hole strip for quick navigation. The current hole is persisted
   to `dmi_mobile_hole_<roundId|local>` in localStorage.
+- On mobile Putt Poker rounds, score and putt controls sit in a compact paired
+  row per player so Score and Putts can be scanned together without changing
+  score or putt persistence.
 - The mobile hole card shows a compact `Missing N` / `Hole complete` status and
   its forward action jumps to the next incomplete hole when possible.
 - The mobile card includes a `Fill missing par N` shortcut that fills only blank

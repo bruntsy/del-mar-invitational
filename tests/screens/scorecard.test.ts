@@ -533,6 +533,34 @@ describe('ScorecardScreen', () => {
     expect(store.readScore('Wes', 0)).toBe(3);
   });
 
+  it('mobile Putt Poker rows group score and putt entry while recording putts', async () => {
+    stubMobileViewport();
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.games = cloneDefaultGames();
+    round.games.puttPoker.enabled = true;
+    store.setRound(round, players);
+
+    const wrapper = mountScorecard();
+    await nextTick();
+
+    const firstRow = wrapper.find('.mobile-player-row');
+    expect(firstRow.classes()).toContain('mobile-player-row-putts');
+    expect(firstRow.find('.mobile-entry-controls').exists()).toBe(true);
+
+    const blocks = firstRow.findAll('.mobile-score-block');
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0].text()).toContain('Score');
+    expect(blocks[1].text()).toContain('Putts');
+
+    const puttPlus = blocks[1].findAll('.stepper-btn')[1];
+    await puttPlus.trigger('click');
+    await puttPlus.trigger('click');
+    await nextTick();
+
+    expect(store.readPutt('Wes', 0)).toBe(2);
+  });
+
   it('mobile fill-par shortcut fills only missing player scores on the active hole', async () => {
     stubMobileViewport();
     const store = useRoundStore();
