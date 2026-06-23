@@ -599,6 +599,9 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   handicap, relative strokes, and SI-based stroke-hole list using the shared
   handicap helpers. The preview updates immediately when course rating, slope,
   par, SI, player indexes, or a searched tee changes.
+- On mobile, the sticky setup action bar shows checklist progress such as
+  `3 of 5 ready`, the current blocking issue, and compact side-by-side actions
+  with larger tap targets for inputs, toggles, and buttons.
 - When an active group has roster players, setup pre-fills player rows from
   that roster, split evenly across the two teams. The setup roster remains
   round-local after prefill, so one-off edits do not mutate the group roster.

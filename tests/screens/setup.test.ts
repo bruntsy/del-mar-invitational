@@ -89,6 +89,7 @@ describe('SetupScreen', () => {
 
     // default form has empty player names -> teams empty -> disabled
     expect(start.attributes('disabled')).toBeDefined();
+    expect(wrapper.find('.setup-action-status').text()).toContain('0 of 5 ready');
     expect(wrapper.text()).toContain('needs at least one player');
   });
 

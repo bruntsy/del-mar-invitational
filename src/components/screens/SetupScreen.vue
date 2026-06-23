@@ -333,6 +333,17 @@ const firstBlockingIssue = computed(() => errors.value[0] ?? '');
 const hasEventContext = computed(() => event.pendingRoundLink != null);
 const rosterReadOnly = computed(() => hasEventContext.value);
 
+const setupSteps = computed(() => [
+  { label: 'Course', complete: courseSet.value },
+  { label: 'Players', complete: namedPlayers.value.length > 0 && !duplicateNames.value },
+  ...(!hasEventContext.value ? [{ label: 'Games', complete: selectedGameCount.value > 0 }] : []),
+  { label: 'Teams', complete: team1.value.length > 0 && team2.value.length > 0 },
+  { label: 'Groups', complete: displayPlayingGroups.value.length > 0 && displayPlayingGroups.value.every((group) => group.players.length > 0) },
+]);
+const completedSetupSteps = computed(() => setupSteps.value.filter((step) => step.complete).length);
+const setupProgressLabel = computed(() => `${completedSetupSteps.value} of ${setupSteps.value.length} ready`);
+const nextSetupStep = computed(() => setupSteps.value.find((step) => !step.complete)?.label ?? 'Ready');
+
 // --- Pair-match builder (Side A vs Side B) ------------------------------
 
 const TEAM_GAMES = [
@@ -1039,8 +1050,12 @@ function goGroup() {
     </ul>
 
     <div class="setup-actions sticky-actions">
-      <p v-if="store.syncError" class="sync-error">{{ store.syncError }}</p>
-      <p v-else-if="firstBlockingIssue" class="sync-error">{{ firstBlockingIssue }}</p>
+      <div class="setup-action-status">
+        <strong>{{ setupProgressLabel }}</strong>
+        <span v-if="store.syncError" class="sync-error">{{ store.syncError }}</span>
+        <span v-else-if="firstBlockingIssue" class="sync-error">{{ firstBlockingIssue }}</span>
+        <span v-else>{{ nextSetupStep === 'Ready' ? 'Ready to start' : `Next: ${nextSetupStep}` }}</span>
+      </div>
       <button class="btn-ghost" type="button" @click="goGroup">Back to groups</button>
       <button class="btn-primary" type="button" :disabled="!canStart || store.starting" @click="startRound">
         {{ store.starting ? (editMode ? 'Saving...' : 'Starting...') : (editMode ? 'Save changes →' : 'Start round →') }}
@@ -1985,6 +2000,24 @@ label {
   font-weight: 700;
 }
 
+.setup-action-status {
+  display: grid;
+  gap: 2px;
+  margin-right: auto;
+  min-width: 180px;
+}
+
+.setup-action-status strong {
+  color: #24362c;
+  font-size: 0.82rem;
+}
+
+.setup-action-status span {
+  color: #607067;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
 .btn-primary,
 .btn-ghost {
   border-radius: 6px;
@@ -2017,7 +2050,7 @@ label {
 
 @media (max-width: 640px) {
   .setup-shell {
-    padding: 16px 12px 148px;
+    padding: 16px 12px 124px;
   }
 
   .setup-topbar,
@@ -2040,16 +2073,20 @@ label {
   }
 
   .course-summary-actions,
-  .player-row-actions,
-  .setup-actions {
+  .player-row-actions {
     justify-content: stretch;
   }
 
   .course-summary-actions .btn-ghost,
-  .setup-actions .btn-primary,
-  .setup-actions .btn-ghost {
-    width: 100%;
+  .btn-primary,
+  .btn-ghost,
+  .seg-btn,
+  .game-toggle {
     min-height: 44px;
+  }
+
+  .course-summary-actions .btn-ghost {
+    width: 100%;
   }
 
   .course-nine-grid,
@@ -2088,8 +2125,47 @@ label {
   }
 
   .sticky-actions {
-    margin: 22px -12px -148px;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(118px, 0.9fr);
+    gap: 8px;
+    margin: 22px -12px -124px;
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+    align-items: end;
+  }
+
+  .setup-action-status {
+    grid-column: 1 / -1;
+    margin-right: 0;
+    min-width: 0;
+  }
+
+  .setup-actions .btn-primary,
+  .setup-actions .btn-ghost {
+    width: 100%;
+    min-height: 44px;
+    padding: 9px 10px;
+  }
+
+  .form-input,
+  .form-input.sm {
+    min-height: 44px;
+    font-size: 1rem;
+  }
+
+  .btn-text-danger {
+    min-height: 40px;
+    padding: 6px 8px;
+  }
+
+  .game-toggle {
+    align-items: center;
+    padding: 5px 0;
+  }
+
+  .game-toggle input {
+    min-width: 22px;
+    width: 22px;
+    height: 22px;
   }
 }
 

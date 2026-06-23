@@ -2622,3 +2622,40 @@ event-card treatment.
 
 - Re-check the Results HBL section with live event data to confirm the neutral
   cards read clearly with mixed Team 1 / Team 2 / push results.
+
+---
+
+## Checkpoint 55 — Mobile setup checklist footer (2026-06-22)
+
+### Summary
+
+Started the mobile setup checklist pass by making the sticky setup footer more
+useful and less intrusive on phone-sized screens.
+
+### Changes
+
+- **`src/components/screens/SetupScreen.vue`** — Added derived setup checklist
+  progress for Course / Players / Games / Teams / Groups.
+- Replaced the loose sticky-footer error paragraph with a compact status block
+  that shows progress, the current blocking issue, or "Ready to start".
+- Tightened the mobile sticky action bar from stacked full-width buttons into a
+  shorter status row plus side-by-side Back / Start actions.
+- Increased mobile input, button, segmented-control, and game-toggle touch
+  targets to reduce setup friction on phones.
+- **`tests/screens/setup.test.ts`** — Added coverage for the new setup progress
+  status.
+- **`README.md`** — Documented the mobile setup checklist footer behavior.
+
+### Verification
+
+- `npm run test:run -- tests/screens/setup.test.ts` passed.
+- `npm run test:run` passed: 37 files, 342 tests.
+- `npm run build` passed (vue-tsc clean).
+- Browser smoke on `/setup` at 390x844 passed: route rendered, no page-level
+  horizontal overflow, no console errors. The sticky footer measured about
+  101px tall, down from the prior roughly 152px audit.
+
+### Next likely tasks
+
+- Continue the mobile setup checklist pass by making setup sections collapsible
+  once complete, starting with Course and Players.
