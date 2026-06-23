@@ -605,6 +605,9 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 - On mobile, completed Course and Players cards collapse to compact summary
   headers with an explicit Edit/Hide control, reducing setup-scroll distance
   while keeping desktop setup fully expanded.
+- On mobile, the Games card shows selected games as compact chips and keeps
+  each selected game's money/settings fields behind a Settings toggle, so the
+  game list stays scannable while settings remain editable.
 - When an active group has roster players, setup pre-fills player rows from
   that roster, split evenly across the two teams. The setup roster remains
   round-local after prefill, so one-off edits do not mutate the group roster.

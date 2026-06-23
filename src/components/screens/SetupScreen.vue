@@ -85,6 +85,7 @@ const courseSearching = ref(false);
 const courseSearchError = ref('');
 const showCourseScorecard = ref(false);
 const mobileSetupOpen = reactive({ course: false, players: false });
+const mobileGameSettingsOpen = reactive<Record<string, boolean>>({});
 // True once a real course is in the form (prefilled from edit/event, or picked
 // from search). Drives whether we show the read-only scorecard + "Change course"
 // or the search UI — applies in every mode so a missing/wrong course is fixable.
@@ -323,6 +324,17 @@ const selectedGameCount = computed(() => {
   ].filter(Boolean).length;
 });
 
+const selectedGameSummaries = computed(() => [
+  form.games.skins.enabled ? 'Skins' : '',
+  form.games.bestBall.enabled ? 'Best Ball' : '',
+  form.games.bestBallAggy.enabled ? 'Best Ball + Aggy' : '',
+  form.games.twoManScramble.enabled ? 'Two-Man Scramble' : '',
+  form.games.highBallLowBall.enabled ? 'High Ball / Low Ball' : '',
+  form.games.scramble4.enabled ? '4-Man Scramble' : '',
+  form.games.wolf.enabled ? 'Wolf' : '',
+  form.games.puttPoker.enabled ? 'Putt Poker' : '',
+].filter(Boolean));
+
 const errors = computed(() => {
   const list: string[] = [];
   if (form.par.some((value) => !Number(value))) list.push('Every hole needs a par value.');
@@ -523,6 +535,10 @@ function assignmentLabel(team: 'team1' | 'team2') {
 
 function setPlayerTeam(player: PlayerRow, team: 'team1' | 'team2') {
   player.team = team;
+}
+
+function toggleGameSettings(key: string) {
+  mobileGameSettingsOpen[key] = !mobileGameSettingsOpen[key];
 }
 
 function groupMatchup(players: string[]) {
@@ -868,20 +884,32 @@ function goGroup() {
         <div>
           <span class="step-pill">{{ selectedGameCount ? `${selectedGameCount} selected` : 'Needed' }}</span>
           <h2 class="setup-hdr">Games</h2>
+          <p class="mobile-section-summary">
+            {{ selectedGameSummaries.length ? selectedGameSummaries.join(' · ') : 'Pick the games for this round' }}
+          </p>
         </div>
       </div>
+      <div v-if="selectedGameSummaries.length" class="selected-games-strip" aria-label="Selected games">
+        <span v-for="game in selectedGameSummaries" :key="game" class="selected-game-chip">{{ game }}</span>
+      </div>
       <div class="games-list">
-        <div class="game-row game-card" :class="{ active: form.games.skins.enabled }">
+        <div class="game-row game-card" :class="{ active: form.games.skins.enabled, 'is-settings-collapsed': form.games.skins.enabled && !mobileGameSettingsOpen.skins }">
           <label class="game-toggle"><input v-model="form.games.skins.enabled" type="checkbox" /> <span><strong>Skins</strong><small>Optional individual skins game.</small></span></label>
-          <div v-if="form.games.skins.enabled" class="game-inline-settings">
+          <button v-if="form.games.skins.enabled" class="btn-ghost sm game-settings-toggle" type="button" :aria-expanded="!!mobileGameSettingsOpen.skins" @click="toggleGameSettings('skins')">
+            {{ mobileGameSettingsOpen.skins ? 'Hide settings' : 'Settings' }}
+          </button>
+          <div v-if="form.games.skins.enabled" class="game-inline-settings game-settings-panel">
             <label class="bet-field">Buy-in $ / player<input v-model.number="form.games.skins.pot" class="form-input sm" type="number" min="0" /></label>
             <select v-model="form.games.skins.type" class="form-input sm"><option>net</option><option>gross</option></select>
           </div>
         </div>
 
-        <div class="game-row game-card" :class="{ active: form.games.bestBall.enabled }">
+        <div class="game-row game-card" :class="{ active: form.games.bestBall.enabled, 'is-settings-collapsed': form.games.bestBall.enabled && !mobileGameSettingsOpen.bestBall }">
           <label class="game-toggle"><input v-model="form.games.bestBall.enabled" type="checkbox" /> <span><strong>Best Ball</strong><small>Team game using each side’s best ball.</small></span></label>
-          <div v-if="form.games.bestBall.enabled" class="game-inline-settings">
+          <button v-if="form.games.bestBall.enabled" class="btn-ghost sm game-settings-toggle" type="button" :aria-expanded="!!mobileGameSettingsOpen.bestBall" @click="toggleGameSettings('bestBall')">
+            {{ mobileGameSettingsOpen.bestBall ? 'Hide settings' : 'Settings' }}
+          </button>
+          <div v-if="form.games.bestBall.enabled" class="game-inline-settings game-settings-panel">
             <label class="bet-field">Front 9 $ / player<input v-model.number="form.games.bestBall.front" class="form-input sm" type="number" min="0" /></label>
             <label class="bet-field">Back 9 $ / player<input v-model.number="form.games.bestBall.back" class="form-input sm" type="number" min="0" /></label>
             <label class="bet-field">Overall $ / player<input v-model.number="form.games.bestBall.total" class="form-input sm" type="number" min="0" /></label>
@@ -894,9 +922,12 @@ function goGroup() {
           </div>
         </div>
 
-        <div class="game-row game-card" :class="{ active: form.games.bestBallAggy.enabled }">
+        <div class="game-row game-card" :class="{ active: form.games.bestBallAggy.enabled, 'is-settings-collapsed': form.games.bestBallAggy.enabled && !mobileGameSettingsOpen.bestBallAggy }">
           <label class="game-toggle"><input v-model="form.games.bestBallAggy.enabled" type="checkbox" /> <span><strong>Best Ball + Aggy</strong><small>Scores both the team’s best ball and combined aggregate score.</small></span></label>
-        <div v-if="form.games.bestBallAggy.enabled" class="game-subconfig">
+          <button v-if="form.games.bestBallAggy.enabled" class="btn-ghost sm game-settings-toggle" type="button" :aria-expanded="!!mobileGameSettingsOpen.bestBallAggy" @click="toggleGameSettings('bestBallAggy')">
+            {{ mobileGameSettingsOpen.bestBallAggy ? 'Hide settings' : 'Settings' }}
+          </button>
+        <div v-if="form.games.bestBallAggy.enabled" class="game-subconfig game-settings-panel">
           <div class="sub-row">
             <span class="sub-label">Score basis</span>
             <div class="seg-ctrl">
@@ -921,9 +952,12 @@ function goGroup() {
         </div>
         </div>
 
-        <div class="game-row game-card" :class="{ active: form.games.twoManScramble.enabled }">
+        <div class="game-row game-card" :class="{ active: form.games.twoManScramble.enabled, 'is-settings-collapsed': form.games.twoManScramble.enabled && !mobileGameSettingsOpen.twoManScramble }">
           <label class="game-toggle"><input v-model="form.games.twoManScramble.enabled" type="checkbox" /> <span><strong>Two-Man Scramble</strong><small>Two-player teams post one gross scramble score.</small></span></label>
-        <div v-if="form.games.twoManScramble.enabled" class="game-subconfig">
+          <button v-if="form.games.twoManScramble.enabled" class="btn-ghost sm game-settings-toggle" type="button" :aria-expanded="!!mobileGameSettingsOpen.twoManScramble" @click="toggleGameSettings('twoManScramble')">
+            {{ mobileGameSettingsOpen.twoManScramble ? 'Hide settings' : 'Settings' }}
+          </button>
+        <div v-if="form.games.twoManScramble.enabled" class="game-subconfig game-settings-panel">
           <div class="sub-row">
             <span class="sub-label">Scoring mode</span>
             <div class="seg-ctrl">
@@ -940,9 +974,12 @@ function goGroup() {
         </div>
         </div>
 
-        <div class="game-row game-card" :class="{ active: form.games.highBallLowBall.enabled }">
+        <div class="game-row game-card" :class="{ active: form.games.highBallLowBall.enabled, 'is-settings-collapsed': form.games.highBallLowBall.enabled && !mobileGameSettingsOpen.highBallLowBall }">
           <label class="game-toggle"><input v-model="form.games.highBallLowBall.enabled" type="checkbox" /> <span><strong>High Ball / Low Ball</strong><small>Scores both low-ball and high-ball team contests.</small></span></label>
-        <div v-if="form.games.highBallLowBall.enabled" class="game-subconfig">
+          <button v-if="form.games.highBallLowBall.enabled" class="btn-ghost sm game-settings-toggle" type="button" :aria-expanded="!!mobileGameSettingsOpen.highBallLowBall" @click="toggleGameSettings('highBallLowBall')">
+            {{ mobileGameSettingsOpen.highBallLowBall ? 'Hide settings' : 'Settings' }}
+          </button>
+        <div v-if="form.games.highBallLowBall.enabled" class="game-subconfig game-settings-panel">
           <div class="sub-row">
             <span class="sub-label">Score basis</span>
             <div class="seg-ctrl">
@@ -966,9 +1003,12 @@ function goGroup() {
         </div>
         </div>
 
-        <div class="game-row game-card" :class="{ active: form.games.scramble4.enabled }">
+        <div class="game-row game-card" :class="{ active: form.games.scramble4.enabled, 'is-settings-collapsed': form.games.scramble4.enabled && !mobileGameSettingsOpen.scramble4 }">
           <label class="game-toggle"><input v-model="form.games.scramble4.enabled" type="checkbox" /> <span><strong>4-Man Scramble</strong><small>Team scramble scored as gross stroke play.</small></span></label>
-          <div v-if="form.games.scramble4.enabled" class="game-inline-settings">
+          <button v-if="form.games.scramble4.enabled" class="btn-ghost sm game-settings-toggle" type="button" :aria-expanded="!!mobileGameSettingsOpen.scramble4" @click="toggleGameSettings('scramble4')">
+            {{ mobileGameSettingsOpen.scramble4 ? 'Hide settings' : 'Settings' }}
+          </button>
+          <div v-if="form.games.scramble4.enabled" class="game-inline-settings game-settings-panel">
             <label class="bet-field">Front 9 $ / player<input v-model.number="form.games.scramble4.front" class="form-input sm" type="number" min="0" /></label>
             <label class="bet-field">Back 9 $ / player<input v-model.number="form.games.scramble4.back" class="form-input sm" type="number" min="0" /></label>
             <label class="bet-field">Overall $ / player<input v-model.number="form.games.scramble4.total" class="form-input sm" type="number" min="0" /></label>
@@ -976,18 +1016,24 @@ function goGroup() {
           </div>
         </div>
 
-        <div class="game-row game-card" :class="{ active: form.games.wolf.enabled }">
+        <div class="game-row game-card" :class="{ active: form.games.wolf.enabled, 'is-settings-collapsed': form.games.wolf.enabled && !mobileGameSettingsOpen.wolf }">
           <label class="game-toggle"><input v-model="form.games.wolf.enabled" type="checkbox" /> <span><strong>Wolf</strong><small>Rotating individual/team side game.</small></span></label>
-          <div v-if="form.games.wolf.enabled" class="game-inline-settings">
+          <button v-if="form.games.wolf.enabled" class="btn-ghost sm game-settings-toggle" type="button" :aria-expanded="!!mobileGameSettingsOpen.wolf" @click="toggleGameSettings('wolf')">
+            {{ mobileGameSettingsOpen.wolf ? 'Hide settings' : 'Settings' }}
+          </button>
+          <div v-if="form.games.wolf.enabled" class="game-inline-settings game-settings-panel">
             <label class="bet-field">{{ form.games.wolf.nassau ? 'Overall $ / player' : 'Full round $ / player' }}<input v-model.number="form.games.wolf.amount" class="form-input sm" type="number" min="0" /></label>
             <select v-model="form.games.wolf.type" class="form-input sm"><option>net</option><option>gross</option></select>
             <label class="game-toggle sm"><input v-model="form.games.wolf.nassau" type="checkbox" /> Nassau</label>
           </div>
         </div>
 
-        <div class="game-row game-card" :class="{ active: form.games.puttPoker.enabled }">
+        <div class="game-row game-card" :class="{ active: form.games.puttPoker.enabled, 'is-settings-collapsed': form.games.puttPoker.enabled && !mobileGameSettingsOpen.puttPoker }">
           <label class="game-toggle"><input v-model="form.games.puttPoker.enabled" type="checkbox" /> <span><strong>Putt Poker</strong><small>Putting-card side pot by playing group.</small></span></label>
-          <div v-if="form.games.puttPoker.enabled" class="game-inline-settings">
+          <button v-if="form.games.puttPoker.enabled" class="btn-ghost sm game-settings-toggle" type="button" :aria-expanded="!!mobileGameSettingsOpen.puttPoker" @click="toggleGameSettings('puttPoker')">
+            {{ mobileGameSettingsOpen.puttPoker ? 'Hide settings' : 'Settings' }}
+          </button>
+          <div v-if="form.games.puttPoker.enabled" class="game-inline-settings game-settings-panel">
             <label class="bet-field">Buy-in $ / player<input v-model.number="form.games.puttPoker.pot" class="form-input sm" type="number" min="0" /></label>
           </div>
         </div>
@@ -1615,8 +1661,29 @@ label {
   gap: 10px;
 }
 
+.selected-games-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.selected-game-chip {
+  border: 1px solid #bfd5c4;
+  border-radius: 999px;
+  background: #edf5ed;
+  color: #2f5d43;
+  padding: 5px 9px;
+  font-size: 0.72rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
 .game-row {
-  display: block;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
   border: 1px solid #e4ddcd;
   border-radius: 8px;
   background: #fdfbf4;
@@ -1656,8 +1723,15 @@ label {
   font-size: 0.78rem;
 }
 
+.game-settings-toggle {
+  align-self: center;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
 .game-inline-settings,
 .game-subconfig {
+  grid-column: 1 / -1;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px;
@@ -2189,6 +2263,40 @@ label {
 
   .course-search-btn {
     width: 100%;
+  }
+
+  .selected-games-strip {
+    margin-top: -4px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
+  }
+
+  .selected-game-chip {
+    flex: 0 0 auto;
+  }
+
+  .game-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .game-card.active {
+    background: #f8fbf6;
+  }
+
+  .game-settings-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 6px 10px;
+    font-size: 0.78rem;
+  }
+
+  .is-settings-collapsed .game-settings-panel {
+    display: none;
   }
 
   .hcp-preview-row {

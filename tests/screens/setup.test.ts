@@ -203,6 +203,27 @@ describe('SetupScreen', () => {
     expect(toggle.text()).toBe('Hide');
   });
 
+  it('summarizes selected games and collapses their settings by default', async () => {
+    const wrapper = mountSetup();
+
+    const bestBallRow = wrapper.findAll('.game-row').find((row) => row.text().includes('Best Ball') && !row.text().includes('Aggy'));
+    expect(bestBallRow).toBeDefined();
+    await bestBallRow!.find('input[type="checkbox"]').setValue(true);
+
+    expect(wrapper.find('.selected-games-strip').text()).toContain('Best Ball');
+    expect(bestBallRow!.classes()).toContain('is-settings-collapsed');
+
+    const settingsToggle = bestBallRow!.find('.game-settings-toggle');
+    expect(settingsToggle.text()).toBe('Settings');
+    expect(settingsToggle.attributes('aria-expanded')).toBe('false');
+
+    await settingsToggle.trigger('click');
+
+    expect(bestBallRow!.classes()).not.toContain('is-settings-collapsed');
+    expect(settingsToggle.text()).toBe('Hide settings');
+    expect(settingsToggle.attributes('aria-expanded')).toBe('true');
+  });
+
   it('fills course fields from selected search tee', async () => {
     const store = useRoundStore();
     mockSearchCourses.mockResolvedValue([

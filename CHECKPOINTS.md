@@ -2698,3 +2698,39 @@ Course and Players are complete.
 
 - Continue mobile setup polish with the Games section: make selected games more
   scannable and reduce the amount of always-visible configuration chrome.
+
+---
+
+## Checkpoint 57 — Mobile games setup compression (2026-06-22)
+
+### Summary
+
+Continued the mobile setup pass by making the Games section easier to scan and
+less dominated by configuration fields.
+
+### Changes
+
+- **`src/components/screens/SetupScreen.vue`** — Added selected-game summary
+  chips under the Games heading.
+- Added mobile-friendly Settings / Hide settings controls for every selected
+  game so money, basis, and mode controls can stay collapsed until needed.
+- Kept settings mounted so existing setup behavior and tests still exercise the
+  same form controls.
+- **`tests/screens/setup.test.ts`** — Added coverage for selected-game chips and
+  the per-game settings toggle state.
+- **`README.md`** — Documented the mobile Games compression behavior.
+
+### Verification
+
+- `npm run test:run -- tests/screens/setup.test.ts` passed.
+- `npm run test:run` passed: 37 files, 344 tests.
+- `npm run build` passed.
+- Browser smoke on `/setup` at 390x844 passed: no horizontal overflow, no
+  console errors, selected Skins / Best Ball chips rendered, both settings
+  panels were collapsed by default, and Best Ball expanded cleanly with the
+  Settings toggle.
+
+### Next likely tasks
+
+- Continue mobile setup polish with Teams & matchups / Playing Groups so the
+  remaining lower setup sections are easier to scan after games are selected.
