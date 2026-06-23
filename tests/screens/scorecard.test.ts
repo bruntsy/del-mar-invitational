@@ -510,6 +510,48 @@ describe('ScorecardScreen', () => {
     expect(wrapper.find('.mobile-match-dialog').exists()).toBe(false);
   });
 
+  it('mobile event scorecard saves par scores and two putts for the visible playing group', async () => {
+    stubMobileViewport();
+    const roundStore = useRoundStore();
+    const eventStore = useEventStore();
+    const { round, players } = demoRound();
+    round.id = 'event-round-1';
+    round.groupId = 'g1';
+    round.games = cloneDefaultGames();
+    round.teamNames = { team1: 'Seattle', team2: 'Cali' };
+    round.team1 = ['Wes', 'Aaron'];
+    round.team2 = ['Tito', 'Q'];
+    round.pairMatches = [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }];
+    round.playingGroups = [
+      { name: 'Group 1', players: ['Wes', 'Tito'] },
+      { name: 'Group 2', players: ['Aaron', 'Q'] },
+    ];
+    roundStore.setRound(round, players);
+
+    const config = defaultEventConfig(['Wes', 'Aaron', 'Tito', 'Q']);
+    config.teamNames = { team1: 'Seattle', team2: 'Cali' };
+    config.rounds[0] = {
+      ...config.rounds[0],
+      name: 'Round 1',
+      format: 'twoManHighBallLowBall',
+      roundId: 'event-round-1',
+      pairMatches: [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }],
+    };
+    eventStore.event = { id: 'event-1', groupId: 'g1', name: 'Event Test', status: 'active', config };
+
+    const wrapper = mountScorecard();
+    await nextTick();
+
+    expect(wrapper.find('.mobile-event-context').text()).toContain('Group 1');
+    expect(wrapper.find('.mobile-hole-status').text()).toContain('Hole complete');
+    expect(roundStore.readScore('Wes', 0)).toBe(4);
+    expect(roundStore.readScore('Tito', 0)).toBe(4);
+    expect(roundStore.readPutt('Wes', 0)).toBe(2);
+    expect(roundStore.readPutt('Tito', 0)).toBe(2);
+    expect(roundStore.readScore('Aaron', 0)).toBeNull();
+    expect(roundStore.readPutt('Aaron', 0)).toBeNull();
+  });
+
   it('mobile hole card shows players, score steppers, and hole navigation', async () => {
     stubMobileViewport();
     const store = useRoundStore();

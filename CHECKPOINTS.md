@@ -3153,13 +3153,14 @@ viewed and moved mobile match details behind a focused Open dialog.
   default in mobile hole view.
 - **`tests/screens/scorecard.test.ts`** — Added/updated coverage for par defaults,
   2-putt defaults, preserved existing values, two-man scramble team defaults,
-  always-visible mobile putts, and the mobile match scorecard dialog.
+  always-visible mobile putts, event mobile scoring defaults, and the mobile
+  match scorecard dialog.
 - **`README.md`** — Documented mobile score/putt defaults and the match Open
   dialog behavior.
 
 ### Verification
 
-- `npm run test:run -- tests/screens/scorecard.test.ts` passed: 28 tests.
+- `npm run test:run -- tests/screens/scorecard.test.ts` passed: 29 tests.
 - `npm run test:run` passed: 37 files, 352 tests.
 - `npm run build` passed.
 - Browser note: local 390px smoke was attempted, but Playwright CLI dropped its
