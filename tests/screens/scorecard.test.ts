@@ -401,6 +401,7 @@ describe('ScorecardScreen', () => {
     expect(wrapper.find('.mobile-card').exists()).toBe(true);
     expect(wrapper.find('.sc-table-wrap').exists()).toBe(false);
     expect(wrapper.text()).toContain('View full scorecard');
+    expect(wrapper.find('.mobile-card-actions').text()).toContain('Results');
 
     await wrapper.find('.mobile-full-toggle').trigger('click');
     await nextTick();

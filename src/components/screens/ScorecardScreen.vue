@@ -1095,9 +1095,12 @@ const mobileMatchSummaries = computed(() =>
           >{{ h + 1 }}</button>
         </div>
 
-        <button class="btn-ghost mobile-full-toggle" type="button" @click="fullScorecardOpen = !fullScorecardOpen">
-          {{ fullScorecardOpen ? 'Hide full scorecard' : 'View full scorecard' }}
-        </button>
+        <div class="mobile-card-actions">
+          <button class="btn-ghost mobile-full-toggle" type="button" @click="fullScorecardOpen = !fullScorecardOpen">
+            {{ fullScorecardOpen ? 'Hide full scorecard' : 'View full scorecard' }}
+          </button>
+          <button class="btn-primary mobile-results-action" type="button" @click="goResults">Results →</button>
+        </div>
       </div>
 
       <div v-if="!holeView || fullScorecardOpen" class="score-legend" aria-label="Scorecard key">
@@ -1584,10 +1587,6 @@ const mobileMatchSummaries = computed(() =>
           </div>
         </div>
       </section>
-
-      <div v-if="holeView" class="mobile-sticky-results">
-        <button class="btn-primary" type="button" @click="goResults">Results →</button>
-      </div>
 
     </template>
 
@@ -2957,8 +2956,8 @@ const mobileMatchSummaries = computed(() =>
 
 .mobile-players {
   display: grid;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .mobile-player-row {
@@ -2969,7 +2968,7 @@ const mobileMatchSummaries = computed(() =>
   border: 1px solid #e4ddcd;
   border-radius: 8px;
   background: #fdfbf4;
-  padding: 10px 12px;
+  padding: 8px 10px;
 }
 
 .mobile-player-row-putts {
@@ -3146,26 +3145,21 @@ const mobileMatchSummaries = computed(() =>
 }
 
 .mobile-full-toggle {
-  width: 100%;
   min-height: 44px;
-  margin-top: 14px;
 }
 
-.mobile-sticky-results {
-  position: sticky;
-  bottom: 0;
-  z-index: 5;
-  display: none;
-  margin: 18px -16px -40px;
-  border-top: 1px solid #d7cebd;
-  background: rgb(248 244 234 / 96%);
-  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
-  backdrop-filter: blur(8px);
+.mobile-card-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(112px, 0.72fr);
+  gap: 8px;
+  margin-top: 12px;
 }
 
-.mobile-sticky-results .btn-primary {
+.mobile-card-actions .btn-ghost,
+.mobile-card-actions .btn-primary {
   width: 100%;
   min-height: 44px;
+  padding-inline: 10px;
 }
 
 .sc-empty {
@@ -3254,9 +3248,6 @@ const mobileMatchSummaries = computed(() =>
     min-height: 44px;
   }
 
-  .mobile-sticky-results {
-    display: block;
-  }
 }
 
 .btn-primary,

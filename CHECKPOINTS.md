@@ -2969,3 +2969,43 @@ entry rows for Putt Poker rounds.
 - Continue mobile scorecard ergonomics by reviewing the full phone scoring flow
   in context, especially the spacing between active-hole context, entry rows,
   and the hole strip after several games are enabled.
+
+---
+
+## Checkpoint 64 — Mobile scorecard flow actions (2026-06-23)
+
+### Summary
+
+Reviewed the busy mobile scorecard flow with Skins, Best Ball, and Putt Poker
+enabled, then removed the only viewport overlay that could cover score entry.
+
+### Changes
+
+- **`src/components/screens/ScorecardScreen.vue`** — Moved the mobile Results
+  action into the scorecard card itself, paired with View full scorecard after
+  the hole strip.
+- Removed the sticky mobile Results footer so it no longer covers the last
+  player row while a scorer is entering scores or putts.
+- Tightened mobile player row spacing slightly so the repeated score/putt rows
+  take less vertical space without changing tap-target behavior.
+- Kept the change display/layout-only: no scoring logic, game logic, or
+  persistence shape changed.
+- **`tests/screens/scorecard.test.ts`** — Added coverage that the mobile card
+  action row includes Results.
+- **`README.md`** — Documented the in-flow mobile scorecard actions.
+
+### Verification
+
+- `npm run test:run -- tests/screens/scorecard.test.ts` passed: 27 tests.
+- `npm run test:run` passed: 37 files, 349 tests.
+- `npm run build` passed.
+- Browser smoke on `/scorecard` at 390x844 with the demo busy-game round
+  passed: mobile rows rendered without horizontal overflow, the sticky Results
+  footer was absent, the in-flow action row rendered after the hole strip, and
+  no console warnings/errors were reported.
+
+### Next likely tasks
+
+- Continue mobile scorecard ergonomics by testing event/team rounds with match
+  context enabled and tightening that context if it pushes score entry too far
+  down the phone screen.

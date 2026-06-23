@@ -581,6 +581,9 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 - On mobile Putt Poker rounds, score and putt controls sit in a compact paired
   row per player so Score and Putts can be scanned together without changing
   score or putt persistence.
+- The mobile card keeps View full scorecard and Results actions in a compact
+  in-flow row after the hole strip, so navigation stays close without covering
+  score entry controls.
 - The mobile hole card shows a compact `Missing N` / `Hole complete` status and
   its forward action jumps to the next incomplete hole when possible.
 - The mobile card includes a `Fill missing par N` shortcut that fills only blank
