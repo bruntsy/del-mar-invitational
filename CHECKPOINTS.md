@@ -2811,3 +2811,43 @@ the first-screen checklist behavior.
 - Move to the next mobile UX pass: scorecard ergonomics on phone-sized screens,
   especially scoring speed, hole navigation, active game context, and avoiding
   unnecessary scroll while entering scores.
+
+---
+
+## Checkpoint 60 — Mobile scorecard hole status (2026-06-22)
+
+### Summary
+
+Started the mobile scorecard ergonomics pass by making the active hole's scoring
+state obvious and reducing taps while moving through incomplete holes.
+
+### Changes
+
+- **`src/components/screens/ScorecardScreen.vue`** — Added a compact mobile
+  status strip that shows `Missing N` with the missing player/team labels, or
+  `Hole complete` when the current hole has all required scores.
+- Changed the mobile forward action to prefer the next incomplete hole, while
+  still falling back to ordinary next-hole navigation when every later hole is
+  filled.
+- Added a small `Next open: N` label to the forward control so users know where
+  the button will take them.
+- Kept the logic display-only and driven by existing score/team-score reads; no
+  scoring math or persistence shape changed.
+- **`tests/screens/scorecard.test.ts`** — Added coverage for missing/complete
+  mobile hole status and smart next-open navigation.
+- **`README.md`** — Documented the mobile hole status and next-open behavior.
+
+### Verification
+
+- `npm run test:run -- tests/screens/scorecard.test.ts` passed: 24 tests.
+- `npm run test:run` passed: 37 files, 346 tests.
+- `npm run build` passed.
+- Browser smoke on `/scorecard` at 390x844 passed: the mobile hole card showed
+  complete/missing status, the next control jumped to the next open hole, there
+  was no horizontal overflow, and no console warnings/errors were reported.
+
+### Next likely tasks
+
+- Continue mobile scorecard ergonomics with a tighter active-game context near
+  the score entry area, especially for event/team games where the current hole
+  should make the match state immediately obvious.

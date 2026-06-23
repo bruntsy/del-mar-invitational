@@ -471,6 +471,8 @@ describe('ScorecardScreen', () => {
 
     expect(wrapper.find('.mobile-hole-num').text()).toBe('Hole 1');
     expect(wrapper.findAll('.mobile-player-row')).toHaveLength(4);
+    expect(wrapper.find('.mobile-hole-status').text()).toContain('Missing 4');
+    expect(wrapper.find('.mobile-hole-status').text()).toContain('Wes');
     expect(wrapper.find('.mobile-score-key').text()).toContain('Stroke hole');
     expect(wrapper.find('.mobile-field-error').text()).toContain('Missing');
 
@@ -480,6 +482,31 @@ describe('ScorecardScreen', () => {
     await nextTick();
 
     expect(wrapper.find('.mobile-hole-num').text()).toBe('Hole 2');
+  });
+
+  it('mobile hole status marks complete holes and next jumps to the next open hole', async () => {
+    stubMobileViewport();
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    store.setRound(round, players);
+    for (const player of store.playerNames) {
+      store.setScore(player, 0, 4);
+      store.setScore(player, 1, 4);
+    }
+
+    const wrapper = mountScorecard();
+    await nextTick();
+
+    expect(wrapper.find('.mobile-hole-num').text()).toBe('Hole 1');
+    expect(wrapper.find('.mobile-hole-status').text()).toContain('Hole complete');
+    expect(wrapper.find('.mobile-hole-status').text()).toContain('Ready for the next hole');
+    expect(wrapper.find('.mobile-next-hole').text()).toContain('Next open: 3');
+
+    await wrapper.find('.mobile-next-hole').trigger('click');
+    await nextTick();
+
+    expect(wrapper.find('.mobile-hole-num').text()).toBe('Hole 3');
+    expect(wrapper.find('.mobile-hole-status').text()).toContain('Missing 4');
   });
 
   it('mobile score stepper increments the score via the store', async () => {

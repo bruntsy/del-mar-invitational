@@ -769,7 +769,22 @@ watch(mobileHole, (hole) => {
 });
 
 function prevHole() { if (mobileHole.value > 0) mobileHole.value -= 1; }
-function nextHole() { if (mobileHole.value < 17) mobileHole.value += 1; }
+
+function nextIncompleteHole(fromHole = mobileHole.value) {
+  for (let hole = fromHole + 1; hole < 18; hole += 1) {
+    if (!mobileHoleComplete(hole)) return hole;
+  }
+  return null;
+}
+
+function nextHole() {
+  const nextOpen = nextIncompleteHole();
+  if (nextOpen != null) {
+    mobileHole.value = nextOpen;
+    return;
+  }
+  if (mobileHole.value < 17) mobileHole.value += 1;
+}
 
 function adjustScore(player: string, delta: number) {
   const current = store.readScore(player, mobileHole.value) ?? 0;
@@ -803,6 +818,31 @@ const mobileScrambleTeams = computed(() =>
     match.teams.filter((team) => team.players.some((player) => activeGroupPlayers.value.has(player))),
   ),
 );
+
+function mobileHoleMissingLabels(hole: number) {
+  if (twoManScrambleEnabled.value) {
+    return mobileScrambleTeams.value
+      .filter((team) => store.readTeamScore(team.key, hole) == null)
+      .map((team) => team.name);
+  }
+  return mobilePlayers.value.filter((player) => store.readScore(player, hole) == null);
+}
+
+function mobileHoleComplete(hole: number) {
+  return mobileHoleMissingLabels(hole).length === 0;
+}
+
+const mobileCurrentMissing = computed(() => mobileHoleMissingLabels(mobileHole.value));
+const mobileHoleStatus = computed(() => {
+  if (!mobilePlayers.value.length && !mobileScrambleTeams.value.length) return 'No players';
+  return mobileCurrentMissing.value.length
+    ? `Missing ${mobileCurrentMissing.value.length}`
+    : 'Hole complete';
+});
+const mobileNextOpenLabel = computed(() => {
+  const nextOpen = nextIncompleteHole();
+  return nextOpen == null ? 'Next hole' : `Next open: ${nextOpen + 1}`;
+});
 
 const mobileMatchSummaries = computed(() =>
   matchPlayPanels.value.flatMap((panel) =>
@@ -873,7 +913,16 @@ const mobileMatchSummaries = computed(() =>
             <span class="mobile-hole-si">Hcp {{ si[mobileHole] }}</span>
             <span class="mobile-hole-course">{{ courseTitle }} · {{ course?.tee?.name ?? 'Tee' }} tees</span>
           </div>
-          <button class="btn-ghost" type="button" :disabled="mobileHole === 17" @click="nextHole">→</button>
+          <button class="btn-ghost mobile-next-hole" type="button" :disabled="mobileHole === 17" @click="nextHole">
+            <span>→</span>
+            <small>{{ mobileNextOpenLabel }}</small>
+          </button>
+        </div>
+
+        <div class="mobile-hole-status" :class="{ complete: mobileCurrentMissing.length === 0 }">
+          <strong>{{ mobileHoleStatus }}</strong>
+          <span v-if="mobileCurrentMissing.length">{{ mobileCurrentMissing.join(' · ') }}</span>
+          <span v-else>Ready for the next hole.</span>
         </div>
 
         <div v-if="mobileEventGroupContext" class="mobile-event-context">
@@ -2645,11 +2694,14 @@ const mobileMatchSummaries = computed(() =>
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .mobile-hole-info {
   text-align: center;
+  min-width: 0;
+  flex: 1;
 }
 
 .mobile-hole-num {
@@ -2675,6 +2727,69 @@ const mobileMatchSummaries = computed(() =>
   color: #8a672f;
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.mobile-next-hole {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 1px;
+  min-width: 76px;
+  min-height: 48px;
+  padding: 5px 8px;
+  line-height: 1;
+}
+
+.mobile-next-hole span {
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.mobile-next-hole small {
+  max-width: 64px;
+  overflow: hidden;
+  color: #6a7a6f;
+  font-size: 0.58rem;
+  font-weight: 850;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.mobile-hole-status {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  border: 1px solid #e0c4c0;
+  border-radius: 8px;
+  background: #f9eeec;
+  color: #9b3d30;
+  margin: 0 0 12px;
+  padding: 8px 10px;
+}
+
+.mobile-hole-status.complete {
+  border-color: #c8d8c8;
+  background: #edf5ed;
+  color: #2f5d43;
+}
+
+.mobile-hole-status strong {
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.mobile-hole-status span {
+  min-width: 0;
+  overflow: hidden;
+  color: #5a6a5f;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mobile-match-status {

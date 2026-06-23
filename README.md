@@ -578,6 +578,8 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   hole number/par/SI header, per-player score and putt steppers (−/input/+),
   and an 18-button hole strip for quick navigation. The current hole is persisted
   to `dmi_mobile_hole_<roundId|local>` in localStorage.
+- The mobile hole card shows a compact `Missing N` / `Hole complete` status and
+  its forward action jumps to the next incomplete hole when possible.
 
 ### Setup Screen (rewrite)
 
