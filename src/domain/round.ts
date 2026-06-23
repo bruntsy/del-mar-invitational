@@ -1,7 +1,7 @@
 import { normalizeGames } from '@/domain/games';
 import { groupPlayerByName } from '@/domain/players';
 import { normalizePlayingGroups } from '@/domain/playingGroups';
-import { cellValue } from '@/scoring/cells';
+import { cellTimestamp, cellValue } from '@/scoring/cells';
 import { computeWHSCourseHcp, allocateNetStrokes } from '@/scoring/handicap';
 import { playerRangeScore, type ScoreContext } from '@/scoring/round';
 import { computeSkins } from '@/scoring/skins';
@@ -94,7 +94,17 @@ function mergeCellMatrix(
     const incomingRow = Array.isArray(incoming[player]) ? incoming[player] : [];
     for (let hole = 0; hole < 18; hole += 1) {
       if (incomingRow[hole] == null) continue;
-      if (baseRow[hole] == null || preferIncoming) baseRow[hole] = incomingRow[hole];
+      if (baseRow[hole] == null) {
+        baseRow[hole] = incomingRow[hole];
+        continue;
+      }
+      const baseTime = cellTimestamp(baseRow[hole]);
+      const incomingTime = cellTimestamp(incomingRow[hole]);
+      if (baseTime && incomingTime) {
+        if (Date.parse(incomingTime) > Date.parse(baseTime)) baseRow[hole] = incomingRow[hole];
+        continue;
+      }
+      if (preferIncoming) baseRow[hole] = incomingRow[hole];
     }
     merged[player] = baseRow;
   });

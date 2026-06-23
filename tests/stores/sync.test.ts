@@ -127,6 +127,52 @@ describe('round realtime sync', () => {
     expect(store.readScore('Bo', 0)).toBe(5);
   });
 
+  it('keeps newer local score and putt cells when a stale realtime update arrives', () => {
+    const store = useRoundStore();
+    store.setRound(activeRoundRow({
+      scores: { Amy: [{ v: 6, t: '2026-06-23T17:00:10.000Z' }] },
+      putts: { Amy: [{ v: 3, t: '2026-06-23T17:00:10.000Z' }] },
+      teamScores: { 'pair-1-a': [{ v: 5, t: '2026-06-23T17:00:10.000Z' }] },
+    }).state);
+    store.subscribeToGroup('g1');
+
+    mockDb.emit('group-g1', {
+      eventType: 'UPDATE',
+      new: activeRoundRow({
+        scores: { Amy: [{ v: 5, t: '2026-06-23T17:00:00.000Z' }] },
+        putts: { Amy: [{ v: 2, t: '2026-06-23T17:00:00.000Z' }] },
+        teamScores: { 'pair-1-a': [{ v: 4, t: '2026-06-23T17:00:00.000Z' }] },
+      }),
+    });
+
+    expect(store.readScore('Amy', 0)).toBe(6);
+    expect(store.readPutt('Amy', 0)).toBe(3);
+    expect(store.readTeamScore('pair-1-a', 0)).toBe(5);
+  });
+
+  it('applies newer realtime score and putt cells over older local cells', () => {
+    const store = useRoundStore();
+    store.setRound(activeRoundRow({
+      scores: { Amy: [{ v: 5, t: '2026-06-23T17:00:00.000Z' }] },
+      putts: { Amy: [{ v: 2, t: '2026-06-23T17:00:00.000Z' }] },
+      teamScores: { 'pair-1-a': [{ v: 4, t: '2026-06-23T17:00:00.000Z' }] },
+    }).state);
+    store.subscribeToGroup('g1');
+
+    mockDb.emit('group-g1', {
+      eventType: 'UPDATE',
+      new: activeRoundRow({
+        scores: { Amy: [{ v: 6, t: '2026-06-23T17:00:10.000Z' }] },
+        putts: { Amy: [{ v: 3, t: '2026-06-23T17:00:10.000Z' }] },
+        teamScores: { 'pair-1-a': [{ v: 5, t: '2026-06-23T17:00:10.000Z' }] },
+      }),
+    });
+
+    expect(store.readScore('Amy', 0)).toBe(6);
+    expect(store.readPutt('Amy', 0)).toBe(3);
+    expect(store.readTeamScore('pair-1-a', 0)).toBe(5);
+  });
+
   it('opens and stops the group channel cleanly', () => {
     const store = useRoundStore();
     store.subscribeToGroup('g1');

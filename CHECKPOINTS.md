@@ -3173,3 +3173,35 @@ viewed and moved mobile match details behind a focused Open dialog.
 - Recheck the deployed scorecard on iPhone Safari against an event high/low
   round, confirming no horizontal overflow and that Open shows the expected
   match scorecard dialog.
+
+---
+
+## Checkpoint 69 — Timestamp-aware score sync (2026-06-23)
+
+### Summary
+
+Fixed score, putt, and team-score sync merges so stale remote updates cannot
+snap a just-entered mobile value back to an older number.
+
+### Changes
+
+- **`src/domain/round.ts`** — Updated score-matrix merging to compare
+  timestamped cells. When both local and remote cells have valid timestamps, the
+  newer cell wins; legacy or untimestamped cells keep the existing
+  `preferIncoming` behavior.
+- The timestamp-aware merge applies to player scores, putts, and team scores,
+  covering standard rounds, event rounds, and two-man scramble/team-score rows.
+- **`tests/stores/sync.test.ts`** — Added realtime regressions for stale remote
+  score/putt/team-score cells arriving after a newer local edit, plus the
+  inverse case where a genuinely newer remote edit should apply.
+
+### Verification
+
+- `npm run test:run -- tests/stores/sync.test.ts` passed: 8 tests.
+- `npm run test:run` passed: 37 files, 355 tests.
+- `npm run build` passed.
+
+### Next likely tasks
+
+- Recheck live mobile scoring with two devices open to the same event round and
+  confirm rapid +/- taps no longer revert after realtime sync catches up.
