@@ -3347,3 +3347,50 @@ round total rather than a score for the active playing group.
 
 - Recheck the live mobile event scorecard and confirm the score strip reads as
   `Group N` context plus `Round total`, not a per-group score.
+
+---
+
+## Checkpoint 74 — Rotation Sixes V1 (2026-06-23)
+
+### Summary
+
+Implemented the ad hoc-only Rotation Sixes game from `ROTATION_SIXES_SPEC.md`:
+four players rotate partners every six holes, with Best Ball, High / Low, or
+Best Ball + Aggy scoring on gross or net basis.
+
+### Changes
+
+- **`src/types/games.ts`** and **`src/domain/games.ts`** — Added persisted
+  `rotationSixes` game config with defaults and normalization.
+- **`src/scoring/rotationSixes.ts`** — Added the pure scorer, default three-match
+  rotation, per-hole component results, six-hole match results, and raw
+  peer-to-peer ledger entries.
+- **`src/scoring/settlement.ts`** and **`src/stores/round.ts`** — Added
+  `rotationSixesResult`, folded Rotation Sixes ledger entries into player P&L,
+  and counted nonzero Rotation Sixes stake as a bet.
+- **`src/components/screens/SetupScreen.vue`** — Added the ad hoc-only Rotation
+  Sixes setup card with variant, gross/net basis, `$ / player / match`, rotation
+  preview, and V1 validation against incompatible fixed-team/pair-match games.
+- **`src/components/screens/ScorecardScreen.vue`** — Rendered Rotation Sixes in
+  the existing match-play panel system with three six-hole match cards and live
+  component score tables.
+- **`src/components/screens/ResultsScreen.vue`** — Added a dedicated Rotation
+  Sixes results section showing variant/basis/stake, match outcomes, component
+  scores, raw match payments, and Rotation Sixes-only P&L before global
+  settlement.
+- Added focused tests for scorer rules, settlement/store integration, setup UI,
+  scorecard panel rendering, and results rendering.
+- **`README.md`** — Documented Rotation Sixes setup, scoring, store, scorecard,
+  results, and settlement behavior.
+
+### Verification
+
+- `npm run test:run -- tests/scoring/rotationSixes.test.ts tests/scoring/settlement.test.ts tests/stores/round.test.ts tests/screens/setup.test.ts tests/screens/scorecard.test.ts tests/screens/results.test.ts` passed: 120 tests.
+- `npm run test:run` passed: 38 files, 369 tests.
+- `npm run build` passed.
+
+### Next likely tasks
+
+- Smoke a live four-player ad hoc Rotation Sixes round on mobile and verify the
+  six-hole match panel/result section feels readable with real names and partial
+  scoring.

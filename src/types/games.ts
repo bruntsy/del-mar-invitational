@@ -52,12 +52,22 @@ export interface HighBallLowBallGameConfig {
   stake: { front: number; back: number; overall: number };
 }
 
+export type RotationSixesVariant = 'best_ball' | 'high_low' | 'best_ball_aggy';
+
+export interface RotationSixesGameConfig {
+  enabled: boolean;
+  variant: RotationSixesVariant;
+  scoreBasis: ScoreType;
+  stakePerPlayer: number;
+}
+
 export interface GameConfig {
   skins: SkinsConfig;
   bestBall: BestBallConfig;
   bestBallAggy: BestBallAggyGameConfig;
   twoManScramble: TwoManScrambleGameConfig;
   highBallLowBall: HighBallLowBallGameConfig;
+  rotationSixes: RotationSixesGameConfig;
   scramble4: MoneyNassauConfig;
   wolf: WolfConfig;
   puttPoker: PuttPokerConfig;

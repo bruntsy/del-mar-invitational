@@ -198,6 +198,27 @@ describe('settlement P&L', () => {
     expect(pnl).toEqual({ A: 30, B: 30, C: -30, D: -30 });
   });
 
+  it('settles Rotation Sixes from raw match ledger entries', () => {
+    const players = ['A', 'B', 'C', 'D'];
+    const scores = matrix(players);
+    fill(scores, 'A', 4);
+    fill(scores, 'B', 4);
+    fill(scores, 'C', 5);
+    fill(scores, 'D', 5);
+
+    const pnl = computePlayerPnL(
+      makeInput(players, scores, (g) => {
+        g.rotationSixes.enabled = true;
+        g.rotationSixes.variant = 'best_ball';
+        g.rotationSixes.scoreBasis = 'gross';
+        g.rotationSixes.stakePerPlayer = 5;
+      }),
+    );
+
+    // Match 1: A+B beat C+D. Matches 2 and 3 push because each side has one 4 and one 5.
+    expect(pnl).toEqual({ A: 5, B: 5, C: -5, D: -5 });
+  });
+
   it('settles scramble team scores from the team score matrix', () => {
     const players = ['A', 'B', 'C', 'D'];
     const scores = matrix(players);
@@ -279,5 +300,11 @@ describe('gamesHaveBets', () => {
     expect(gamesHaveBets(hbl)).toBe(false);
     hbl.highBallLowBall.stake.overall = 10;
     expect(gamesHaveBets(hbl)).toBe(true);
+
+    const rotation = cloneDefaultGames();
+    rotation.rotationSixes.enabled = true;
+    expect(gamesHaveBets(rotation)).toBe(false);
+    rotation.rotationSixes.stakePerPlayer = 5;
+    expect(gamesHaveBets(rotation)).toBe(true);
   });
 });

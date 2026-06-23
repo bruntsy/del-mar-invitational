@@ -524,12 +524,12 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 - Pure helpers aggregate every money game into a per-player profit/loss map and
   reduce it to a minimal "who pays who" transfer list.
 - `computePlayerPnL()` composes skins, best ball, scramble, two-ball, aggy,
-  head-to-head, Stableford, three-man Nassau, and Wolf results.
+  Rotation Sixes, head-to-head, Stableford, three-man Nassau, and Wolf results.
 - `computeSettlement()` greedily matches the largest debtor to the largest
   creditor until everyone is square.
-- Putt poker and pair match play are not part of the P&L, matching the legacy
-  monolith. `gamesHaveBets()` still counts putt poker when deciding whether to
-  show the settlement section.
+- Putt poker is not part of the P&L, matching the legacy monolith.
+  `gamesHaveBets()` still counts putt poker when deciding whether to show the
+  settlement section.
 
 ### Round Store (rewrite)
 
@@ -540,7 +540,7 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   `courseHandicaps` (`computeWHSCourseHcp`), `strokes` (`allocateNetStrokes`),
   and a `scoreContext` consumed by every pure scoring module.
 - Scoring/results getters (`skins`, `settlement`, `playerTotals`,
-  `leaderboard`, `teamNetTotals`, `teamGameResults`, `pairMatchResult`,
+  `leaderboard`, `teamNetTotals`, `teamGameResults`, `rotationSixesResult`,
   `wolfResult`, `stablefordResult`, `threeManNassauResult`, `puttPokerGroups`,
   `puttPokerFor`, `hasBets`) wire the pure modules to the live round.
 - Score, putt, and team-score mutations write timestamped cells via
@@ -563,6 +563,10 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   `store.pairMatchResult`.
 - When Wolf is enabled, it renders an editable per-hole Wolf panel backed by
   `store.wolfResult` and `store.setWolfHole`.
+- When Rotation Sixes is enabled, it renders a live `Rotation Sixes` match panel
+  with three six-hole rotating-partner matches and the selected scoring variant
+  (`Best Ball`, `High / Low`, or `Best Ball + Aggy`) on the chosen gross/net
+  basis.
 - All scoring is read from the round store getters; the component does no
   scoring math of its own beyond display formatting.
 - `src/fixtures/demoRound.ts` seeds a ready-to-score sample round so the screen
@@ -611,8 +615,12 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 - Sections: course search/manual course fields (club/course/location, tee
   rating/slope, editable par + SI + yardage grids), teams and players (name +
   handicap index + team per row), and a games config covering skins, best ball,
-  pair match play, 4-man scramble, two-ball, aggy, head-to-head, Stableford,
-  three-man Nassau, Wolf, and putt poker.
+  pair match play, 4-man scramble, Rotation Sixes, Wolf, and putt poker.
+- Rotation Sixes is available only for ad hoc setup. It requires exactly four
+  named players, previews the three six-hole partner rotations, supports
+  gross/net Best Ball, High / Low, or Best Ball + Aggy, and blocks V1
+  coexistence with fixed-team/pair-match games while allowing Skins and Putt
+  Poker.
 - Course search calls the public `course-search` Edge Function through
   `src/services/courseSearch.ts`. `src/domain/courseSearch.ts` filters usable
   18-hole tees, collapses duplicate tee sets, repairs invalid stroke indexes,
@@ -675,8 +683,9 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   first rewrite results view.
 - It shows team net scores, an individual leaderboard sorted by net score,
   a share-ready story-of-round summary, settlement P&L and transfer rows,
-  enabled team-game front/back/total breakdowns, pair-match results, Wolf
-  standings/detail tables, a Stableford points table (best-first, leader
+  enabled team-game front/back/total breakdowns, Rotation Sixes raw match
+  payments and game-native P&L, pair-match results, Wolf standings/detail tables,
+  a Stableford points table (best-first, leader
   highlighted), a 3-Man Nassau segment table (solo vs best-ball of side,
   Front/Back/Overall, with invalid-roster note when the round has ≠ 3 players),
   a per-group Putt Poker summary (coin holder, card counts, penalties, final

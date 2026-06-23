@@ -191,6 +191,55 @@ describe('SetupScreen', () => {
     expect(push).toHaveBeenCalledWith('/scorecard');
   });
 
+  it('configures ad hoc Rotation Sixes with rotation preview', async () => {
+    const store = useRoundStore();
+    const wrapper = mountSetup();
+
+    await setPlayerRows(wrapper, [
+      ['Ann', '10'],
+      ['Bea', '12'],
+      ['Cal', '6'],
+      ['Dan', '20'],
+    ]);
+    const rotationRow = wrapper.findAll('.game-row').find((row) => row.text().includes('Rotation Sixes'))!;
+    await rotationRow.find('input[type="checkbox"]').setValue(true);
+    await rotationRow.findAll('.seg-btn').find((button) => button.text() === 'High / Low')!.trigger('click');
+    await rotationRow.findAll('.seg-btn').find((button) => button.text() === 'Gross')!.trigger('click');
+    await rotationRow.find('input[type="number"]').setValue(5);
+
+    expect(rotationRow.text()).toContain('Round Robin / Sixes');
+    expect(rotationRow.text()).toContain('Holes 1-6: Ann + Bea vs Cal + Dan');
+    expect(rotationRow.text()).toContain('Holes 7-12: Ann + Cal vs Bea + Dan');
+    expect(rotationRow.text()).toContain('Holes 13-18: Ann + Dan vs Bea + Cal');
+
+    await wrapper.find('.setup-actions .btn-primary').trigger('click');
+    await flushPromises();
+
+    expect(store.round?.games.rotationSixes).toMatchObject({
+      enabled: true,
+      variant: 'high_low',
+      scoreBasis: 'gross',
+      stakePerPlayer: 5,
+    });
+    expect(push).toHaveBeenCalledWith('/scorecard');
+  });
+
+  it('blocks Rotation Sixes with incompatible team games', async () => {
+    const wrapper = mountSetup();
+    await setPlayerRows(wrapper, [
+      ['Ann', '10'],
+      ['Bea', '12'],
+      ['Cal', '6'],
+      ['Dan', '20'],
+    ]);
+
+    await wrapper.findAll('.game-row').find((row) => row.text().includes('Rotation Sixes'))!.find('input[type="checkbox"]').setValue(true);
+    await wrapper.findAll('.game-row').find((row) => row.text().includes('Best Ball'))!.find('input[type="checkbox"]').setValue(true);
+
+    expect(wrapper.text()).toContain('Rotation Sixes cannot be combined with Best Ball in V1.');
+    expect(wrapper.find('.setup-actions .btn-primary').attributes('disabled')).toBeDefined();
+  });
+
   it('previews course handicaps and stroke holes from the current course', async () => {
     const wrapper = mountSetup();
 

@@ -9,6 +9,7 @@ import {
   scoreTwoManScramble,
   twoManScrambleTeamKey,
 } from '@/scoring/twoManScramble';
+import { scoreRotationSixes } from '@/scoring/rotationSixes';
 import { wolfPoints, wolfSegmentWinners, wolfSegments, type WolfHoleConfig } from '@/scoring/wolf';
 import type { GameConfig, PairMatch, ScoreMatrix } from '@/types';
 
@@ -152,6 +153,16 @@ export function computePlayerPnL(input: SettlementInput): Record<string, number>
     });
   }
 
+  if (g.rotationSixes?.enabled) {
+    const rotation = scoreRotationSixes({
+      players: players.slice(0, 4) as [string, string, string, string],
+      variant: g.rotationSixes.variant,
+      scoreBasis: g.rotationSixes.scoreBasis,
+      stakePerPlayer: g.rotationSixes.stakePerPlayer,
+    }, scoreContext);
+    applyLedger(rotation.ledgerEntries);
+  }
+
   if (g.scramble4.enabled) {
     applyTeam(teamScoreRange(teamScores, 'team1', 0, 9), teamScoreRange(teamScores, 'team2', 0, 9), g.scramble4.front);
     applyTeam(teamScoreRange(teamScores, 'team1', 9, 18), teamScoreRange(teamScores, 'team2', 9, 18), g.scramble4.back);
@@ -212,6 +223,7 @@ export function gamesHaveBets(g: GameConfig): boolean {
         (g.highBallLowBall.stake.front ||
           g.highBallLowBall.stake.back ||
           g.highBallLowBall.stake.overall)) ||
+      (g.rotationSixes?.enabled && g.rotationSixes.stakePerPlayer) ||
       (g.scramble4.enabled && (g.scramble4.front || g.scramble4.back || g.scramble4.total)) ||
       (g.wolf.enabled && g.wolf.amount) ||
       (g.puttPoker.enabled && g.puttPoker.pot),

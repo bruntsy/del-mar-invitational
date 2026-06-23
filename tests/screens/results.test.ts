@@ -106,6 +106,37 @@ describe('ResultsScreen', () => {
     expect(netSummary.text()).toContain('-$');
   });
 
+  it('shows Rotation Sixes match details and raw payments', async () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.games = cloneDefaultGames();
+    round.games.rotationSixes.enabled = true;
+    round.games.rotationSixes.variant = 'best_ball';
+    round.games.rotationSixes.scoreBasis = 'gross';
+    round.games.rotationSixes.stakePerPlayer = 5;
+    store.setRound(round, players);
+    for (let hole = 0; hole < 6; hole += 1) {
+      store.setScore('Wes', hole, 4);
+      store.setScore('Aaron', hole, 4);
+      store.setScore('Tito', hole, 5);
+      store.setScore('Q', hole, 5);
+    }
+
+    const wrapper = mountResults();
+    await nextTick();
+
+    const section = wrapper.find('.rotation-results');
+    expect(section.exists()).toBe(true);
+    expect(section.text()).toContain('Rotation Sixes');
+    expect(section.text()).toContain('Best Ball · gross · $5 / player / match');
+    expect(section.text()).toContain('Holes 1-6');
+    expect(section.text()).toContain('Wes + Aaron vs Tito + Q');
+    expect(section.text()).toContain('Wes + Aaron wins 6-0');
+    expect(section.text()).toContain('Tito pays Wes $2.50');
+    expect(section.text()).toContain('Rotation Sixes P&L');
+    expect(section.text()).toContain('+$5');
+  });
+
   it('keeps reset visually secondary to completion', () => {
     const store = useRoundStore();
     const { round, players } = demoRound();

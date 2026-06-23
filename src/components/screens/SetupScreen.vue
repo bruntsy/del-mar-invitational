@@ -8,6 +8,7 @@ import { cloneDefaultGames, normalizeGames } from '@/domain/games';
 import { sortedGroupPlayers } from '@/domain/players';
 import { autoPlayingGroupsForTeams, autoPlayingGroupsFromPairMatches, normalizePlayingGroups } from '@/domain/playingGroups';
 import { allocateNetStrokes, computeWHSCourseHcp, getsStroke } from '@/scoring/handicap';
+import { defaultRotationSixesMatches } from '@/scoring/rotationSixes';
 import { searchCourses } from '@/services/courseSearch';
 import { useGroupStore } from '@/stores/group';
 import { emptyRound, useRoundStore } from '@/stores/round';
@@ -318,6 +319,7 @@ const selectedGameCount = computed(() => {
     games.bestBallAggy.enabled,
     games.twoManScramble.enabled,
     games.highBallLowBall.enabled,
+    games.rotationSixes.enabled,
     games.scramble4.enabled,
     games.wolf.enabled,
     games.puttPoker.enabled,
@@ -330,6 +332,7 @@ const selectedGameSummaries = computed(() => [
   form.games.bestBallAggy.enabled ? 'Best Ball + Aggy' : '',
   form.games.twoManScramble.enabled ? 'Two-Man Scramble' : '',
   form.games.highBallLowBall.enabled ? 'High Ball / Low Ball' : '',
+  form.games.rotationSixes.enabled ? 'Rotation Sixes' : '',
   form.games.scramble4.enabled ? '4-Man Scramble' : '',
   form.games.wolf.enabled ? 'Wolf' : '',
   form.games.puttPoker.enabled ? 'Putt Poker' : '',
@@ -343,6 +346,16 @@ const errors = computed(() => {
   if (!team2.value.length) list.push(`${form.teamNames.team2} needs at least one player.`);
   if (duplicateNames.value) list.push('Player names must be unique.');
   if (showPairMatches.value && !cleanedPairMatches.value.length) list.push('Team games need at least one valid match.');
+  if (form.games.rotationSixes.enabled) {
+    if (hasEventContext.value) list.push('Rotation Sixes is only available for ad hoc rounds.');
+    if (namedPlayers.value.length !== 4) list.push('Rotation Sixes requires exactly four named players.');
+    if (form.games.rotationSixes.stakePerPlayer < 0 || Number.isNaN(Number(form.games.rotationSixes.stakePerPlayer))) {
+      list.push('Rotation Sixes stake must be greater than or equal to zero.');
+    }
+    if (rotationSixesIncompatibleGames.value.length) {
+      list.push(`Rotation Sixes cannot be combined with ${rotationSixesIncompatibleGames.value.join(', ')} in V1.`);
+    }
+  }
   return list;
 });
 
@@ -407,6 +420,20 @@ const TEAM_GAMES = [
 
 const enabledTeamGames = computed(() => TEAM_GAMES.filter((g) => form.games[g.key].enabled));
 const showPairMatches = computed(() => enabledTeamGames.value.length > 0);
+const rotationSixesPlayers = computed(() => namedPlayers.value.map((player) => player.name.trim()).slice(0, 4));
+const rotationSixesIncompatibleGames = computed(() => [
+  form.games.bestBall.enabled ? 'Best Ball' : '',
+  form.games.bestBallAggy.enabled ? 'Best Ball + Aggy' : '',
+  form.games.highBallLowBall.enabled ? 'High Ball / Low Ball' : '',
+  form.games.twoManScramble.enabled ? 'Two-Man Scramble' : '',
+  form.games.scramble4.enabled ? '4-Man Scramble' : '',
+  form.games.wolf.enabled ? 'Wolf' : '',
+].filter(Boolean));
+const rotationSixesPreview = computed(() => {
+  if (rotationSixesPlayers.value.length !== 4) return [];
+  return defaultRotationSixesMatches(rotationSixesPlayers.value as [string, string, string, string])
+    .map((match) => `${match.label}: ${match.sideA.join(' + ')} vs ${match.sideB.join(' + ')}`);
+});
 
 function buildDefaultPairMatches(): PairMatch[] {
   const matches: PairMatch[] = [];
@@ -1034,6 +1061,39 @@ function goGroup() {
             <label class="bet-field">Overall ($/person)<input v-model.number="form.games.highBallLowBall.stake.overall" class="form-input sm" type="number" min="0" /></label>
           </div>
         </div>
+        </div>
+
+        <div class="game-row game-card" :class="{ active: form.games.rotationSixes.enabled, 'is-settings-collapsed': form.games.rotationSixes.enabled && !mobileGameSettingsOpen.rotationSixes }">
+          <label class="game-toggle"><input v-model="form.games.rotationSixes.enabled" type="checkbox" /> <span><strong>Rotation Sixes</strong><small>Round Robin / Sixes for exactly four players.</small></span></label>
+          <button v-if="form.games.rotationSixes.enabled" class="btn-ghost sm game-settings-toggle" type="button" :aria-expanded="!!mobileGameSettingsOpen.rotationSixes" @click="toggleGameSettings('rotationSixes')">
+            {{ mobileGameSettingsOpen.rotationSixes ? 'Hide settings' : 'Settings' }}
+          </button>
+          <div v-if="form.games.rotationSixes.enabled" class="game-subconfig game-settings-panel">
+            <div class="sub-row">
+              <span class="sub-label">Variant</span>
+              <div class="seg-ctrl">
+                <button class="seg-btn" :class="{ active: form.games.rotationSixes.variant === 'best_ball' }" type="button" @click="form.games.rotationSixes.variant = 'best_ball'">Best Ball</button>
+                <button class="seg-btn" :class="{ active: form.games.rotationSixes.variant === 'high_low' }" type="button" @click="form.games.rotationSixes.variant = 'high_low'">High / Low</button>
+                <button class="seg-btn" :class="{ active: form.games.rotationSixes.variant === 'best_ball_aggy' }" type="button" @click="form.games.rotationSixes.variant = 'best_ball_aggy'">Best Ball + Aggy</button>
+              </div>
+            </div>
+            <div class="sub-row">
+              <span class="sub-label">Score basis</span>
+              <div class="seg-ctrl">
+                <button class="seg-btn" :class="{ active: form.games.rotationSixes.scoreBasis === 'net' }" type="button" @click="form.games.rotationSixes.scoreBasis = 'net'">Net</button>
+                <button class="seg-btn" :class="{ active: form.games.rotationSixes.scoreBasis === 'gross' }" type="button" @click="form.games.rotationSixes.scoreBasis = 'gross'">Gross</button>
+              </div>
+            </div>
+            <div class="sub-row">
+              <span class="sub-label">Stake</span>
+              <label class="bet-field">$ / player / match<input v-model.number="form.games.rotationSixes.stakePerPlayer" class="form-input sm" type="number" min="0" /></label>
+            </div>
+            <p class="game-helper">$5 means each player risks $5 in each six-hole match.</p>
+            <div v-if="rotationSixesPreview.length" class="rotation-preview" aria-label="Rotation Sixes matches">
+              <span v-for="line in rotationSixesPreview" :key="line">{{ line }}</span>
+            </div>
+            <p v-else class="game-helper">Add exactly four players to preview the three six-hole matches.</p>
+          </div>
         </div>
 
         <div class="game-row game-card" :class="{ active: form.games.scramble4.enabled, 'is-settings-collapsed': form.games.scramble4.enabled && !mobileGameSettingsOpen.scramble4 }">
@@ -1890,6 +1950,23 @@ label {
   margin: 0;
   color: #607067;
   font-size: 0.78rem;
+}
+
+.rotation-preview {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 6px;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fffdf7;
+  padding: 8px 10px;
+}
+
+.rotation-preview span {
+  color: #30483a;
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.25;
 }
 
 .team-assignment-list {

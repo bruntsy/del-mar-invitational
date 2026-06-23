@@ -33,6 +33,7 @@ import {
   scoreHighBallLowBall,
   type HighBallLowBallResult,
 } from '@/scoring/highBallLowBall';
+import { scoreRotationSixes, type RotationSixesResult } from '@/scoring/rotationSixes';
 import { computeSkins, type SkinsResult } from '@/scoring/skins';
 import {
   computePlayerPnL,
@@ -296,6 +297,27 @@ export const useRoundStore = defineStore('round', {
         };
         return scoreTwoManScramble(config, teamHoleScores);
       });
+    },
+
+    /** Rotation Sixes result derived from the first four players in scorecard order. */
+    rotationSixesResult(state): RotationSixesResult | null {
+      const context = this.scoreContext;
+      if (!context || !state.round || !this.games.rotationSixes?.enabled) return null;
+      const players = this.playerNames.slice(0, 4);
+      if (players.length !== 4) {
+        return scoreRotationSixes({
+          players: players as unknown as [string, string, string, string],
+          variant: this.games.rotationSixes.variant,
+          scoreBasis: this.games.rotationSixes.scoreBasis,
+          stakePerPlayer: this.games.rotationSixes.stakePerPlayer,
+        }, context);
+      }
+      return scoreRotationSixes({
+        players: players as [string, string, string, string],
+        variant: this.games.rotationSixes.variant,
+        scoreBasis: this.games.rotationSixes.scoreBasis,
+        stakePerPlayer: this.games.rotationSixes.stakePerPlayer,
+      }, context);
     },
 
     /**

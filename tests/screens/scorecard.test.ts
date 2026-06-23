@@ -412,6 +412,31 @@ describe('ScorecardScreen', () => {
     expect(wrapper.text()).toContain('Hide full scorecard');
   });
 
+  it('renders Rotation Sixes as a live match-play panel', () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.games = cloneDefaultGames();
+    round.games.rotationSixes.enabled = true;
+    round.games.rotationSixes.variant = 'best_ball';
+    round.games.rotationSixes.scoreBasis = 'gross';
+    round.games.rotationSixes.stakePerPlayer = 5;
+    store.setRound(round, players);
+    for (let hole = 0; hole < 6; hole += 1) {
+      store.setScore('Wes', hole, 4);
+      store.setScore('Aaron', hole, 4);
+      store.setScore('Tito', hole, 5);
+      store.setScore('Q', hole, 5);
+    }
+
+    const wrapper = mountScorecard();
+
+    expect(wrapper.find('.mp-live').text()).toContain('Rotation Sixes');
+    expect(wrapper.find('.mp-live').text()).toContain('Gross Best Ball');
+    expect(wrapper.find('.mp-live').text()).toContain('Holes 1-6');
+    expect(wrapper.find('.mp-live').text()).toContain('Wes + Aaron');
+    expect(wrapper.find('.mp-live').text()).toContain('Wes + Aaron wins 6-0');
+  });
+
   it('mobile event scorecard defaults to one playing group with team context', async () => {
     stubMobileViewport();
     const roundStore = useRoundStore();

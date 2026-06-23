@@ -8,6 +8,7 @@ import { computeEventRoundResult } from '@/scoring/eventRound';
 import { buildHighBallLowBallConfig, scoreHighBallLowBall } from '@/scoring/highBallLowBall';
 import { finalMatchStatus, runningMatchStatus, type HoleWinner } from '@/scoring/matchStatus';
 import { buildTwoManScrambleConfig, scoreTwoManScramble, twoManScrambleTeamKey } from '@/scoring/twoManScramble';
+import type { RotationSixesMatchResult, RotationSixesResult } from '@/scoring/rotationSixes';
 import { useEventStore } from '@/stores/event';
 import { useRoundStore } from '@/stores/round';
 import { puttPenaltyNote } from '@/scoring/puttPoker';
@@ -134,6 +135,16 @@ const settlementTransfers = computed(() =>
     amount: Math.round(transfer.amount),
   })),
 );
+const rotationSixes = computed(() => store.rotationSixesResult);
+const rotationSixesPnlRows = computed(() => {
+  const result = rotationSixes.value;
+  const pnl = Object.fromEntries(store.playerNames.map((player) => [player, 0]));
+  for (const entry of result?.ledgerEntries ?? []) {
+    pnl[entry.fromPlayerId] -= entry.amount;
+    pnl[entry.toPlayerId] += entry.amount;
+  }
+  return store.playerNames.map((player) => ({ player, pnl: pnl[player] ?? 0 }));
+});
 
 // Team-score winner highlighting (lower net wins), only once both teams are complete.
 const teamOutcome = computed(() => {
@@ -621,6 +632,26 @@ function money(value: number): string {
   return `${value > 0 ? '+' : '-'}$${Math.abs(value)}`;
 }
 
+function moneyExact(value: number): string {
+  const abs = Math.abs(value);
+  const formatted = Number.isInteger(abs) ? String(abs) : abs.toFixed(2);
+  if (value === 0) return '$0';
+  return `${value > 0 ? '+' : '-'}$${formatted}`;
+}
+
+function rotationVariantLabel(variant: RotationSixesResult['variant']): string {
+  if (variant === 'high_low') return 'High / Low';
+  if (variant === 'best_ball_aggy') return 'Best Ball + Aggy';
+  return 'Best Ball';
+}
+
+function rotationMatchWinnerLabel(match: RotationSixesMatchResult): string {
+  if (!match.complete) return `In progress, ${match.sideAPoints}-${match.sideBPoints} thru ${match.holesPlayed}`;
+  if (match.winnerSide === 'push') return `Push ${match.sideAPoints}-${match.sideBPoints}`;
+  const side = match.winnerSide === 'a' ? match.match.sideA : match.match.sideB;
+  return `${side.join(' + ')} wins ${Math.max(match.sideAPoints, match.sideBPoints)}-${Math.min(match.sideAPoints, match.sideBPoints)}`;
+}
+
 function cardCountLabel(cards: number): string {
   return `${cards} card${cards === 1 ? '' : 's'}`;
 }
@@ -801,6 +832,50 @@ function goGroup() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section v-if="rotationSixes?.valid" class="rs-section rotation-results">
+        <h2 class="rs-section-hdr">Rotation Sixes</h2>
+        <p class="rs-section-note">
+          {{ rotationVariantLabel(rotationSixes.variant) }} · {{ rotationSixes.scoreBasis }} · {{ moneyExact(rotationSixes.stakePerPlayer).replace('+', '') }} / player / match
+        </p>
+        <div class="rotation-match-grid">
+          <article v-for="match in rotationSixes.matches" :key="match.match.id" class="rotation-match-card">
+            <div class="rotation-match-head">
+              <div>
+                <strong>{{ match.match.label }}</strong>
+                <span>{{ match.match.sideA.join(' + ') }} vs {{ match.match.sideB.join(' + ') }}</span>
+              </div>
+              <span class="result-badge" :class="match.winnerSide === 'push' ? 'status-push' : match.winnerSide === 'open' ? 'status-open' : `status-win team-${match.winnerSide}`">
+                {{ rotationMatchWinnerLabel(match) }}
+              </span>
+            </div>
+            <div class="rotation-components">
+              <span v-for="component in match.components" :key="`${match.match.id}-${component.key}`">
+                <strong>{{ component.label }}</strong>
+                {{ component.sideAPoints }}-{{ component.sideBPoints }}<em v-if="component.pushed"> · {{ component.pushed }} push</em>
+              </span>
+            </div>
+            <div v-if="match.ledgerEntries.length" class="rotation-payments">
+              <span v-for="(entry, index) in match.ledgerEntries" :key="`${match.match.id}-${index}`">
+                {{ entry.fromPlayerId }} pays {{ entry.toPlayerId }} {{ moneyExact(entry.amount).replace('+', '') }}
+              </span>
+            </div>
+            <p v-else class="rs-section-note">No match payment.</p>
+          </article>
+        </div>
+        <h3 class="settle-subhead net-subhead">Rotation Sixes P&amp;L</h3>
+        <table class="pnl-table" aria-label="Rotation Sixes net by player">
+          <thead>
+            <tr><th>Player</th><th>Net</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in rotationSixesPnlRows" :key="row.player">
+              <td>{{ row.player }}</td>
+              <td :class="row.pnl > 0 ? 'pnl-pos' : row.pnl < 0 ? 'pnl-neg' : ''">{{ moneyExact(row.pnl) }}</td>
+            </tr>
+          </tbody>
+        </table>
       </section>
 
       <section v-if="store.hasBets" class="rs-section">
@@ -1461,6 +1536,71 @@ function goGroup() {
   border-radius: 8px;
   background: #fdfbf4;
   padding: 12px;
+}
+
+.rotation-match-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.rotation-match-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 12px;
+}
+
+.rotation-match-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rotation-match-head div {
+  display: grid;
+  gap: 2px;
+}
+
+.rotation-match-head strong {
+  color: #8a672f;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rotation-match-head span:not(.result-badge) {
+  color: #24362c;
+  font-weight: 900;
+}
+
+.rotation-components,
+.rotation-payments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.rotation-components span,
+.rotation-payments span {
+  border: 1px solid #e4ddcd;
+  border-radius: 999px;
+  background: #f8f4ea;
+  color: #4b5b50;
+  padding: 5px 8px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.rotation-components strong {
+  color: #2f5d43;
+}
+
+.rotation-components em {
+  color: #8a9489;
+  font-style: normal;
 }
 
 .bba-head {

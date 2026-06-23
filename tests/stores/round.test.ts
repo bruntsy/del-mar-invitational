@@ -138,6 +138,34 @@ describe('round store', () => {
     ]);
   });
 
+  it('derives Rotation Sixes from scorecard player order and includes it in settlement', () => {
+    const store = useRoundStore();
+    store.setRound(roundWithRoster(), players);
+    store.setGames({
+      ...store.games,
+      rotationSixes: {
+        enabled: true,
+        variant: 'best_ball',
+        scoreBasis: 'gross',
+        stakePerPlayer: 5,
+      },
+    });
+
+    for (let hole = 0; hole < 6; hole += 1) {
+      store.setScore('A', hole, 4);
+      store.setScore('B', hole, 4);
+      store.setScore('C', hole, 5);
+      store.setScore('D', hole, 5);
+    }
+
+    const result = store.rotationSixesResult;
+    expect(result?.matches[0].match.sideA).toEqual(['A', 'B']);
+    expect(result?.matches[0].match.sideB).toEqual(['C', 'D']);
+    expect(result?.matches[0].winnerSide).toBe('a');
+    expect(store.hasBets).toBe(true);
+    expect(store.settlement.pnl).toEqual({ A: 5, B: 5, C: -5, D: -5 });
+  });
+
   it('persists to localStorage and reloads with repair', () => {
     const store = useRoundStore();
     store.setRound(roundWithRoster(), players);

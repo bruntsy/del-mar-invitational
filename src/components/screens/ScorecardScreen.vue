@@ -11,6 +11,7 @@ import { computeEventRoundResult, type EventComponent, type EventRoundRow } from
 import { buildBestBallAggyConfig, scoreBestBallAggy, type BestBallAggyResult, type BestBallAggySegmentResult } from '@/scoring/bestBallAggy';
 import { buildHighBallLowBallConfig, scoreHighBallLowBall, type HighBallLowBallResult, type HighBallLowBallSegmentResult } from '@/scoring/highBallLowBall';
 import { buildTwoManScrambleConfig, scoreTwoManScramble, twoManScrambleTeamKey, type TwoManScrambleResult, type TwoManScrambleSegmentResult } from '@/scoring/twoManScramble';
+import type { RotationSixesMatchResult, RotationSixesResult, RotationSixesWinner } from '@/scoring/rotationSixes';
 import { useEventStore } from '@/stores/event';
 import { useRoundStore } from '@/stores/round';
 import type { SkinHoleResult } from '@/scoring/skins';
@@ -98,6 +99,7 @@ const enabledGameLabels = computed(() => {
   if (games.bestBall.enabled) labels.push('Best Ball');
   if (games.bestBallAggy.enabled) labels.push('Best Ball + Aggy');
   if (games.highBallLowBall.enabled) labels.push('High Ball / Low Ball');
+  if (games.rotationSixes.enabled) labels.push('Rotation Sixes');
   if (games.twoManScramble.enabled) labels.push('Two-Man Scramble');
   if (games.scramble4.enabled) labels.push('4-Man Scramble');
   if (games.skins.enabled) labels.push('Skins');
@@ -576,6 +578,88 @@ function panelsFromTwoManScrambleResults(results: TwoManScrambleResult[]): MpPan
   };
 }
 
+function rotationVariantLabel(variant: RotationSixesResult['variant']): string {
+  if (variant === 'high_low') return 'High / Low';
+  if (variant === 'best_ball_aggy') return 'Best Ball + Aggy';
+  return 'Best Ball';
+}
+
+function titleCase(value: string): string {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
+function rotationWinnerToHoleWinner(winner: RotationSixesWinner): HoleWinner {
+  if (winner === 'a' || winner === 'b') return winner;
+  if (winner === 'push') return 'tie';
+  return null;
+}
+
+function rotationMatchLabel(match: RotationSixesMatchResult): string {
+  if (!match.holesPlayed) return 'Open';
+  const sideA = match.match.sideA.join(' + ');
+  const sideB = match.match.sideB.join(' + ');
+  if (!match.complete) {
+    if (match.sideAPoints === match.sideBPoints) return `All square thru ${match.holesPlayed}`;
+    const leader = match.sideAPoints > match.sideBPoints ? sideA : sideB;
+    return `${leader} leads ${Math.max(match.sideAPoints, match.sideBPoints)}-${Math.min(match.sideAPoints, match.sideBPoints)} thru ${match.holesPlayed}`;
+  }
+  if (match.winnerSide === 'push') return `Push ${match.sideAPoints}-${match.sideBPoints}`;
+  const winner = match.winnerSide === 'a' ? sideA : sideB;
+  return `${winner} wins ${Math.max(match.sideAPoints, match.sideBPoints)}-${Math.min(match.sideAPoints, match.sideBPoints)}`;
+}
+
+function panelsFromRotationSixesResult(result: RotationSixesResult | null): MpPanel | null {
+  if (!result?.valid || !result.matches.length) return null;
+  return {
+    gameLabel: 'Rotation Sixes',
+    basis: `${titleCase(result.scoreBasis)} ${rotationVariantLabel(result.variant)}`,
+    matches: result.matches.map((match) => {
+      const sideA = match.match.sideA.join(' + ');
+      const sideB = match.match.sideB.join(' + ');
+      return {
+        label: match.match.label,
+        sideA,
+        sideB,
+        contests: match.components.map((component) => ({
+          name: component.label,
+          finalLabel: rotationMatchLabel(match),
+          holes: match.holeResults.map((hole) => {
+            const detail = hole.components.find((entry) => entry.key === component.key);
+            return {
+              hole: hole.holeNumber,
+              a: detail?.sideAScore ?? null,
+              b: detail?.sideBScore ?? null,
+              winner: rotationWinnerToHoleWinner(detail?.winnerSide ?? 'open'),
+              status: detail?.winnerSide === 'open' ? 'Pending' : detail?.winnerSide === 'push' ? 'Push' : detail?.winnerSide === 'a' ? `${sideA} wins hole` : `${sideB} wins hole`,
+              leader: null,
+              diff: 0,
+              matchLabel: detail?.winnerSide === 'open' ? '–' : detail?.winnerSide === 'push' ? '½' : sideInitials(detail?.winnerSide === 'a' ? sideA : sideB),
+              matchShort: detail?.winnerSide === 'open' ? '–' : detail?.winnerSide === 'push' ? '½' : sideInitials(detail?.winnerSide === 'a' ? sideA : sideB),
+            };
+          }),
+          segments: [{
+            label: 'Match',
+            a: match.sideAPoints,
+            b: match.sideBPoints,
+            status: match.winnerSide === 'open' ? 'open' : match.winnerSide === 'push' ? 'push' : match.winnerSide,
+            resultLabel: rotationMatchLabel(match),
+            leaderLabel: match.winnerSide === 'open'
+              ? 'Open'
+              : match.winnerSide === 'push'
+                ? 'Push'
+                : match.winnerSide === 'a'
+                  ? sideA
+                  : sideB,
+            scoreLabel: match.complete
+              ? `${match.sideAPoints}-${match.sideBPoints}`
+              : `${match.sideAPoints}-${match.sideBPoints} thru ${match.holesPlayed}`,
+          }],
+        })),
+      };
+    }),
+  };
+}
+
 const matchPlayPanels = computed<MpPanel[]>(() => {
   const panels: MpPanel[] = [];
   const eventRound = activeEventRound.value;
@@ -626,6 +710,9 @@ const matchPlayPanels = computed<MpPanel[]>(() => {
   const scramble = store.twoManScrambleResults;
   const scramblePanel = panelsFromTwoManScrambleResults(scramble);
   if (scramblePanel) panels.push(scramblePanel);
+
+  const rotationPanel = panelsFromRotationSixesResult(store.rotationSixesResult);
+  if (rotationPanel) panels.push(rotationPanel);
 
   return panels;
 });
