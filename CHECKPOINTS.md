@@ -3317,3 +3317,33 @@ Front/Back/Overall result.
 
 - Recheck the live high/low mobile event round and confirm the compact row no
   longer reads as inconsistent with the Open dialog cards.
+
+---
+
+## Checkpoint 73 — Mobile event round total label (2026-06-23)
+
+### Summary
+
+Clarified the mobile event score strip so the team score reads as the full event
+round total rather than a score for the active playing group.
+
+### Changes
+
+- **`src/components/screens/ScorecardScreen.vue`** — Added a compact `Round total`
+  label above the mobile event team score.
+- Kept the active playing group label on the left side of the strip, separating
+  group context from event-round scoring context.
+- **`tests/screens/scorecard.test.ts`** — Added coverage that the mobile event
+  score strip includes the `Round total` label.
+- **`README.md`** — Documented the active-group / round-total split.
+
+### Verification
+
+- `npm run test:run -- tests/screens/scorecard.test.ts` passed: 29 tests.
+- `npm run test:run` passed: 37 files, 355 tests.
+- `npm run build` passed.
+
+### Next likely tasks
+
+- Recheck the live mobile event scorecard and confirm the score strip reads as
+  `Group N` context plus `Round total`, not a per-group score.

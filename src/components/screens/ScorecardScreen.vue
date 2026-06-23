@@ -1129,6 +1129,7 @@ watch(
             </strong>
           </div>
           <div v-if="eventRoundScore" class="mobile-event-score">
+            <span>Round total</span>
             <strong>{{ eventRoundScore.team1Name }} {{ eventRoundScore.team1 }} - {{ eventRoundScore.team2 }} {{ eventRoundScore.team2Name }}</strong>
           </div>
         </div>

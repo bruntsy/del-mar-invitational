@@ -458,7 +458,8 @@ describe('ScorecardScreen', () => {
     expect(wrapper.find('.mobile-event-context').text()).toContain('Seattle vs Cali');
     expect(wrapper.find('.mobile-event-context').text()).toContain('Seattle');
     expect(wrapper.find('.mobile-event-context').text()).toContain('Cali');
-    expect(wrapper.find('.mobile-event-context').text()).not.toContain('Round points');
+    expect(wrapper.find('.mobile-event-context').text()).toContain('Round total');
+    expect(wrapper.find('.mobile-event-score').text()).toContain('Round total');
     expect(wrapper.find('.mobile-match-status').text()).not.toContain('High Ball / Low Ball');
     expect(wrapper.find('.mobile-match-status').text()).toContain('Low Ball');
     expect(wrapper.find('.mobile-match-status').text()).toContain('Wes + Aaron vs Tito + Q');
