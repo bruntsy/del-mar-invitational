@@ -294,14 +294,24 @@ interface MpHole {
   b: number | null;
   winner: HoleWinner;
   status: string;
-  short: string;
   leader: 'a' | 'b' | null;
+  diff: number;
+  matchLabel: string;
+  matchShort: string;
 }
 interface MpContest {
   name: string;
   holes: MpHole[];
   finalLabel: string;
-  segments: Array<{ label: string; a: number | null; b: number | null; status: string; resultLabel: string }>;
+  segments: Array<{
+    label: string;
+    a: number | null;
+    b: number | null;
+    status: string;
+    resultLabel: string;
+    leaderLabel: string;
+    scoreLabel: string;
+  }>;
 }
 interface MpMatch {
   label: string;
@@ -326,6 +336,8 @@ function toSide(winnerId: string | undefined, tied: boolean, incomplete: boolean
 function buildContest<T extends { holeNumber: number; incomplete: boolean }>(
   name: string,
   holeResults: T[],
+  sideA: string,
+  sideB: string,
   getScore: (hr: T, side: 'a' | 'b') => number | null,
   getWinner: (hr: T) => HoleWinner,
   segments: MpContest['segments'] = [],
@@ -336,15 +348,19 @@ function buildContest<T extends { holeNumber: number; incomplete: boolean }>(
     name,
     holes: holeResults.map((hr, i) => {
       const s = status[i];
-      const short = !s || s.label === 'Pending' ? '–' : s.leader === null ? 'AS' : `${s.leader.toUpperCase()}${s.diff}`;
+      const side = s?.leader;
+      const lead = side ? `${sideInitials(side === 'a' ? sideA : sideB)} +${s.diff}` : 'AS';
+      const matchLabel = !s || s.label === 'Pending' ? '–' : s.leader === null ? 'AS' : lead;
       return {
         hole: hr.holeNumber,
         a: getScore(hr, 'a'),
         b: getScore(hr, 'b'),
         winner: winners[i],
         status: s?.label ?? 'Pending',
-        short,
         leader: s?.leader ?? null,
+        diff: s?.diff ?? 0,
+        matchLabel,
+        matchShort: matchLabel,
       };
     }),
     finalLabel: status.length ? status[status.length - 1].label : 'Pending',
@@ -354,6 +370,43 @@ function buildContest<T extends { holeNumber: number; incomplete: boolean }>(
 
 type SegmentResult = BestBallAggySegmentResult | HighBallLowBallSegmentResult | TwoManScrambleSegmentResult;
 
+const SEGMENT_DISPLAY_RANGES: Record<string, [number, number]> = {
+  Front: [0, 9],
+  Back: [9, 18],
+  Overall: [0, 18],
+};
+
+function liveSegmentStanding(
+  label: string,
+  winners: HoleWinner[],
+  aLabel: string,
+  bLabel: string,
+): Pick<MpContest['segments'][number], 'status' | 'leaderLabel' | 'scoreLabel' | 'resultLabel'> | null {
+  const [start, end] = SEGMENT_DISPLAY_RANGES[label] ?? [0, winners.length];
+  const segmentWinners = winners.slice(start, end);
+  const played = segmentWinners.filter((winner) => winner != null).length;
+  if (!played) return null;
+  const a = segmentWinners.filter((winner) => winner === 'a').length;
+  const b = segmentWinners.filter((winner) => winner === 'b').length;
+  if (a === b) {
+    return {
+      status: 'push',
+      leaderLabel: 'All square',
+      scoreLabel: `AS thru ${played}`,
+      resultLabel: `All square thru ${played}`,
+    };
+  }
+  const side = a > b ? 'a' : 'b';
+  const leaderLabel = side === 'a' ? aLabel : bLabel;
+  const diff = Math.abs(a - b);
+  return {
+    status: side,
+    leaderLabel,
+    scoreLabel: `${diff} up thru ${played}`,
+    resultLabel: `${leaderLabel} ${diff} up thru ${played}`,
+  };
+}
+
 function segmentChips(
   results: Array<{ label: string; result: SegmentResult }>,
   aId: string,
@@ -361,14 +414,19 @@ function segmentChips(
   aLabel: string,
   bLabel: string,
   mode: 'stroke' | 'match',
+  liveWinners: Record<string, HoleWinner[]> = {},
 ): MpContest['segments'] {
   return results.map(({ label, result }) => {
     const map = mode === 'stroke' ? result.teamScores : result.teamHolesWon;
     const a = result.incomplete || !map ? null : map[aId] ?? null;
     const b = result.incomplete || !map ? null : map[bId] ?? null;
+    const live = result.incomplete && mode === 'match'
+      ? liveSegmentStanding(label, liveWinners[label] ?? [], aLabel, bLabel)
+      : null;
     const status = result.incomplete ? 'open' : result.pushed ? 'push' : result.winnerTeamId === aId ? 'a' : result.winnerTeamId === bId ? 'b' : 'open';
     const resultLabel =
-      a == null || b == null
+      live?.resultLabel ??
+      (a == null || b == null
         ? 'Open'
         : status === 'a'
           ? `${aLabel} ${a}-${b}`
@@ -376,8 +434,18 @@ function segmentChips(
             ? `${bLabel} ${b}-${a}`
             : status === 'push'
               ? `Push ${a}-${b}`
-              : `${a}-${b}`;
-    return { label, a, b, status, resultLabel };
+              : `${a}-${b}`);
+    const leaderLabel =
+      live?.leaderLabel ??
+      status === 'a'
+        ? aLabel
+        : status === 'b'
+          ? bLabel
+            : status === 'push'
+              ? 'Push'
+              : 'Open';
+    const scoreLabel = live?.scoreLabel ?? (a == null || b == null ? 'Open' : status === 'push' ? `${a}-${b}` : `${Math.max(a, b)}-${Math.min(a, b)}`);
+    return { label, a, b, status: live?.status ?? status, resultLabel, leaderLabel, scoreLabel };
   });
 }
 
@@ -389,27 +457,39 @@ function panelsFromBestBallAggyResults(results: BestBallAggyResult[], basis: str
     matches: results.map((res, mi) => {
       const [tA, tB] = res.teams;
       const id = (side: 'a' | 'b') => (side === 'a' ? tA.id : tB.id);
+      const bestBallWinners = res.holeResults.map((hr) => toSide(hr.bestBallWinnerTeamId, hr.bestBallTied, hr.incomplete, tA.id));
+      const aggyWinners = res.holeResults.map((hr) => toSide(hr.aggyWinnerTeamId, hr.aggyTied, hr.incomplete, tA.id));
       return {
         label: `Match ${mi + 1}`,
         sideA: tA.players.join(' + '),
         sideB: tB.players.join(' + '),
         contests: [
           buildContest('Best Ball', res.holeResults,
+            tA.players.join(' + '), tB.players.join(' + '),
             (hr, s) => hr.teamScores[id(s)]?.bestBallScore ?? null,
             (hr) => toSide(hr.bestBallWinnerTeamId, hr.bestBallTied, hr.incomplete, tA.id),
             segmentChips([
               { label: 'Front', result: res.segmentResults.bestBall.front },
               { label: 'Back', result: res.segmentResults.bestBall.back },
               { label: 'Overall', result: res.segmentResults.bestBall.overall },
-            ], tA.id, tB.id, tA.players.join(' + '), tB.players.join(' + '), res.scoringMode)),
+            ], tA.id, tB.id, tA.players.join(' + '), tB.players.join(' + '), res.scoringMode, {
+              Front: bestBallWinners,
+              Back: bestBallWinners,
+              Overall: bestBallWinners,
+            })),
           buildContest('Aggregate', res.holeResults,
+            tA.players.join(' + '), tB.players.join(' + '),
             (hr, s) => hr.teamScores[id(s)]?.aggyScore ?? null,
             (hr) => toSide(hr.aggyWinnerTeamId, hr.aggyTied, hr.incomplete, tA.id),
             segmentChips([
               { label: 'Front', result: res.segmentResults.aggy.front },
               { label: 'Back', result: res.segmentResults.aggy.back },
               { label: 'Overall', result: res.segmentResults.aggy.overall },
-            ], tA.id, tB.id, tA.players.join(' + '), tB.players.join(' + '), res.scoringMode)),
+            ], tA.id, tB.id, tA.players.join(' + '), tB.players.join(' + '), res.scoringMode, {
+              Front: aggyWinners,
+              Back: aggyWinners,
+              Overall: aggyWinners,
+            })),
         ],
       };
     }),
@@ -424,27 +504,39 @@ function panelsFromHighLowResults(results: HighBallLowBallResult[], basis: strin
     matches: results.map((res, mi) => {
       const [tA, tB] = res.teams;
       const id = (side: 'a' | 'b') => (side === 'a' ? tA.id : tB.id);
+      const lowBallWinners = res.holeResults.map((hr) => toSide(hr.lowBallWinnerTeamId, hr.lowBallTied, hr.incomplete, tA.id));
+      const highBallWinners = res.holeResults.map((hr) => toSide(hr.highBallWinnerTeamId, hr.highBallTied, hr.incomplete, tA.id));
       return {
         label: `Match ${mi + 1}`,
         sideA: tA.players.join(' + '),
         sideB: tB.players.join(' + '),
         contests: [
           buildContest('Low Ball', res.holeResults,
+            tA.players.join(' + '), tB.players.join(' + '),
             (hr, s) => hr.teamScores[id(s)]?.lowBallScore ?? null,
             (hr) => toSide(hr.lowBallWinnerTeamId, hr.lowBallTied, hr.incomplete, tA.id),
             segmentChips([
               { label: 'Front', result: res.segmentResults.lowBall.front },
               { label: 'Back', result: res.segmentResults.lowBall.back },
               { label: 'Overall', result: res.segmentResults.lowBall.overall },
-            ], tA.id, tB.id, tA.players.join(' + '), tB.players.join(' + '), res.scoringMode)),
+            ], tA.id, tB.id, tA.players.join(' + '), tB.players.join(' + '), res.scoringMode, {
+              Front: lowBallWinners,
+              Back: lowBallWinners,
+              Overall: lowBallWinners,
+            })),
           buildContest('High Ball', res.holeResults,
+            tA.players.join(' + '), tB.players.join(' + '),
             (hr, s) => hr.teamScores[id(s)]?.highBallScore ?? null,
             (hr) => toSide(hr.highBallWinnerTeamId, hr.highBallTied, hr.incomplete, tA.id),
             segmentChips([
               { label: 'Front', result: res.segmentResults.highBall.front },
               { label: 'Back', result: res.segmentResults.highBall.back },
               { label: 'Overall', result: res.segmentResults.highBall.overall },
-            ], tA.id, tB.id, tA.players.join(' + '), tB.players.join(' + '), res.scoringMode)),
+            ], tA.id, tB.id, tA.players.join(' + '), tB.players.join(' + '), res.scoringMode, {
+              Front: highBallWinners,
+              Back: highBallWinners,
+              Overall: highBallWinners,
+            })),
         ],
       };
     }),
@@ -459,19 +551,25 @@ function panelsFromTwoManScrambleResults(results: TwoManScrambleResult[]): MpPan
     matches: results.map((res, mi) => {
       const [tA, tB] = res.teams;
       const id = (side: 'a' | 'b') => (side === 'a' ? tA.id : tB.id);
+      const scrambleWinners = res.holeResults.map((hr) => toSide(hr.winnerTeamId, hr.tied, hr.incomplete, tA.id));
       return {
         label: `Match ${mi + 1}`,
         sideA: tA.players.join(' + '),
         sideB: tB.players.join(' + '),
         contests: [
           buildContest('Scramble', res.holeResults,
+            tA.players.join(' + '), tB.players.join(' + '),
             (hr, s) => hr.teamScores[id(s)]?.scrambleScore ?? null,
             (hr) => toSide(hr.winnerTeamId, hr.tied, hr.incomplete, tA.id),
             segmentChips([
               { label: 'Front', result: res.segmentResults.front },
               { label: 'Back', result: res.segmentResults.back },
               { label: 'Overall', result: res.segmentResults.overall },
-            ], tA.id, tB.id, tA.players.join(' + '), tB.players.join(' + '), res.scoringMode)),
+            ], tA.id, tB.id, tA.players.join(' + '), tB.players.join(' + '), res.scoringMode, {
+              Front: scrambleWinners,
+              Back: scrambleWinners,
+              Overall: scrambleWinners,
+            })),
         ],
       };
     }),
@@ -594,7 +692,7 @@ function sideInitials(label: string): string {
     .split(/\s+\+\s+|\s+\/\s+/)
     .map((part) => part.trim()[0])
     .filter(Boolean)
-    .join('');
+    .join('+');
 }
 
 function holeMark(winner: HoleWinner, match: MpMatch): string {
@@ -1163,15 +1261,17 @@ watch(
             </div>
             <button class="btn-ghost sm" type="button" @click="openMobileMatchKey = null">Close</button>
           </div>
-          <div v-if="mobileOpenMatchDetail.contest.segments.length" class="mp-segments">
-            <span
+          <div v-if="mobileOpenMatchDetail.contest.segments.length" class="mp-segments mp-bet-status">
+            <div
               v-for="segment in mobileOpenMatchDetail.contest.segments"
               :key="`mobile-${segment.label}`"
-              class="mp-segment-chip"
+              class="mp-segment-card"
               :class="`mp-segment-${segment.status}`"
             >
-              {{ segment.label }}: {{ segment.resultLabel }}
-            </span>
+              <span>{{ segment.label }}</span>
+              <strong>{{ segment.leaderLabel }}</strong>
+              <em>{{ segment.scoreLabel }}</em>
+            </div>
           </div>
           <div class="sc-table-wrap mobile-dialog-table">
             <table class="sc-table mp-table">
@@ -1195,8 +1295,8 @@ watch(
                   <td v-for="hole in mobileOpenMatchDetail.contest.holes" :key="`mr-${hole.hole}`" class="mp-result" :class="`mp-w-${hole.winner ?? 'pending'}`">{{ holeMark(hole.winner, mobileOpenMatchDetail.match) }}</td>
                 </tr>
                 <tr>
-                  <td class="name-cell">Thru</td>
-                  <td v-for="hole in mobileOpenMatchDetail.contest.holes" :key="`ms-${hole.hole}`" class="mp-thru" :class="`mp-lead-${hole.leader ?? 'none'}`" :title="hole.status">{{ hole.short }}</td>
+                  <td class="name-cell">Match</td>
+                  <td v-for="hole in mobileOpenMatchDetail.contest.holes" :key="`ms-${hole.hole}`" class="mp-thru" :class="`mp-lead-${hole.leader ?? 'none'}`" :title="hole.status">{{ hole.matchShort }}</td>
                 </tr>
               </tbody>
             </table>
@@ -1544,15 +1644,17 @@ watch(
                 <span class="mp-contest-name">{{ contest.name }}</span>
                 <span class="mp-final" :class="{ pending: contest.finalLabel === 'Pending' }">{{ contest.finalLabel }}</span>
               </div>
-              <div v-if="contest.segments.length" class="mp-segments">
-                <span
+              <div v-if="contest.segments.length" class="mp-segments mp-bet-status">
+                <div
                   v-for="segment in contest.segments"
                   :key="`${contest.name}-${segment.label}`"
-                  class="mp-segment-chip"
+                  class="mp-segment-card"
                   :class="`mp-segment-${segment.status}`"
                 >
-                  {{ segment.label }}: {{ segment.resultLabel }}
-                </span>
+                  <span>{{ segment.label }}</span>
+                  <strong>{{ segment.leaderLabel }}</strong>
+                  <em>{{ segment.scoreLabel }}</em>
+                </div>
               </div>
               <div class="sc-table-wrap">
                 <table class="sc-table mp-table">
@@ -1576,8 +1678,8 @@ watch(
                       <td v-for="hole in contest.holes" :key="`r-${hole.hole}`" class="mp-result" :class="`mp-w-${hole.winner ?? 'pending'}`">{{ holeMark(hole.winner, match) }}</td>
                     </tr>
                     <tr>
-                      <td class="name-cell">Thru</td>
-                      <td v-for="hole in contest.holes" :key="`s-${hole.hole}`" class="mp-thru" :class="`mp-lead-${hole.leader ?? 'none'}`" :title="hole.status">{{ hole.short }}</td>
+                      <td class="name-cell">Match</td>
+                      <td v-for="hole in contest.holes" :key="`s-${hole.hole}`" class="mp-thru" :class="`mp-lead-${hole.leader ?? 'none'}`" :title="hole.status">{{ hole.matchLabel }}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -2208,6 +2310,12 @@ watch(
   margin: 0 0 6px;
 }
 
+.mp-bet-status {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .mp-segment-chip {
   border-radius: 999px;
   background: #ece8da;
@@ -2216,6 +2324,41 @@ watch(
   font-size: 0.72rem;
   font-weight: 800;
   line-height: 1.25;
+}
+
+.mp-segment-card {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #f8f4ea;
+  padding: 7px 8px;
+}
+
+.mp-segment-card span {
+  color: #8a672f;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mp-segment-card strong {
+  overflow: hidden;
+  color: #24362c;
+  font-size: 0.78rem;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mp-segment-card em {
+  color: #5a6a5f;
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 850;
+  line-height: 1.1;
 }
 
 .mp-segment-a {
@@ -2277,10 +2420,21 @@ watch(
   font-size: 0.68rem;
   font-weight: 800;
   color: #6a7a6f;
+  min-width: 46px;
+  white-space: nowrap;
 }
 
-.mp-lead-a { color: #2f5d43; }
-.mp-lead-b { color: #b4473a; }
+.mp-lead-a {
+  color: #2f5d43;
+}
+
+.mp-lead-b {
+  color: #9b3d30;
+}
+
+.mp-lead-none {
+  color: #6a7a6f;
+}
 
 .is-best-ball input { font-weight: 900; text-decoration: underline; }
 

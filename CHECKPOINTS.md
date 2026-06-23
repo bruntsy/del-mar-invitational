@@ -3205,3 +3205,42 @@ snap a just-entered mobile value back to an older number.
 
 - Recheck live mobile scoring with two devices open to the same event round and
   confirm rapid +/- taps no longer revert after realtime sync catches up.
+
+---
+
+## Checkpoint 70 — Match scorecard bet status clarity (2026-06-23)
+
+### Summary
+
+Improved event/team match scorecard details so Open shows Front, Back, and
+Overall bet status clearly and replaces cryptic A/B match-standing codes with
+readable pair labels.
+
+### Changes
+
+- **`src/components/screens/ScorecardScreen.vue`** — Extended the match-panel view
+  model with readable segment leader labels, live in-progress segment standings,
+  and per-hole match-standing labels.
+- The match scorecard dialog and desktop match panels now show three bet status
+  cards for Front, Back, and Overall. Completed segments show final results;
+  incomplete match-play segments show live standings like `2 up thru 3`.
+- Renamed the `Thru` row to `Match` and replaced values such as `A1` / `B2`
+  with pair-initial labels such as `W+A +1`, plus side-colored styling.
+- Pair winner marks now use joined initials such as `W+A` instead of ambiguous
+  side letters.
+- **`tests/screens/scorecard.test.ts`** — Updated event match-panel assertions
+  and added coverage that the mobile Open dialog shows bet status cards,
+  readable pair leader labels, and no A/B-style match-standing codes.
+- **`README.md`** — Documented the match dialog bet-status cards and readable
+  Match row.
+
+### Verification
+
+- `npm run test:run -- tests/screens/scorecard.test.ts` passed: 29 tests.
+- `npm run test:run` passed: 37 files, 355 tests.
+- `npm run build` passed.
+
+### Next likely tasks
+
+- Recheck a live event high/low round on mobile and confirm the dialog's bet
+  cards and Match row are legible with real player names.

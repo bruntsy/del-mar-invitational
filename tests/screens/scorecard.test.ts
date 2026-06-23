@@ -307,7 +307,9 @@ describe('ScorecardScreen', () => {
     expect(wrapper.find('.mp-live').text()).toContain('High Ball / Low Ball');
     expect(wrapper.find('.mp-live').text()).toContain('Low Ball');
     expect(wrapper.find('.mp-live').text()).toContain('High Ball');
-    expect(wrapper.find('.mp-live').text()).toContain('Front: Wes + Aaron 9-0');
+    expect(wrapper.find('.mp-live').text()).toContain('Front');
+    expect(wrapper.find('.mp-live').text()).toContain('Wes + Aaron');
+    expect(wrapper.find('.mp-live').text()).toContain('9-0');
     expect(wrapper.find('.mp-table').text()).toContain('Wes + Aaron');
     expect(wrapper.find('.mp-table').text()).toContain('Tito + Q');
   });
@@ -491,6 +493,18 @@ describe('ScorecardScreen', () => {
       pairMatches: [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }],
     };
     eventStore.event = { id: 'event-1', groupId: 'g1', name: 'Event Test', status: 'active', config };
+    roundStore.setScore('Wes', 0, 4);
+    roundStore.setScore('Aaron', 0, 5);
+    roundStore.setScore('Tito', 0, 5);
+    roundStore.setScore('Q', 0, 6);
+    roundStore.setScore('Wes', 1, 5);
+    roundStore.setScore('Aaron', 1, 5);
+    roundStore.setScore('Tito', 1, 4);
+    roundStore.setScore('Q', 1, 6);
+    roundStore.setScore('Wes', 2, 3);
+    roundStore.setScore('Aaron', 2, 4);
+    roundStore.setScore('Tito', 2, 5);
+    roundStore.setScore('Q', 2, 5);
 
     const wrapper = mountScorecard();
     await nextTick();
@@ -504,6 +518,17 @@ describe('ScorecardScreen', () => {
     expect(wrapper.find('.mobile-match-dialog').text()).toContain('Low Ball');
     expect(wrapper.find('.mobile-match-dialog').text()).toContain('Wes + Aaron vs Tito + Q');
     expect(wrapper.find('.mobile-match-dialog .mp-table').exists()).toBe(true);
+    expect(wrapper.findAll('.mobile-match-dialog .mp-segment-card')).toHaveLength(3);
+    expect(wrapper.find('.mobile-match-dialog').text()).toContain('Front');
+    expect(wrapper.find('.mobile-match-dialog').text()).toContain('Back');
+    expect(wrapper.find('.mobile-match-dialog').text()).toContain('Overall');
+    expect(wrapper.find('.mobile-match-dialog').text()).toContain('Wes + Aaron');
+    expect(wrapper.find('.mobile-match-dialog').text()).toContain('2 up thru 3');
+    expect(wrapper.find('.mobile-match-dialog .mp-table').text()).toContain('Match');
+    expect(wrapper.find('.mobile-match-dialog .mp-table').text()).not.toContain('Thru');
+    const matchCells = wrapper.findAll('.mobile-match-dialog .mp-thru').map((cell) => cell.text());
+    expect(matchCells).toContain('W+A +1');
+    expect(matchCells.some((text) => /^[AB]\d+$/.test(text))).toBe(false);
 
     await wrapper.find('.mobile-dialog-head button').trigger('click');
     await nextTick();

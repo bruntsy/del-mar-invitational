@@ -595,6 +595,9 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   an Open button that launches a focused match scorecard dialog. Event team
   context stays compact on phones so the score rows remain close to the
   active-hole controls.
+- The match scorecard dialog shows Front, Back, and Overall bet status cards
+  above the hole table, including live match-play standings such as `1 up thru
+  3`, and uses readable pair initials in the Match row instead of A/B codes.
 
 ### Setup Screen (rewrite)
 
