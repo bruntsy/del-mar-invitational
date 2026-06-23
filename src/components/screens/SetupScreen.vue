@@ -84,6 +84,7 @@ const selectedTeeKey = ref('');
 const courseSearching = ref(false);
 const courseSearchError = ref('');
 const showCourseScorecard = ref(false);
+const mobileSetupOpen = reactive({ course: false, players: false });
 // True once a real course is in the form (prefilled from edit/event, or picked
 // from search). Drives whether we show the read-only scorecard + "Change course"
 // or the search UI — applies in every mode so a missing/wrong course is fixable.
@@ -302,6 +303,12 @@ const duplicateNames = computed(() => {
   return names.length !== new Set(names).size;
 });
 
+const playersEntered = computed(() => (
+  form.players.length >= 2
+  && form.players.every((p) => p.name.trim() && p.handicapIndex !== '')
+  && !duplicateNames.value
+));
+
 const selectedGameCount = computed(() => {
   const games = form.games;
   return [
@@ -335,7 +342,7 @@ const rosterReadOnly = computed(() => hasEventContext.value);
 
 const setupSteps = computed(() => [
   { label: 'Course', complete: courseSet.value },
-  { label: 'Players', complete: namedPlayers.value.length > 0 && !duplicateNames.value },
+  { label: 'Players', complete: playersEntered.value },
   ...(!hasEventContext.value ? [{ label: 'Games', complete: selectedGameCount.value > 0 }] : []),
   { label: 'Teams', complete: team1.value.length > 0 && team2.value.length > 0 },
   { label: 'Groups', complete: displayPlayingGroups.value.length > 0 && displayPlayingGroups.value.every((group) => group.players.length > 0) },
@@ -343,6 +350,14 @@ const setupSteps = computed(() => [
 const completedSetupSteps = computed(() => setupSteps.value.filter((step) => step.complete).length);
 const setupProgressLabel = computed(() => `${completedSetupSteps.value} of ${setupSteps.value.length} ready`);
 const nextSetupStep = computed(() => setupSteps.value.find((step) => !step.complete)?.label ?? 'Ready');
+const courseMobileSummary = computed(() => courseSet.value
+  ? `${courseSummaryName.value} · ${form.teeName || 'Tee'} · Par ${courseParTotal.value}`
+  : 'Search and select the tee for this round');
+const playersMobileSummary = computed(() => {
+  if (!namedPlayers.value.length) return 'Add players for this round';
+  const count = `${namedPlayers.value.length} player${namedPlayers.value.length === 1 ? '' : 's'}`;
+  return duplicateNames.value ? `${count} · duplicate names` : count;
+});
 
 // --- Pair-match builder (Side A vs Side B) ------------------------------
 
@@ -659,153 +674,189 @@ function goGroup() {
       <button class="btn-ghost" type="button" @click="goGroup">← Back to groups</button>
     </header>
 
-    <section class="setup-card checklist-card">
+    <section
+      class="setup-card checklist-card"
+      :class="{
+        'is-mobile-collapsible': courseSet,
+        'is-mobile-collapsed': courseSet && !mobileSetupOpen.course,
+      }"
+    >
       <div class="setup-section-head">
         <div>
           <span class="step-pill">{{ courseSet ? 'Complete' : 'Needed' }}</span>
           <h2 class="setup-hdr">Course</h2>
+          <p class="mobile-section-summary">{{ courseMobileSummary }}</p>
         </div>
+        <button
+          v-if="courseSet"
+          class="btn-ghost sm section-mobile-toggle"
+          type="button"
+          :aria-expanded="mobileSetupOpen.course"
+          @click="mobileSetupOpen.course = !mobileSetupOpen.course"
+        >
+          {{ mobileSetupOpen.course ? 'Hide' : 'Edit' }}
+        </button>
       </div>
 
-      <!-- A course is set (prefilled from edit/event or picked from search):
-           show the read-only scorecard with a Change action available in every mode. -->
-      <template v-if="courseSet">
-        <div class="course-summary-card">
-          <div>
-            <h3 class="course-summary-name">{{ courseSummaryName }}</h3>
-            <div class="course-summary-tee">
-              <span class="tee-marker-dot" :style="teeMarkerStyle" aria-hidden="true"></span>
-              <span>{{ form.teeName || 'Tee' }} tees</span>
-            </div>
-            <div class="course-badge-row" aria-label="Selected course details">
-              <span v-for="badge in courseBadges" :key="badge" class="course-detail-badge">{{ badge }}</span>
-            </div>
-            <div class="course-nine-grid">
-              <div>
-                <strong>Front 9</strong>
-                <span>Par {{ frontPar }} · {{ Number(frontYards).toLocaleString() }} yds</span>
+      <div class="mobile-collapsible-body">
+        <!-- A course is set (prefilled from edit/event or picked from search):
+             show the read-only scorecard with a Change action available in every mode. -->
+        <template v-if="courseSet">
+          <div class="course-summary-card">
+            <div>
+              <h3 class="course-summary-name">{{ courseSummaryName }}</h3>
+              <div class="course-summary-tee">
+                <span class="tee-marker-dot" :style="teeMarkerStyle" aria-hidden="true"></span>
+                <span>{{ form.teeName || 'Tee' }} tees</span>
               </div>
-              <div>
-                <strong>Back 9</strong>
-                <span>Par {{ backPar }} · {{ Number(backYards).toLocaleString() }} yds</span>
+              <div class="course-badge-row" aria-label="Selected course details">
+                <span v-for="badge in courseBadges" :key="badge" class="course-detail-badge">{{ badge }}</span>
               </div>
+              <div class="course-nine-grid">
+                <div>
+                  <strong>Front 9</strong>
+                  <span>Par {{ frontPar }} · {{ Number(frontYards).toLocaleString() }} yds</span>
+                </div>
+                <div>
+                  <strong>Back 9</strong>
+                  <span>Par {{ backPar }} · {{ Number(backYards).toLocaleString() }} yds</span>
+                </div>
+              </div>
+            </div>
+            <div class="course-summary-actions">
+              <button class="btn-ghost sm" type="button" @click="clearCourse">Change course</button>
+              <button class="btn-ghost sm" type="button" @click="showCourseScorecard = !showCourseScorecard">
+                {{ showCourseScorecard ? 'Hide scorecard' : 'View scorecard' }}
+              </button>
             </div>
           </div>
-          <div class="course-summary-actions">
-            <button class="btn-ghost sm" type="button" @click="clearCourse">Change course</button>
-            <button class="btn-ghost sm" type="button" @click="showCourseScorecard = !showCourseScorecard">
-              {{ showCourseScorecard ? 'Hide scorecard' : 'View scorecard' }}
+          <div v-if="showCourseScorecard" class="contained-scorecard">
+            <CourseScorecard :course="formCourse" />
+          </div>
+        </template>
+
+        <!-- No course yet: show search (works for new, edit, and event rounds). -->
+        <template v-else>
+          <div class="course-search">
+            <input
+              v-model="form.courseQuery"
+              class="form-input course-search-input"
+              type="search"
+              placeholder="Search course name"
+              @keydown.enter.prevent="runCourseSearch"
+            />
+            <button class="btn-ghost course-search-btn" type="button" :disabled="!canSearchCourses" @click="runCourseSearch">
+              {{ courseSearching ? 'Searching...' : 'Search' }}
             </button>
           </div>
-        </div>
-        <div v-if="showCourseScorecard" class="contained-scorecard">
-          <CourseScorecard :course="formCourse" />
-        </div>
-      </template>
 
-      <!-- No course yet: show search (works for new, edit, and event rounds). -->
-      <template v-else>
-        <div class="course-search">
-          <input
-            v-model="form.courseQuery"
-            class="form-input course-search-input"
-            type="search"
-            placeholder="Search course name"
-            @keydown.enter.prevent="runCourseSearch"
-          />
-          <button class="btn-ghost course-search-btn" type="button" :disabled="!canSearchCourses" @click="runCourseSearch">
-            {{ courseSearching ? 'Searching...' : 'Search' }}
-          </button>
-        </div>
+          <div v-if="courseResults.length" class="course-results">
+            <button v-for="course in courseResults" :key="course.id || courseLabel(course)" class="course-result" type="button" @click="chooseCourse(course)">
+              <span>
+                <strong>{{ courseLabel(course) }}</strong>
+                <small>{{ courseSubLabel(course) }}</small>
+              </span>
+              <span class="course-result-meta">{{ selectableCourseTees(course).length }} tees</span>
+            </button>
+          </div>
 
-        <div v-if="courseResults.length" class="course-results">
-          <button v-for="course in courseResults" :key="course.id || courseLabel(course)" class="course-result" type="button" @click="chooseCourse(course)">
-            <span>
-              <strong>{{ courseLabel(course) }}</strong>
-              <small>{{ courseSubLabel(course) }}</small>
-            </span>
-            <span class="course-result-meta">{{ selectableCourseTees(course).length }} tees</span>
-          </button>
-        </div>
+          <div v-if="selectedCourse" class="tee-results">
+            <button
+              v-for="tee in selectableCourseTees(selectedCourse)"
+              :key="courseTeeKey(tee)"
+              class="tee-result"
+              type="button"
+              @click="applyCourse(selectedCourse, tee)"
+            >
+              <div>
+                <strong>{{ tee.name || 'Tee' }}</strong>
+                <small>{{ teeLabel(tee) }}</small>
+              </div>
+            </button>
+          </div>
 
-        <div v-if="selectedCourse" class="tee-results">
-          <button
-            v-for="tee in selectableCourseTees(selectedCourse)"
-            :key="courseTeeKey(tee)"
-            class="tee-result"
-            type="button"
-            @click="applyCourse(selectedCourse, tee)"
-          >
-            <span>
-              <strong>{{ tee.name || 'Tee' }}</strong>
-              <small>{{ teeLabel(tee) }}</small>
-            </span>
-          </button>
-        </div>
-
-        <p v-if="courseSearchError" class="course-search-error">{{ courseSearchError }}</p>
-      </template>
+          <p v-if="courseSearchError" class="course-search-error">{{ courseSearchError }}</p>
+        </template>
+      </div>
     </section>
 
-    <section class="setup-card checklist-card">
+    <section
+      class="setup-card checklist-card"
+      :class="{
+        'is-mobile-collapsible': playersEntered,
+        'is-mobile-collapsed': playersEntered && !mobileSetupOpen.players,
+      }"
+    >
       <div class="setup-section-head">
         <div>
           <span class="step-pill">{{ namedPlayers.length ? `${namedPlayers.length} players` : 'Needed' }}</span>
           <h2 class="setup-hdr">Players</h2>
+          <p class="mobile-section-summary">{{ playersMobileSummary }}</p>
         </div>
+        <button
+          v-if="playersEntered"
+          class="btn-ghost sm section-mobile-toggle"
+          type="button"
+          :aria-expanded="mobileSetupOpen.players"
+          @click="mobileSetupOpen.players = !mobileSetupOpen.players"
+        >
+          {{ mobileSetupOpen.players ? 'Hide' : 'Edit' }}
+        </button>
       </div>
-      <div v-if="rosterReadOnly" class="event-roster-preview">
-        <div class="event-roster-team">
-          <div class="event-roster-team-name">{{ form.teamNames.team1 }}</div>
-          <div v-for="row in handicapPreviewRows.filter((p) => team1.includes(p.name))" :key="row.name" class="event-roster-player">
-            <strong>{{ row.name }}</strong>
-            <span>Idx {{ row.index.toFixed(1).replace('.0', '') }}</span>
-            <span>Course {{ row.courseHandicap }}</span>
-          </div>
-        </div>
-        <div class="event-roster-team">
-          <div class="event-roster-team-name">{{ form.teamNames.team2 }}</div>
-          <div v-for="row in handicapPreviewRows.filter((p) => team2.includes(p.name))" :key="row.name" class="event-roster-player">
-            <strong>{{ row.name }}</strong>
-            <span>Idx {{ row.index.toFixed(1).replace('.0', '') }}</span>
-            <span>Course {{ row.courseHandicap }}</span>
-          </div>
-        </div>
-      </div>
-      <template v-else>
-        <div class="player-list">
-          <div v-for="(player, index) in form.players" :key="index" class="player-row">
-            <div class="player-fields">
-              <input v-model="player.name" class="form-input" placeholder="Player name" />
-              <input
-                v-model="player.handicapIndex"
-                class="form-input idx-input"
-                type="number"
-                step="0.1"
-                inputmode="decimal"
-                placeholder="Handicap index"
-              />
-            </div>
-            <div class="player-row-actions">
-              <span class="team-chip">{{ player.name ? assignmentLabel(player.team) : 'Team later' }}</span>
-              <button class="btn-text-danger" type="button" @click="removePlayer(index)">Remove</button>
-            </div>
-          </div>
-        </div>
-        <button class="btn-ghost" type="button" @click="addPlayer">+ Add player</button>
-      </template>
-
-      <div v-if="handicapPreviewRows.length" class="hcp-preview">
-        <h3 class="sub-hdr">Course handicaps</h3>
-        <div class="hcp-preview-list">
-          <div v-for="row in handicapPreviewRows" :key="row.name" class="hcp-preview-row">
-            <div>
+      <div class="mobile-collapsible-body">
+        <div v-if="rosterReadOnly" class="event-roster-preview">
+          <div class="event-roster-team">
+            <div class="event-roster-team-name">{{ form.teamNames.team1 }}</div>
+            <div v-for="row in handicapPreviewRows.filter((p) => team1.includes(p.name))" :key="row.name" class="event-roster-player">
               <strong>{{ row.name }}</strong>
-              <small>Index {{ row.index.toFixed(1).replace('.0', '') }} → Course {{ row.courseHandicap }}</small>
+              <span>Idx {{ row.index.toFixed(1).replace('.0', '') }}</span>
+              <span>Course {{ row.courseHandicap }}</span>
             </div>
-            <div class="hcp-preview-strokes">
-              <strong>{{ strokeSummary(row) }}</strong>
-              <small>{{ row.strokes > 0 ? `Stroke holes: ${row.holes.replace('Holes ', '')}` : row.holes }}</small>
+          </div>
+          <div class="event-roster-team">
+            <div class="event-roster-team-name">{{ form.teamNames.team2 }}</div>
+            <div v-for="row in handicapPreviewRows.filter((p) => team2.includes(p.name))" :key="row.name" class="event-roster-player">
+              <strong>{{ row.name }}</strong>
+              <span>Idx {{ row.index.toFixed(1).replace('.0', '') }}</span>
+              <span>Course {{ row.courseHandicap }}</span>
+            </div>
+          </div>
+        </div>
+        <template v-else>
+          <div class="player-list">
+            <div v-for="(player, index) in form.players" :key="index" class="player-row">
+              <div class="player-fields">
+                <input v-model="player.name" class="form-input" placeholder="Player name" />
+                <input
+                  v-model="player.handicapIndex"
+                  class="form-input idx-input"
+                  type="number"
+                  step="0.1"
+                  inputmode="decimal"
+                  placeholder="Handicap index"
+                />
+              </div>
+              <div class="player-row-actions">
+                <span class="team-chip">{{ player.name ? assignmentLabel(player.team) : 'Team later' }}</span>
+                <button class="btn-text-danger" type="button" @click="removePlayer(index)">Remove</button>
+              </div>
+            </div>
+          </div>
+          <button class="btn-ghost" type="button" @click="addPlayer">+ Add player</button>
+        </template>
+
+        <div v-if="handicapPreviewRows.length" class="hcp-preview">
+          <h3 class="sub-hdr">Course handicaps</h3>
+          <div class="hcp-preview-list">
+            <div v-for="row in handicapPreviewRows" :key="row.name" class="hcp-preview-row">
+              <div>
+                <strong>{{ row.name }}</strong>
+                <small>Index {{ row.index.toFixed(1).replace('.0', '') }} → Course {{ row.courseHandicap }}</small>
+              </div>
+              <div class="hcp-preview-strokes">
+                <strong>{{ strokeSummary(row) }}</strong>
+                <small>{{ row.strokes > 0 ? `Stroke holes: ${row.holes.replace('Holes ', '')}` : row.holes }}</small>
+              </div>
             </div>
           </div>
         </div>
@@ -1139,6 +1190,11 @@ function goGroup() {
   margin: 5px 0 0;
   font-size: 1rem;
   color: #2f5d43;
+}
+
+.mobile-section-summary,
+.section-mobile-toggle {
+  display: none;
 }
 
 .sub-hdr {
@@ -2070,6 +2126,36 @@ label {
   .setup-section-head,
   .pg-header {
     align-items: flex-start;
+  }
+
+  .is-mobile-collapsible {
+    padding-bottom: 12px;
+  }
+
+  .is-mobile-collapsed .setup-section-head {
+    margin-bottom: 0;
+  }
+
+  .is-mobile-collapsed .mobile-collapsible-body {
+    display: none;
+  }
+
+  .mobile-section-summary {
+    display: block;
+    margin: 5px 0 0;
+    color: #607067;
+    font-size: 0.84rem;
+    font-weight: 750;
+    line-height: 1.3;
+  }
+
+  .section-mobile-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 74px;
+    min-height: 40px;
+    padding: 7px 12px;
   }
 
   .course-summary-actions,

@@ -2659,3 +2659,42 @@ useful and less intrusive on phone-sized screens.
 
 - Continue the mobile setup checklist pass by making setup sections collapsible
   once complete, starting with Course and Players.
+
+---
+
+## Checkpoint 56 — Mobile setup collapsible sections (2026-06-22)
+
+### Summary
+
+Continued the mobile setup checklist pass by reducing early setup scroll once
+Course and Players are complete.
+
+### Changes
+
+- **`src/components/screens/SetupScreen.vue`** — Added mobile-only collapsed
+  states for completed Course and Players cards.
+- Added concise mobile summaries for the selected course/tee/par and player
+  count, plus explicit Edit/Hide controls for reopening each completed section.
+- Kept desktop setup fully expanded by making the collapse behavior CSS-scoped
+  to phone-sized screens.
+- **`tests/screens/setup.test.ts`** — Added coverage for the completed Players
+  card collapsed state and Edit toggle.
+- **`README.md`** — Documented the mobile collapsible setup-card behavior.
+
+### Verification
+
+- `npm run test:run -- tests/screens/setup.test.ts` passed.
+- `npm run test:run` passed: 37 files, 343 tests.
+- `npm run build` passed.
+- Browser smoke on `/setup` at 390x844 passed: no horizontal overflow, no
+  console errors, Players stayed open during name/index entry, collapsed to a
+  compact `4 players` summary after completion, and reopened with the Edit
+  toggle.
+- The browser smoke caught and fixed an overly eager collapse condition; the
+  Players card now waits for every current player row to have both a name and a
+  handicap index before collapsing.
+
+### Next likely tasks
+
+- Continue mobile setup polish with the Games section: make selected games more
+  scannable and reduce the amount of always-visible configuration chrome.

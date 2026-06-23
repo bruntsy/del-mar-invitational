@@ -184,6 +184,25 @@ describe('SetupScreen', () => {
     expect(rows[2].text()).toContain('No strokes');
   });
 
+  it('collapses completed player setup on mobile until edit is requested', async () => {
+    const wrapper = mountSetup();
+
+    await fillDefaultPlayers(wrapper);
+
+    const playersCard = wrapper.findAll('.setup-card')[1];
+    expect(playersCard.classes()).toContain('is-mobile-collapsible');
+    expect(playersCard.classes()).toContain('is-mobile-collapsed');
+    expect(playersCard.find('.mobile-section-summary').text()).toContain('4 players');
+
+    const toggle = playersCard.find('.section-mobile-toggle');
+    expect(toggle.text()).toBe('Edit');
+    await toggle.trigger('click');
+
+    expect(playersCard.classes()).not.toContain('is-mobile-collapsed');
+    expect(toggle.attributes('aria-expanded')).toBe('true');
+    expect(toggle.text()).toBe('Hide');
+  });
+
   it('fills course fields from selected search tee', async () => {
     const store = useRoundStore();
     mockSearchCourses.mockResolvedValue([
@@ -226,6 +245,7 @@ describe('SetupScreen', () => {
     expect(summary.text()).toContain('Slope 138');
     expect(summary.find('.tee-marker-dot').exists()).toBe(true);
     expect(summary.findAll('.course-detail-badge')).toHaveLength(5);
+    expect(wrapper.findAll('.setup-card')[0].classes()).toContain('is-mobile-collapsed');
 
     await fillDefaultPlayers(wrapper);
     await wrapper.find('.setup-actions .btn-primary').trigger('click');
