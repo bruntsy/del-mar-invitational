@@ -580,6 +580,8 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   to `dmi_mobile_hole_<roundId|local>` in localStorage.
 - The mobile hole card shows a compact `Missing N` / `Hole complete` status and
   its forward action jumps to the next incomplete hole when possible.
+- The mobile card includes a `Fill missing par N` shortcut that fills only blank
+  scores on the active hole, including two-man scramble team-score rows.
 - For event/team match formats, the mobile card keeps current-hole match context
   beside score entry with contest name, side-vs-side labels, hole score, and
   live status.

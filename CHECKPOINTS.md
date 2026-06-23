@@ -2891,3 +2891,40 @@ match context closer to score entry.
 - Continue mobile scorecard ergonomics with faster score entry controls, such as
   default-to-par actions or reducing taps for common score values, while keeping
   the full scorecard secondary on phones.
+
+---
+
+## Checkpoint 62 — Mobile scorecard fill-par shortcut (2026-06-23)
+
+### Summary
+
+Continued the mobile scorecard ergonomics pass by adding a fast, conservative
+score-entry shortcut for common par holes.
+
+### Changes
+
+- **`src/components/screens/ScorecardScreen.vue`** — Added a `Fill missing par N`
+  action to the mobile hole card.
+- The action fills only blank score fields for the current hole, preserving any
+  scores already entered.
+- For two-man scramble, the action writes par into the missing pair/team score
+  rows instead of individual player score rows.
+- The action disables itself once the active hole is complete.
+- **`tests/screens/scorecard.test.ts`** — Added coverage for individual-player
+  fill-par behavior and two-man scramble team-score behavior.
+- **`README.md`** — Documented the mobile fill-par shortcut.
+
+### Verification
+
+- `npm run test:run -- tests/screens/scorecard.test.ts` passed: 26 tests.
+- `npm run test:run` passed: 37 files, 348 tests.
+- `npm run build` passed.
+- Browser smoke on `/scorecard` at 390x844 passed: `Fill missing par 3` filled
+  the remaining active-hole scores, marked the hole complete, disabled itself,
+  had no horizontal overflow, and reported no console warnings/errors.
+
+### Next likely tasks
+
+- Continue mobile scorecard ergonomics by reducing vertical scanning in the
+  scoring rows, likely by tightening player-row layout or adding a clearer
+  score/putt rhythm for Putt Poker rounds.

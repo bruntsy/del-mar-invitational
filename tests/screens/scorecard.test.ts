@@ -533,6 +533,29 @@ describe('ScorecardScreen', () => {
     expect(store.readScore('Wes', 0)).toBe(3);
   });
 
+  it('mobile fill-par shortcut fills only missing player scores on the active hole', async () => {
+    stubMobileViewport();
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    store.setRound(round, players);
+    store.setScore('Wes', 0, 3);
+
+    const wrapper = mountScorecard();
+    await nextTick();
+
+    const fillPar = wrapper.find('.mobile-fill-par');
+    expect(fillPar.text()).toContain('Fill missing par 4');
+    await fillPar.trigger('click');
+    await nextTick();
+
+    expect(store.readScore('Wes', 0)).toBe(3);
+    expect(store.readScore('Aaron', 0)).toBe(4);
+    expect(store.readScore('Tito', 0)).toBe(4);
+    expect(store.readScore('Q', 0)).toBe(4);
+    expect(wrapper.find('.mobile-hole-status').text()).toContain('Hole complete');
+    expect(wrapper.find('.mobile-fill-par').attributes('disabled')).toBeDefined();
+  });
+
   it('mobile two-man scramble scores pair rows instead of individual players', async () => {
     stubMobileViewport();
     const store = useRoundStore();
@@ -559,6 +582,28 @@ describe('ScorecardScreen', () => {
     expect(store.readTeamScore(twoManScrambleTeamKey(0, 'a'), 0)).toBe(2);
     expect(store.readScore('Wes', 0)).toBeNull();
     expect(wrapper.find('.mobile-hole-strip .strip-btn').classes()).toContain('filled');
+  });
+
+  it('mobile fill-par shortcut writes two-man scramble team scores', async () => {
+    stubMobileViewport();
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.games = cloneDefaultGames();
+    round.games.twoManScramble.enabled = true;
+    round.pairMatches = [{ a: ['Wes', 'Aaron'], b: ['Tito', 'Q'] }];
+    round.playingGroups = [];
+    store.setRound(round, players);
+
+    const wrapper = mountScorecard();
+    await nextTick();
+
+    await wrapper.find('.mobile-fill-par').trigger('click');
+    await nextTick();
+
+    expect(store.readTeamScore(twoManScrambleTeamKey(0, 'a'), 0)).toBe(4);
+    expect(store.readTeamScore(twoManScrambleTeamKey(0, 'b'), 0)).toBe(4);
+    expect(store.readScore('Wes', 0)).toBeNull();
+    expect(wrapper.find('.mobile-hole-status').text()).toContain('Hole complete');
   });
 
   it('mobile hole strip marks filled holes and allows quick navigation', async () => {

@@ -804,6 +804,21 @@ function adjustPutt(player: string, delta: number) {
   store.setPutt(player, mobileHole.value, next);
 }
 
+function fillMissingMobileScoresWithPar() {
+  const hole = mobileHole.value;
+  const holePar = par.value[hole];
+  if (!holePar) return;
+  if (twoManScrambleEnabled.value) {
+    for (const team of mobileScrambleTeams.value) {
+      if (store.readTeamScore(team.key, hole) == null) store.setTeamScore(team.key, hole, holePar);
+    }
+    return;
+  }
+  for (const player of mobilePlayers.value) {
+    if (store.readScore(player, hole) == null) store.setScore(player, hole, holePar);
+  }
+}
+
 const mobilePlayers = computed(() => {
   const mobileGroup = activeMobileGroup.value;
   if (mobileGroup) return mobileGroup.players;
@@ -843,6 +858,8 @@ const mobileNextOpenLabel = computed(() => {
   const nextOpen = nextIncompleteHole();
   return nextOpen == null ? 'Next hole' : `Next open: ${nextOpen + 1}`;
 });
+const mobileFillParDisabled = computed(() => mobileCurrentMissing.value.length === 0);
+const mobileFillParLabel = computed(() => `Fill missing par ${par.value[mobileHole.value] ?? ''}`.trim());
 
 const mobileMatchSummaries = computed(() =>
   matchPlayPanels.value.flatMap((panel) =>
@@ -932,6 +949,17 @@ const mobileMatchSummaries = computed(() =>
           <strong>{{ mobileHoleStatus }}</strong>
           <span v-if="mobileCurrentMissing.length">{{ mobileCurrentMissing.join(' · ') }}</span>
           <span v-else>Ready for the next hole.</span>
+        </div>
+
+        <div class="mobile-hole-actions">
+          <button
+            class="btn-ghost mobile-fill-par"
+            type="button"
+            :disabled="mobileFillParDisabled"
+            @click="fillMissingMobileScoresWithPar"
+          >
+            {{ mobileFillParLabel }}
+          </button>
         </div>
 
         <div v-if="mobileEventGroupContext" class="mobile-event-context">
@@ -2802,6 +2830,25 @@ const mobileMatchSummaries = computed(() =>
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.mobile-hole-actions {
+  display: flex;
+  justify-content: stretch;
+  margin: -4px 0 12px;
+}
+
+.mobile-fill-par {
+  width: 100%;
+  min-height: 40px;
+  padding: 7px 10px;
+  color: #2f5d43;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.mobile-fill-par:disabled {
+  color: #8a9489;
 }
 
 .mobile-match-status {
