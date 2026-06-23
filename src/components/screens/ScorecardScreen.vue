@@ -963,7 +963,7 @@ const mobileMatchSummaries = computed(() =>
         </div>
 
         <div v-if="mobileEventGroupContext" class="mobile-event-context">
-          <div>
+          <div class="mobile-event-teams">
             <span class="mobile-event-label">{{ mobileEventGroupContext.groupName }}</span>
             <strong>{{ mobileEventGroupContext.team1Name }}: {{ mobileEventGroupContext.team1.join(' + ') || 'No players' }}</strong>
             <strong>{{ mobileEventGroupContext.team2Name }}: {{ mobileEventGroupContext.team2.join(' + ') || 'No players' }}</strong>
@@ -2533,21 +2533,33 @@ const mobileMatchSummaries = computed(() =>
 
 .mobile-event-context {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr) minmax(92px, auto);
+  gap: 8px;
+  align-items: center;
   border: 1px solid #d7cebd;
   border-radius: 8px;
   background: #fffdf7;
-  padding: 10px 12px;
-  margin: 0 0 14px;
+  padding: 8px 10px;
+  margin: 0 0 8px;
+}
+
+.mobile-event-teams {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  align-items: center;
 }
 
 .mobile-event-context strong {
-  display: block;
+  display: inline-block;
+  min-width: 0;
+  overflow: hidden;
   color: #24362c;
-  font-size: 0.82rem;
-  margin-top: 2px;
+  font-size: 0.78rem;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mobile-event-label,
@@ -2561,12 +2573,13 @@ const mobileMatchSummaries = computed(() =>
 
 .mobile-event-score {
   border-left: 1px solid #e4ddcd;
-  padding-left: 10px;
+  padding-left: 8px;
   text-align: right;
 }
 
 .mobile-event-score strong {
   color: #2f5d43;
+  font-size: 0.82rem;
   white-space: nowrap;
 }
 
@@ -2859,25 +2872,25 @@ const mobileMatchSummaries = computed(() =>
 
 .mobile-match-status {
   display: grid;
-  gap: 6px;
-  margin: 0 0 12px;
+  gap: 4px;
+  margin: 0 0 8px;
 }
 
 .mobile-match-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
   border: 1px solid #e4ddcd;
   border-radius: 8px;
   background: #fffdf7;
-  padding: 8px 10px;
+  padding: 6px 8px;
 }
 
 .mobile-match-row span {
   display: block;
   color: #8a672f;
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2885,14 +2898,14 @@ const mobileMatchSummaries = computed(() =>
 }
 
 .mobile-match-row strong {
-  min-width: 48px;
+  min-width: 44px;
   border: 1px solid #d7cebd;
   border-radius: 999px;
   background: #f8f4ea;
   color: #24362c;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   font-weight: 900;
-  padding: 4px 8px;
+  padding: 3px 7px;
   text-align: center;
   white-space: nowrap;
 }
@@ -2919,7 +2932,7 @@ const mobileMatchSummaries = computed(() =>
   display: block;
   overflow: hidden;
   color: #5a6a5f;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-style: normal;
   font-weight: 750;
   line-height: 1.2;
@@ -2931,10 +2944,10 @@ const mobileMatchSummaries = computed(() =>
   border-radius: 999px;
   background: #edf2ec;
   color: #2f5d43;
-  font-size: 0.7rem;
+  font-size: 0.66rem;
   font-weight: 900;
   line-height: 1;
-  padding: 6px 8px;
+  padding: 5px 7px;
   white-space: nowrap;
 }
 
@@ -3211,15 +3224,8 @@ const mobileMatchSummaries = computed(() =>
     flex: 0 0 auto;
   }
 
-  .mobile-event-context {
-    grid-template-columns: 1fr;
-  }
-
   .mobile-event-score {
-    border-left: 0;
-    border-top: 1px solid #e4ddcd;
-    padding: 8px 0 0;
-    text-align: left;
+    min-width: 92px;
   }
 
   .pp-groups {

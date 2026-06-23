@@ -3009,3 +3009,43 @@ enabled, then removed the only viewport overlay that could cover score entry.
 - Continue mobile scorecard ergonomics by testing event/team rounds with match
   context enabled and tightening that context if it pushes score entry too far
   down the phone screen.
+
+---
+
+## Checkpoint 65 — Mobile event match context rhythm (2026-06-23)
+
+### Summary
+
+Tightened the mobile event/team scorecard context so match information stays
+near the active hole without pushing score entry as far down the phone screen.
+
+### Changes
+
+- **`src/components/screens/ScorecardScreen.vue`** — Kept event group teams and
+  event round score in a compact side-by-side mobile context instead of stacking
+  the score underneath on phone viewports.
+- Tightened mobile match context row spacing, padding, and type sizes while
+  preserving game/contest name, matchup, hole score, and live status.
+- Added a named `.mobile-event-teams` wrapper so the event team labels can wrap
+  compactly without changing the data path.
+- Kept the change display/layout-only: no scoring logic, event logic, or
+  persistence shape changed.
+- **`tests/screens/scorecard.test.ts`** — Extended the mobile event scorecard
+  test to guard the compact event-team wrapper while preserving existing match
+  context assertions.
+- **`README.md`** — Documented the compact mobile event/team context.
+
+### Verification
+
+- `npm run test:run -- tests/screens/scorecard.test.ts` passed: 27 tests.
+- `npm run test:run` passed: 37 files, 349 tests.
+- `npm run build` passed.
+- Browser note: the in-app browser viewport override did not apply during this
+  checkpoint's event-context smoke attempt, so event-specific mobile rendering
+  is covered by the mounted mobile event test rather than a 390px browser pass.
+
+### Next likely tasks
+
+- Continue mobile scorecard ergonomics by rehearsing a credentialed online event
+  round in the browser, where active event data can load through Supabase, and
+  tune any remaining event-only spacing from that real flow.

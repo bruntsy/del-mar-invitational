@@ -453,6 +453,7 @@ describe('ScorecardScreen', () => {
     expect(wrapper.find('.group-filter').text()).toContain('Playing group');
     expect(wrapper.findAll('.group-filter .gf-btn')).toHaveLength(2);
     expect(wrapper.find('.mobile-event-context').text()).toContain('Group 1');
+    expect(wrapper.find('.mobile-event-teams').exists()).toBe(true);
     expect(wrapper.find('.mobile-event-context').text()).toContain('Seattle: Wes');
     expect(wrapper.find('.mobile-event-context').text()).toContain('Cali: Tito');
     expect(wrapper.find('.mobile-event-context').text()).toContain('Round points');

@@ -590,7 +590,8 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   scores on the active hole, including two-man scramble team-score rows.
 - For event/team match formats, the mobile card keeps current-hole match context
   beside score entry with contest name, side-vs-side labels, hole score, and
-  live status.
+  live status. Event team context stays compact on phones so the score rows
+  remain close to the active-hole controls.
 
 ### Setup Screen (rewrite)
 
