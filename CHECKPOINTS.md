@@ -3086,3 +3086,44 @@ is saved as a draft.
 - Re-check the live mobile event editor on the deployed rewrite URL and confirm
   that Save changes stays enabled when only future rounds are incomplete, while
   those rounds still require Finish setup before launch.
+
+---
+
+## Checkpoint 67 — Ad hoc pair match setup (2026-06-23)
+
+### Summary
+
+Reworked ad hoc pair-game setup so round teams stay the source of truth and the
+lower pair-game section only decides 2v2 matchups.
+
+### Changes
+
+- **`src/components/screens/SetupScreen.vue`** — Replaced the duplicated Team Set
+  assignment controls with event-style Pair matches cards: Match 1, Match 2,
+  and two player selects per team side.
+- Pair-match labels now use the current round team names, so custom names like
+  Sea and Cal cascade into the matchup setup.
+- Default pair-match seeding now chunks team rosters into 2v2 matches instead of
+  creating one oversized team-vs-team match.
+- Updated setup copy from team sets to matches across add/remove actions,
+  validation, summaries, and playing-group hints.
+- **`tests/screens/setup.test.ts`** — Added coverage for custom team names in the
+  pair-match UI and an 8-player regression that creates two 2v2 matches and two
+  playing groups of four.
+- **`README.md`** — Documented the ad hoc pair-game setup behavior and 2v2
+  default seeding.
+
+### Verification
+
+- `npm run test:run -- tests/screens/setup.test.ts` passed: 29 tests.
+- `npm run test:run` passed: 37 files, 351 tests.
+- `npm run build` passed.
+- Browser note: a 390px headed smoke attempt opened the local setup app, but the
+  Playwright CLI session dropped before interaction; behavior is covered by the
+  mounted setup regression tests until the next credentialed browser rehearsal.
+
+### Next likely tasks
+
+- Rehearse the ad hoc pair-game setup on a phone-width browser against the live
+  event roster and confirm the event setup pair-match pattern feels consistent
+  across both flows.

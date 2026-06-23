@@ -625,6 +625,10 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 - On mobile, the Games card shows selected games as compact chips and keeps
   each selected game's money/settings fields behind a Settings toggle, so the
   game list stays scannable while settings remain editable.
+- For ad hoc pair games, setup uses Pair matches with two-player selects per
+  team side, labeled with the current round team names. Default pair matches
+  are seeded in 2v2 chunks, so eight-player rounds create two foursomes instead
+  of one oversized playing group.
 - On mobile, completed Teams & matchups and Playing groups cards collapse to
   summary headers with Edit/Hide controls, preserving quick access to team
   assignment and group movement without forcing every control to stay visible.

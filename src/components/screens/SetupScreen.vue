@@ -342,7 +342,7 @@ const errors = computed(() => {
   if (!team1.value.length) list.push(`${form.teamNames.team1} needs at least one player.`);
   if (!team2.value.length) list.push(`${form.teamNames.team2} needs at least one player.`);
   if (duplicateNames.value) list.push('Player names must be unique.');
-  if (showPairMatches.value && !cleanedPairMatches.value.length) list.push('Team games need at least one valid team set.');
+  if (showPairMatches.value && !cleanedPairMatches.value.length) list.push('Team games need at least one valid match.');
   return list;
 });
 
@@ -381,7 +381,7 @@ const playersMobileSummary = computed(() => {
 const teamsMobileSummary = computed(() => {
   const base = `${form.teamNames.team1}: ${team1.value.length} · ${form.teamNames.team2}: ${team2.value.length}`;
   if (!showPairMatches.value) return base;
-  return `${base} · ${cleanedPairMatches.value.length} team set${cleanedPairMatches.value.length === 1 ? '' : 's'}`;
+  return `${base} · ${cleanedPairMatches.value.length} match${cleanedPairMatches.value.length === 1 ? '' : 'es'}`;
 });
 const playingGroupsReady = computed(() => (
   displayPlayingGroups.value.length > 0
@@ -408,37 +408,43 @@ const TEAM_GAMES = [
 const enabledTeamGames = computed(() => TEAM_GAMES.filter((g) => form.games[g.key].enabled));
 const showPairMatches = computed(() => enabledTeamGames.value.length > 0);
 
+function buildDefaultPairMatches(): PairMatch[] {
+  const matches: PairMatch[] = [];
+  const count = Math.max(team1.value.length, team2.value.length);
+  for (let index = 0; index < count; index += 2) {
+    const a = team1.value.slice(index, index + 2);
+    const b = team2.value.slice(index, index + 2);
+    if (a.length || b.length) matches.push({ a, b });
+  }
+  return matches;
+}
+
 function addPairMatch() {
   form.pairMatches.push({ a: [], b: [] });
 }
 
 function removePairMatch(index: number) {
-  const ok = confirmAction('Remove team set?\n\nThis removes the matchup from this round setup.');
+  const ok = confirmAction('Remove match?\n\nThis removes the matchup from this round setup.');
   if (!ok) return;
   form.pairMatches.splice(index, 1);
 }
 
-function setPairSide(matchIndex: number, player: string, side: 'a' | 'b' | 'sit') {
+function setPairSlot(matchIndex: number, side: 'a' | 'b', slot: 0 | 1, value: string) {
   const match = form.pairMatches[matchIndex];
   if (!match) return;
-  match.a = match.a.filter((p) => p !== player);
-  match.b = match.b.filter((p) => p !== player);
-  if (side !== 'sit') match[side].push(player);
+  const next = [...match[side]];
+  next[slot] = value;
+  match[side] = next.filter(Boolean);
+  if (value) {
+    const otherSlot = slot === 0 ? 1 : 0;
+    if (match[side][otherSlot] === value) match[side].splice(otherSlot, 1);
+  }
 }
 
-function pairSide(matchIndex: number, player: string): 'a' | 'b' | 'sit' {
-  const match = form.pairMatches[matchIndex];
-  if (!match) return 'sit';
-  if (match.a.includes(player)) return 'a';
-  if (match.b.includes(player)) return 'b';
-  return 'sit';
-}
-
-// Seed a sensible default match (whole team1 vs whole team2) the first time a
-// team game is enabled, so an ad-hoc round always has something to score.
+// Seed default 2v2 matches the first time a team game is enabled.
 watch(showPairMatches, (show) => {
   if (show && form.pairMatches.length === 0 && team1.value.length && team2.value.length) {
-    form.pairMatches = [{ a: [...team1.value], b: [...team2.value] }];
+    form.pairMatches = buildDefaultPairMatches();
   }
 });
 
@@ -475,7 +481,7 @@ watch(
   () => JSON.stringify(form.pairMatches),
   () => {
     if (form.playingGroupCustom) {
-      const ok = confirmAction('Team sets changed. Regenerate playing groups from team sets? Cancel keeps your manual groups.');
+      const ok = confirmAction('Matches changed. Regenerate playing groups from matches? Cancel keeps your manual groups.');
       if (ok) form.playingGroupCustom = null;
     }
   },
@@ -1091,11 +1097,11 @@ function goGroup() {
           >
             {{ mobileSetupOpen.teams ? 'Hide' : 'Edit' }}
           </button>
-          <button v-if="showPairMatches" class="btn-ghost sm" type="button" @click="addPairMatch">+ Add team set</button>
+          <button v-if="showPairMatches" class="btn-ghost sm" type="button" @click="addPairMatch">+ Add match</button>
         </div>
       </div>
       <div class="mobile-collapsible-body">
-        <p class="pg-hint">Assign round teams first. Team sets appear when a selected game needs a specific matchup.</p>
+        <p class="pg-hint">Assign round teams first. Pair matches appear when a selected game needs a specific 2v2 matchup.</p>
 
         <div class="team-name-grid">
           <label>Team 1 name<input v-model="form.teamNames.team1" class="form-input" /></label>
@@ -1113,19 +1119,70 @@ function goGroup() {
         </div>
 
         <div v-if="showPairMatches" class="pm-list">
-          <div v-for="(_match, mi) in form.pairMatches" :key="mi" class="pair-match-builder">
+          <div v-for="(match, mi) in form.pairMatches" :key="mi" class="pair-match-builder">
             <div class="pm-builder-head">
-              <strong>Team Set {{ mi + 1 }}</strong>
-              <button class="btn-remove" type="button" title="Remove team set" @click="removePairMatch(mi)">✕</button>
+              <strong>Match {{ mi + 1 }}</strong>
+              <button class="btn-remove" type="button" title="Remove match" @click="removePairMatch(mi)">✕</button>
             </div>
-            <div class="pm-assign-list">
-              <div v-for="p in namedPlayers" :key="`pm-${mi}-${p.name}`" class="pm-assign-row">
-                <strong>{{ p.name }}</strong>
-                <div class="team-toggle three">
-                  <button class="seg-btn" :class="{ active: pairSide(mi, p.name.trim()) === 'a' }" type="button" @click="setPairSide(mi, p.name.trim(), 'a')">Team A</button>
-                  <button class="seg-btn" :class="{ active: pairSide(mi, p.name.trim()) === 'b' }" type="button" @click="setPairSide(mi, p.name.trim(), 'b')">Team B</button>
-                  <button class="seg-btn" :class="{ active: pairSide(mi, p.name.trim()) === 'sit' }" type="button" @click="setPairSide(mi, p.name.trim(), 'sit')">Sit</button>
-                </div>
+            <div class="pair-match-sides">
+              <div class="pair-match-side">
+                <label>{{ form.teamNames.team1 || 'Team 1' }} pair</label>
+                <select
+                  class="form-input pair-select"
+                  :value="match.a[0] ?? ''"
+                  @change="setPairSlot(mi, 'a', 0, ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">—</option>
+                  <option
+                    v-for="p in team1"
+                    :key="p"
+                    :value="p"
+                    :disabled="p !== match.a[0] && match.a[1] === p"
+                  >{{ p }}</option>
+                </select>
+                <select
+                  class="form-input pair-select"
+                  :value="match.a[1] ?? ''"
+                  @change="setPairSlot(mi, 'a', 1, ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">—</option>
+                  <option
+                    v-for="p in team1"
+                    :key="p"
+                    :value="p"
+                    :disabled="p !== match.a[1] && match.a[0] === p"
+                  >{{ p }}</option>
+                </select>
+              </div>
+              <span class="pair-match-vs">vs</span>
+              <div class="pair-match-side">
+                <label>{{ form.teamNames.team2 || 'Team 2' }} pair</label>
+                <select
+                  class="form-input pair-select"
+                  :value="match.b[0] ?? ''"
+                  @change="setPairSlot(mi, 'b', 0, ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">—</option>
+                  <option
+                    v-for="p in team2"
+                    :key="p"
+                    :value="p"
+                    :disabled="p !== match.b[0] && match.b[1] === p"
+                  >{{ p }}</option>
+                </select>
+                <select
+                  class="form-input pair-select"
+                  :value="match.b[1] ?? ''"
+                  @change="setPairSlot(mi, 'b', 1, ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">—</option>
+                  <option
+                    v-for="p in team2"
+                    :key="p"
+                    :value="p"
+                    :disabled="p !== match.b[1] && match.b[0] === p"
+                  >{{ p }}</option>
+                </select>
               </div>
             </div>
           </div>
@@ -1135,7 +1192,7 @@ function goGroup() {
           <h3 class="sub-hdr">Team Summary</h3>
           <div v-for="m in matchSummaries" :key="m.index" class="pm-summary">
             <div class="pm-summary-head">
-              <strong>Team Set {{ m.index + 1 }}</strong>
+              <strong>Match {{ m.index + 1 }}</strong>
               <span class="pm-summary-group">{{ m.group }}</span>
             </div>
             <div class="pm-summary-vs">
@@ -1181,7 +1238,7 @@ function goGroup() {
         </div>
       </div>
       <div class="mobile-collapsible-body">
-        <p class="pg-hint">Set who is playing together on the course. {{ form.playingGroupCustom ? 'Manually assigned.' : 'Auto-assigned from team sets or team order.' }}</p>
+        <p class="pg-hint">Set who is playing together on the course. {{ form.playingGroupCustom ? 'Manually assigned.' : 'Auto-assigned from matches or team order.' }}</p>
         <div class="pg-list">
           <div v-for="(group, gi) in displayPlayingGroups" :key="gi" class="pg-group">
             <input
@@ -1835,15 +1892,13 @@ label {
   font-size: 0.78rem;
 }
 
-.team-assignment-list,
-.pm-assign-list {
+.team-assignment-list {
   display: grid;
   gap: 8px;
   margin-top: 12px;
 }
 
-.team-assignment-row,
-.pm-assign-row {
+.team-assignment-row {
   display: grid;
   grid-template-columns: minmax(120px, 1fr) minmax(220px, 1.4fr);
   gap: 12px;
@@ -1854,8 +1909,7 @@ label {
   padding: 10px;
 }
 
-.team-assignment-row strong,
-.pm-assign-row strong {
+.team-assignment-row strong {
   color: #24362c;
 }
 
@@ -1966,12 +2020,24 @@ label {
   padding: 10px;
 }
 
-.pair-match-row,
-.pair-match-side {
+.pair-match-sides {
   display: flex;
   gap: 8px;
   align-items: center;
-  flex-wrap: wrap;
+}
+
+.pair-match-side {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(110px, 1fr));
+  gap: 8px;
+  flex: 1;
+}
+
+.pair-match-side label {
+  grid-column: 1 / -1;
+  color: #4a5a4f;
+  font-size: 0.76rem;
+  font-weight: 800;
 }
 
 .pair-match-vs {
@@ -1982,7 +2048,7 @@ label {
 }
 
 .pair-select {
-  width: 138px;
+  width: 100%;
 }
 
 .pair-add {
@@ -2270,11 +2336,19 @@ label {
   .setup-topbar,
   .course-summary-card,
   .player-row,
-  .team-assignment-row,
-  .pm-assign-row {
+  .team-assignment-row {
     grid-template-columns: 1fr;
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .pair-match-sides {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pair-match-side {
+    grid-template-columns: 1fr;
   }
 
   .setup-card {

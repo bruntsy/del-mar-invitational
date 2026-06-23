@@ -62,6 +62,23 @@ async function fillDefaultPlayers(wrapper: ReturnType<typeof mountSetup>) {
   }
 }
 
+async function addPlayerRows(wrapper: ReturnType<typeof mountSetup>, count: number) {
+  for (let i = 0; i < count; i += 1) {
+    const add = wrapper.findAll('button').find((button) => button.text().includes('+ Add player'));
+    expect(add).toBeDefined();
+    await add!.trigger('click');
+  }
+}
+
+async function setPlayerRows(wrapper: ReturnType<typeof mountSetup>, rows: Array<[string, string]>) {
+  const playerRows = wrapper.findAll('.player-row');
+  for (const [index, [name, idx]] of rows.entries()) {
+    const inputs = playerRows[index].findAll('input');
+    await inputs[0].setValue(name);
+    await inputs[1].setValue(idx);
+  }
+}
+
 beforeEach(() => {
   pinia = createPinia();
   setActivePinia(pinia);
@@ -443,21 +460,69 @@ describe('SetupScreen', () => {
     const store = useRoundStore();
     const wrapper = mountSetup();
     await fillDefaultPlayers(wrapper);
+    const teamNameInputs = wrapper.findAll('.team-name-grid input');
+    await teamNameInputs[0].setValue('Sea');
+    await teamNameInputs[1].setValue('Cal');
 
     const aggyRow = wrapper.findAll('.game-row').find((row) => row.text().includes('Best Ball + Aggy'));
     expect(aggyRow).toBeDefined();
     await aggyRow!.find('input[type="checkbox"]').setValue(true);
     await flushPromises();
 
-    // Team builder appears and a default side assignment is seeded (whole team1 vs team2).
+    // Pair builder appears and seeded 2v2 match labels use the renamed teams.
     expect(wrapper.find('.pair-match-builder').exists()).toBe(true);
-    expect(wrapper.find('.pm-summary').text()).toContain('Team Set 1');
+    expect(wrapper.find('.pair-match-builder').text()).toContain('Match 1');
+    expect(wrapper.find('.pair-match-builder').text()).toContain('Sea pair');
+    expect(wrapper.find('.pair-match-builder').text()).toContain('Cal pair');
+    expect(wrapper.find('.pair-match-builder').text()).not.toContain('Team A');
+    expect(wrapper.find('.pair-match-builder').text()).not.toContain('Team B');
+    expect(wrapper.find('.pm-summary').text()).toContain('Match 1');
     expect(wrapper.find('.pm-summary').text()).toContain('Ann / Bea');
     expect(wrapper.find('.pm-summary').text()).toContain('Cal / Dan');
 
     await wrapper.find('.btn-primary').trigger('click');
 
     expect(store.round?.pairMatches).toEqual([{ a: ['Ann', 'Bea'], b: ['Cal', 'Dan'] }]);
+    expect(store.round?.teamNames).toEqual({ team1: 'Sea', team2: 'Cal' });
+  });
+
+  it('auto-seeds 8-player pair games as two 2v2 matches and two playing groups', async () => {
+    const store = useRoundStore();
+    const wrapper = mountSetup();
+    await addPlayerRows(wrapper, 4);
+    await setPlayerRows(wrapper, [
+      ['Ann', '10'],
+      ['Bea', '12'],
+      ['Cal', '6'],
+      ['Dan', '20'],
+      ['Eli', '9'],
+      ['Finn', '11'],
+      ['Gia', '7'],
+      ['Hank', '18'],
+    ]);
+
+    const aggyRow = wrapper.findAll('.game-row').find((row) => row.text().includes('Best Ball + Aggy'));
+    expect(aggyRow).toBeDefined();
+    await aggyRow!.find('input[type="checkbox"]').setValue(true);
+    await flushPromises();
+
+    expect(wrapper.findAll('.pair-match-builder')).toHaveLength(2);
+    expect(wrapper.findAll('.pm-summary')[0].text()).toContain('Ann / Bea');
+    expect(wrapper.findAll('.pm-summary')[0].text()).toContain('Cal / Dan');
+    expect(wrapper.findAll('.pm-summary')[1].text()).toContain('Eli / Gia');
+    expect(wrapper.findAll('.pm-summary')[1].text()).toContain('Finn / Hank');
+
+    await wrapper.find('.setup-actions .btn-primary').trigger('click');
+
+    expect(store.round?.pairMatches).toEqual([
+      { a: ['Ann', 'Bea'], b: ['Cal', 'Dan'] },
+      { a: ['Eli', 'Gia'], b: ['Finn', 'Hank'] },
+    ]);
+    expect(store.round?.playingGroups).toEqual([
+      { name: 'Group 1', players: ['Ann', 'Bea', 'Cal', 'Dan'] },
+      { name: 'Group 2', players: ['Eli', 'Gia', 'Finn', 'Hank'] },
+    ]);
+    expect(store.round?.playingGroups.every((group) => group.players.length <= 4)).toBe(true);
   });
 
   it('persists regular Best Ball setup options', async () => {
