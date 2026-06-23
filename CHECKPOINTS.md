@@ -3283,3 +3283,37 @@ while event/team match context stays visible but quieter.
 
 - Recheck the deployed event scorecard on iPhone Safari and tune the exact
   spacing if real player/team names feel cramped.
+
+---
+
+## Checkpoint 72 — Mobile match summary score clarity (2026-06-23)
+
+### Summary
+
+Clarified the compact mobile match rows so the pill matches the detail
+scorecard's match-standing language instead of looking like a competing
+Front/Back/Overall result.
+
+### Changes
+
+- **`src/components/screens/ScorecardScreen.vue`** — Changed the inline mobile
+  match pill from the current-hole raw side score to the current match standing,
+  such as `W+A +1`, `C+R +3`, or `AS`.
+- Kept the current-hole raw side score visible as a small labeled line, such as
+  `Hole 18: 5-3`, so users can still see what drove the active-hole result.
+- The opened match scorecard still owns the detailed Front, Back, and Overall
+  bet cards.
+- **`tests/screens/scorecard.test.ts`** — Added coverage that mobile event match
+  summaries expose both the labeled hole score and readable match-standing pill.
+- **`README.md`** — Documented the inline match-standing / hole-score split.
+
+### Verification
+
+- `npm run test:run -- tests/screens/scorecard.test.ts` passed: 29 tests.
+- `npm run test:run` passed: 37 files, 355 tests.
+- `npm run build` passed.
+
+### Next likely tasks
+
+- Recheck the live high/low mobile event round and confirm the compact row no
+  longer reads as inconsistent with the Open dialog cards.

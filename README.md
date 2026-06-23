@@ -595,9 +595,10 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
   team-score rows.
 - For event/team match formats, the mobile card keeps current-hole match context
   beside score entry with shorter contest labels, side-vs-side labels, hole
-  score, and an Open button that launches a focused match scorecard dialog. Event
-  team context is a compact group/round-score strip so the score rows remain
-  close to the active-hole controls.
+  match standing, labeled current-hole score, and an Open button that launches a
+  focused match scorecard dialog. Event team context is a compact
+  group/round-score strip so the score rows remain close to the active-hole
+  controls.
 - The match scorecard dialog shows Front, Back, and Overall bet status cards
   above the hole table, including live match-play standings such as `1 up thru
   3`, and uses readable pair initials in the Match row instead of A/B codes.

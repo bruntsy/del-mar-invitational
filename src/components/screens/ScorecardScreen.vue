@@ -999,9 +999,10 @@ const mobileMatchSummaries = computed(() =>
           key: mobileMatchKey(panel.gameLabel, match.label, contest.name),
           game: mobileContestLabel(panel.gameLabel, contest.name),
           match: `${match.sideA} vs ${match.sideB}`,
-          score: hole ? `${hole.a ?? '–'}-${hole.b ?? '–'}` : '–',
+          holeScore: hole ? `${hole.a ?? '–'}-${hole.b ?? '–'}` : '–',
+          standing: hole?.matchShort ?? 'Open',
           status: hole?.status && hole.status !== 'Pending' ? hole.status : 'Open',
-          winner: hole?.winner ?? null,
+          leader: hole?.leader ?? null,
         };
       }),
     ),
@@ -1137,8 +1138,9 @@ watch(
             <div>
               <span>{{ summary.game }}</span>
               <em>{{ summary.match }}</em>
+              <small>Hole {{ mobileHole + 1 }}: {{ summary.holeScore }}</small>
             </div>
-            <strong :class="`mobile-match-${summary.winner ?? 'open'}`">{{ summary.score }}</strong>
+            <strong :class="`mobile-match-${summary.leader ?? 'open'}`">{{ summary.standing }}</strong>
             <button class="mobile-match-open" type="button" @click="toggleMobileMatchDetail(summary.key)">
               {{ openMobileMatchKey === summary.key ? 'Close' : 'Open' }}
             </button>
@@ -3209,6 +3211,17 @@ watch(
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.mobile-match-row small {
+  display: block;
+  margin-top: 1px;
+  color: #8a9489;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  text-transform: uppercase;
 }
 
 .mobile-match-open {
