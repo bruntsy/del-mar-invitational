@@ -3459,3 +3459,56 @@ the fixed setup teams as the score entry structure.
 
 - Smoke the live Rotation Sixes scorecard on a phone-width viewport and verify
   holes 1-6, 7-12, and 13-18 switch the match context cleanly.
+
+---
+
+## Checkpoint 77 — Pre-cutover release safeguards (2026-07-30)
+
+### Summary
+
+Added automated release validation, preserved the final legacy production
+revision, and reduced the live Supabase deletion risk without changing
+supported front-end behavior.
+
+### Changes
+
+- Added `.github/workflows/ci.yml` to run the legacy event regression harness,
+  all Vitest tests, TypeScript checking, and the Vite production build on
+  `rewrite`, `main`, and pull requests to `main`.
+- Isolated the offline round-store test from local Supabase credentials so CI
+  and local runs cannot contact the live project from that test.
+- Added
+  `supabase/migrations/20260730000000_remove_anonymous_delete_access.sql`,
+  which revokes table-level `DELETE` from `anon` and `authenticated` while
+  preserving `SELECT`, `INSERT`, and `UPDATE`.
+- Created and pushed the annotated Git tag `legacy-production-final` at
+  `b98c6db73dacbb14592240cc0fa1bb7666b10fc5`.
+
+### Live Supabase hardening
+
+- The project is on the Free Plan, which does not include scheduled backups.
+- Created a private `pre_cutover_backup_20260730` schema with snapshots of
+  `groups`, `rounds`, `events`, and `courses_cache` before changing grants.
+- Revoked live `DELETE` access from `anon` and `authenticated` on all four
+  public tables.
+- Verified that anonymous `SELECT`, `INSERT`, and `UPDATE` remain available and
+  that anonymous `DELETE` is unavailable.
+- Ran create/update/archive smoke operations for a group, round, and event as
+  the `anon` role inside a transaction; all passed and the transaction was
+  rolled back, leaving no test rows.
+
+### Verification
+
+- `node scripts/event-format-tests.js` passed.
+- `npm run test:run` passed: 38 files, 371 tests.
+- `npm run build` passed.
+- GitHub Actions CI run `30559448182` passed.
+
+### Next likely tasks
+
+- Open and review the `rewrite` to `main` pull request.
+- Set Vercel's production branch to `main` immediately after merge.
+- Verify the Vercel production deployment and retain the rewrite branch until
+  the cutover has been stable.
+- Decide whether to upgrade Supabase for scheduled backups or add a recurring
+  off-platform logical backup.
