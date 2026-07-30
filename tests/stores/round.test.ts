@@ -1,8 +1,13 @@
 import { createPinia, setActivePinia } from 'pinia';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { isTimedCell } from '@/scoring/cells';
 import { emptyRound, useRoundStore } from '@/stores/round';
 import type { Course, PlayerMap, RoundState } from '@/types';
+
+vi.mock('@/services/supabase', () => ({
+  supabase: null,
+  hasSupabase: () => false,
+}));
 
 const course: Course = {
   tee: { name: 'Test', rating: 72, slope: 113, parTotal: 72 },

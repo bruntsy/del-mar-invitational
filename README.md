@@ -895,11 +895,12 @@ lightweight access control. Do **not** store sensitive personal data in group
 or round state. If the app expands beyond a private event group, tighten RLS
 by adding authentication and scoping policies to authenticated users.
 
-The one meaningful risk on the current model: any anonymous client can DELETE
-any row (groups, rounds, or events). For the Del Mar event this is acceptable
-because the player list is small and known. If you want to reduce the blast
-radius, replace the `for all` policies with separate `SELECT/INSERT/UPDATE`
-policies (omitting DELETE).
+The migration in
+`supabase/migrations/20260730000000_remove_anonymous_delete_access.sql`
+revokes table-level `DELETE` privileges from browser-facing `anon` and
+`authenticated` roles. The app does not delete database rows; event archival
+is an `UPDATE` to `events.status`. Trusted `service_role` maintenance retains
+delete access.
 
 ### Event Day Flow
 
