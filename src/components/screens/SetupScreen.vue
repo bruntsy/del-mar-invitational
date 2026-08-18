@@ -1,0 +1,2744 @@
+<script setup lang="ts">
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import CourseScorecard from '@/components/CourseScorecard.vue';
+import { courseFromSearchTee, selectableCourseTees, type CourseSearchResult, type CourseSearchTee } from '@/domain/courseSearch';
+import { gamesFromEventRound } from '@/domain/events';
+import { cloneDefaultGames, normalizeGames } from '@/domain/games';
+import { sortedGroupPlayers } from '@/domain/players';
+import { autoPlayingGroupsForTeams, autoPlayingGroupsFromPairMatches, normalizePlayingGroups } from '@/domain/playingGroups';
+import { allocateNetStrokes, computeWHSCourseHcp, getsStroke } from '@/scoring/handicap';
+import { defaultRotationSixesMatches } from '@/scoring/rotationSixes';
+import { searchCourses } from '@/services/courseSearch';
+import { useGroupStore } from '@/stores/group';
+import { emptyRound, useRoundStore } from '@/stores/round';
+import { useEventStore } from '@/stores/event';
+import type { Course, GameConfig, PairMatch, PlayerMap, RoundState, ScoreType } from '@/types';
+
+const store = useRoundStore();
+const group = useGroupStore();
+const event = useEventStore();
+const router = useRouter();
+const route = useRoute();
+
+const editMode = computed(() => route.query.edit === '1');
+
+const DEFAULT_PAR = [4, 5, 3, 4, 4, 3, 5, 4, 4, 4, 4, 3, 5, 4, 4, 3, 5, 4];
+const DEFAULT_SI = [7, 1, 15, 5, 11, 17, 3, 9, 13, 8, 2, 16, 4, 12, 10, 18, 6, 14];
+const DEFAULT_YDS = Array.from({ length: 18 }, () => 0);
+
+function confirmAction(message: string): boolean {
+  if (navigator.userAgent.includes('jsdom')) return true;
+  try {
+    const answer = window.confirm(message);
+    return typeof answer === 'boolean' ? answer : true;
+  } catch {
+    return true;
+  }
+}
+
+interface PlayerRow {
+  name: string;
+  handicapIndex: number | string;
+  team: 'team1' | 'team2';
+}
+
+const form = reactive({
+  courseQuery: '',
+  courseId: '',
+  clubName: '',
+  courseName: '',
+  location: '',
+  teeName: 'Blue',
+  teeGender: '',
+  teeYards: 0,
+  rating: 72,
+  slope: 113,
+  par: [...DEFAULT_PAR],
+  si: [...DEFAULT_SI],
+  yds: [...DEFAULT_YDS],
+  teamNames: { team1: 'Team 1', team2: 'Team 2' },
+  players: [
+    { name: '', handicapIndex: '', team: 'team1' },
+    { name: '', handicapIndex: '', team: 'team1' },
+    { name: '', handicapIndex: '', team: 'team2' },
+    { name: '', handicapIndex: '', team: 'team2' },
+  ] as PlayerRow[],
+  games: cloneDefaultGames() as GameConfig,
+  playingGroupNames: [] as string[],
+  playingGroupCustom: null as string[][] | null,
+  pairMatches: [] as PairMatch[],
+});
+
+onMounted(() => {
+  group.load();
+  if (!editMode.value) store.beginRoundSetup();
+  // In edit mode, recover the round from storage if it isn't already in memory
+  // (e.g. a refresh or deep-link to /setup?edit=1) before prefilling the form.
+  if (editMode.value && !store.round) store.load();
+  prefillPlayersFromGroup();
+});
+
+
+const courseResults = ref<CourseSearchResult[]>([]);
+const selectedCourse = ref<CourseSearchResult | null>(null);
+const selectedTeeKey = ref('');
+const courseSearching = ref(false);
+const courseSearchError = ref('');
+const showCourseScorecard = ref(false);
+const mobileSetupOpen = reactive({ course: false, players: false, teams: false, groups: false });
+const mobileGameSettingsOpen = reactive<Record<string, boolean>>({});
+// True once a real course is in the form (prefilled from edit/event, or picked
+// from search). Drives whether we show the read-only scorecard + "Change course"
+// or the search UI — applies in every mode so a missing/wrong course is fixable.
+const courseSet = ref(false);
+
+const canSearchCourses = computed(() => form.courseQuery.trim().length >= 3 && !courseSearching.value);
+
+function prefillPlayersFromGroup() {
+  const players = sortedGroupPlayers(group.group?.players);
+
+  // Edit mode: prefill from live round state, preserving all setup fields.
+  const editRound = editMode.value ? store.round : null;
+  const editCourse = editRound?.course ?? null;
+  if (editRound && editCourse) {
+    const r = editRound;
+    const hcpMap = Object.fromEntries(players.map((p) => [p.name, p.handicapIndex]));
+    form.courseId = editCourse.id ?? '';
+    form.clubName = editCourse.clubName ?? '';
+    form.courseName = editCourse.courseName ?? '';
+    form.location = typeof editCourse.location === 'string' ? editCourse.location : '';
+    form.teeName = editCourse.tee.name;
+    form.teeGender = editCourse.tee.gender ?? '';
+    form.teeYards = editCourse.tee.yards ?? 0;
+    form.rating = editCourse.tee.rating;
+    form.slope = editCourse.tee.slope;
+    form.par = [...editCourse.par];
+    form.si = [...editCourse.si];
+    form.yds = [...editCourse.yds];
+    form.teamNames = { ...r.teamNames };
+    form.players = [
+      ...r.team1.map((name) => ({ name, handicapIndex: hcpMap[name] ?? '', team: 'team1' as const })),
+      ...r.team2.map((name) => ({ name, handicapIndex: hcpMap[name] ?? '', team: 'team2' as const })),
+    ];
+    // r.games is a reactive proxy; structuredClone throws on it, so deep-clone
+    // via JSON (plain data) to avoid aborting the rest of the prefill.
+    form.games = JSON.parse(JSON.stringify(r.games)) as GameConfig;
+    form.playingGroupNames = (r.playingGroups ?? []).map((g) => g.name);
+    form.playingGroupCustom = (r.playingGroups ?? []).map((g) => [...g.players]);
+    form.pairMatches = (r.pairMatches ?? []).map((m) => ({ a: [...m.a], b: [...m.b] }));
+    courseSet.value = true;
+    return;
+  }
+
+  if (!players.length) return;
+
+  // When launched from an event round, use the event's team assignments.
+  const pendingIndex = event.pendingRoundLink?.roundIndex;
+  const eventConfig = event.event?.config;
+  const roundConfig = pendingIndex != null ? eventConfig?.rounds[pendingIndex] : null;
+
+  if (eventConfig && roundConfig) {
+    const hcpMap = Object.fromEntries(players.map((p) => [p.name, p.handicapIndex]));
+    form.teamNames.team1 = eventConfig.teamNames.team1;
+    form.teamNames.team2 = eventConfig.teamNames.team2;
+    form.players = [
+      ...eventConfig.team1.map((name) => ({ name, handicapIndex: hcpMap[name] ?? '', team: 'team1' as const })),
+      ...eventConfig.team2.map((name) => ({ name, handicapIndex: hcpMap[name] ?? '', team: 'team2' as const })),
+    ];
+    form.playingGroupNames = (roundConfig.playingGroups ?? []).map((g) => g.name);
+    if (roundConfig.pairMatches?.length) {
+      form.pairMatches = roundConfig.pairMatches.map((m) => ({ a: [...m.a], b: [...m.b] }));
+    }
+    // Inherit (and lock) the course/tee chosen in the event round config.
+    if (roundConfig.course) {
+      const c = roundConfig.course;
+      form.courseId = c.id ?? '';
+      form.clubName = c.clubName ?? '';
+      form.courseName = c.courseName ?? '';
+      form.location = typeof c.location === 'string' ? c.location : '';
+      form.teeName = c.tee.name;
+      form.teeGender = c.tee.gender ?? '';
+      form.teeYards = c.tee.yards ?? 0;
+      form.rating = c.tee.rating;
+      form.slope = c.tee.slope;
+      form.par = [...c.par];
+      form.si = [...c.si];
+      form.yds = [...c.yds];
+      courseSet.value = true;
+    }
+    applyEventGames(roundConfig);
+    return;
+  }
+
+  // Default: split roster evenly across teams.
+  const split = Math.ceil(players.length / 2);
+  form.players = players.map((player, index) => ({
+    name: player.name,
+    handicapIndex: player.handicapIndex,
+    team: index < split ? 'team1' : 'team2',
+  }));
+}
+
+function applyEventGames(roundConfig: import('@/types/event').EventRoundConfig) {
+  form.games = gamesFromEventRound(roundConfig);
+}
+
+function courseLabel(course: CourseSearchResult) {
+  return course.clubName || course.courseName || 'Course';
+}
+
+function courseSubLabel(course: CourseSearchResult) {
+  return [course.courseName && course.courseName !== course.clubName ? course.courseName : '', course.location]
+    .filter(Boolean)
+    .join(' - ');
+}
+
+function teeLabel(tee: CourseSearchTee) {
+  return [
+    tee.gender || '',
+    tee.yards ? `${Number(tee.yards).toLocaleString()} yds` : '',
+    tee.rating ? `Rating ${tee.rating}` : '',
+    tee.slope ? `Slope ${tee.slope}` : '',
+  ].filter(Boolean).join(' / ');
+}
+
+function courseTeeKey(tee: CourseSearchTee) {
+  return `${tee.name || 'Tee'}-${tee.gender || ''}-${tee.yards || 0}`;
+}
+
+async function runCourseSearch() {
+  if (form.courseQuery.trim().length < 3) {
+    courseSearchError.value = 'Enter at least 3 characters.';
+    courseResults.value = [];
+    selectedCourse.value = null;
+    return;
+  }
+
+  courseSearching.value = true;
+  courseSearchError.value = '';
+  selectedCourse.value = null;
+  selectedTeeKey.value = '';
+  try {
+    courseResults.value = await searchCourses(form.courseQuery);
+    if (!courseResults.value.length) courseSearchError.value = 'No courses found.';
+  } catch (error) {
+    courseResults.value = [];
+    courseSearchError.value = error instanceof Error ? error.message : 'Course search failed.';
+  } finally {
+    courseSearching.value = false;
+  }
+}
+
+function chooseCourse(course: CourseSearchResult) {
+  selectedCourse.value = course;
+  selectedTeeKey.value = '';
+  courseSearchError.value = selectableCourseTees(course).length ? '' : 'No 18-hole tees returned for this course.';
+}
+
+function applyCourse(course: CourseSearchResult, tee: CourseSearchTee) {
+  const selected = courseFromSearchTee(course, tee);
+  form.courseId = selected.id || '';
+  form.clubName = selected.clubName || '';
+  form.courseName = selected.courseName || '';
+  form.location = selected.location || '';
+  form.teeName = selected.tee.name;
+  form.teeGender = selected.tee.gender || '';
+  form.teeYards = selected.tee.yards || 0;
+  form.rating = selected.tee.rating;
+  form.slope = selected.tee.slope;
+  form.par = [...selected.par];
+  form.si = [...selected.si];
+  form.yds = [...selected.yds];
+  selectedCourse.value = course;
+  selectedTeeKey.value = courseTeeKey(tee);
+  courseResults.value = [];
+  courseSearchError.value = '';
+  courseSet.value = true;
+}
+
+function clearCourse() {
+  if (courseSet.value) {
+    const ok = confirmAction('Change course?\n\nThis clears the selected course details for this setup. Existing saved rounds are not changed until you save.');
+    if (!ok) return;
+  }
+  form.courseId = '';
+  form.clubName = '';
+  form.courseName = '';
+  form.location = '';
+  form.teeName = 'Blue';
+  form.teeGender = '';
+  form.teeYards = 0;
+  form.rating = 72;
+  form.slope = 113;
+  form.par = [...DEFAULT_PAR];
+  form.si = [...DEFAULT_SI];
+  form.yds = [...DEFAULT_YDS];
+  form.courseQuery = '';
+  selectedCourse.value = null;
+  selectedTeeKey.value = '';
+  courseResults.value = [];
+  courseSearchError.value = '';
+  courseSet.value = false;
+  showCourseScorecard.value = false;
+}
+
+function addPlayer() {
+  const team = form.players.filter((p) => p.team === 'team1').length <= form.players.filter((p) => p.team === 'team2').length
+    ? 'team1'
+    : 'team2';
+  form.players.push({ name: '', handicapIndex: '', team });
+}
+
+function removePlayer(index: number) {
+  const name = form.players[index]?.name?.trim() || 'this player';
+  const ok = confirmAction(`Remove ${name}?\n\nThis removes the player from this round setup only.`);
+  if (!ok) return;
+  form.players.splice(index, 1);
+}
+
+const namedPlayers = computed(() => form.players.filter((p) => p.name.trim()));
+const team1 = computed(() => namedPlayers.value.filter((p) => p.team === 'team1').map((p) => p.name.trim()));
+const team2 = computed(() => namedPlayers.value.filter((p) => p.team === 'team2').map((p) => p.name.trim()));
+
+const duplicateNames = computed(() => {
+  const names = namedPlayers.value.map((p) => p.name.trim());
+  return names.length !== new Set(names).size;
+});
+
+const playersEntered = computed(() => (
+  form.players.length >= 2
+  && form.players.every((p) => p.name.trim() && p.handicapIndex !== '')
+  && !duplicateNames.value
+));
+
+const selectedGameCount = computed(() => {
+  const games = form.games;
+  return [
+    games.skins.enabled,
+    games.bestBall.enabled,
+    games.bestBallAggy.enabled,
+    games.twoManScramble.enabled,
+    games.highBallLowBall.enabled,
+    games.rotationSixes.enabled,
+    games.scramble4.enabled,
+    games.wolf.enabled,
+    games.puttPoker.enabled,
+  ].filter(Boolean).length;
+});
+
+const selectedGameSummaries = computed(() => [
+  form.games.skins.enabled ? 'Skins' : '',
+  form.games.bestBall.enabled ? 'Best Ball' : '',
+  form.games.bestBallAggy.enabled ? 'Best Ball + Aggy' : '',
+  form.games.twoManScramble.enabled ? 'Two-Man Scramble' : '',
+  form.games.highBallLowBall.enabled ? 'High Ball / Low Ball' : '',
+  form.games.rotationSixes.enabled ? 'Rotation Sixes' : '',
+  form.games.scramble4.enabled ? '4-Man Scramble' : '',
+  form.games.wolf.enabled ? 'Wolf' : '',
+  form.games.puttPoker.enabled ? 'Putt Poker' : '',
+].filter(Boolean));
+
+const errors = computed(() => {
+  const list: string[] = [];
+  if (form.par.some((value) => !Number(value))) list.push('Every hole needs a par value.');
+  if (!selectedGameCount.value && !hasEventContext.value) list.push('Select at least one game.');
+  if (!team1.value.length) list.push(`${form.teamNames.team1} needs at least one player.`);
+  if (!team2.value.length) list.push(`${form.teamNames.team2} needs at least one player.`);
+  if (duplicateNames.value) list.push('Player names must be unique.');
+  if (showPairMatches.value && !cleanedPairMatches.value.length) list.push('Team games need at least one valid match.');
+  if (form.games.rotationSixes.enabled) {
+    if (hasEventContext.value) list.push('Rotation Sixes is only available for ad hoc rounds.');
+    if (namedPlayers.value.length !== 4) list.push('Rotation Sixes requires exactly four named players.');
+    if (form.games.rotationSixes.stakePerPlayer < 0 || Number.isNaN(Number(form.games.rotationSixes.stakePerPlayer))) {
+      list.push('Rotation Sixes stake must be greater than or equal to zero.');
+    }
+    if (rotationSixesIncompatibleGames.value.length) {
+      list.push(`Rotation Sixes cannot be combined with ${rotationSixesIncompatibleGames.value.join(', ')} in V1.`);
+    }
+  }
+  return list;
+});
+
+const canStart = computed(() => errors.value.length === 0);
+const firstBlockingIssue = computed(() => errors.value[0] ?? '');
+
+const hasEventContext = computed(() => event.pendingRoundLink != null);
+const rosterReadOnly = computed(() => hasEventContext.value);
+const courseReady = computed(() => form.par.every((value) => Number(value)));
+const courseStepLabel = computed(() => (courseSet.value ? 'Complete' : 'Default'));
+const courseStepStatus = computed(() => (courseSet.value ? 'Course selected' : 'Default course'));
+
+const setupSteps = computed(() => [
+  { label: courseSet.value ? 'Course' : 'Default course', complete: courseReady.value },
+  { label: 'Players', complete: playersEntered.value },
+  ...(!hasEventContext.value ? [{ label: 'Games', complete: selectedGameCount.value > 0 }] : []),
+  { label: 'Teams', complete: team1.value.length > 0 && team2.value.length > 0 },
+  { label: 'Groups', complete: displayPlayingGroups.value.length > 0 && displayPlayingGroups.value.every((group) => group.players.length > 0) },
+]);
+const completedSetupSteps = computed(() => setupSteps.value.filter((step) => step.complete).length);
+const setupProgressLabel = computed(() => `${completedSetupSteps.value} of ${setupSteps.value.length} ready`);
+const nextSetupStep = computed(() => setupSteps.value.find((step) => !step.complete)?.label ?? 'Ready');
+const teamsReady = computed(() => (
+  team1.value.length > 0
+  && team2.value.length > 0
+  && (!showPairMatches.value || cleanedPairMatches.value.length > 0)
+));
+const courseMobileSummary = computed(() => courseSet.value
+  ? `${courseSummaryName.value} · ${form.teeName || 'Tee'} · Par ${courseParTotal.value}`
+  : `Using ${form.teeName || 'default'} tees · Par ${courseParTotal.value}`);
+const playersMobileSummary = computed(() => {
+  if (!namedPlayers.value.length) return 'Add players for this round';
+  const count = `${namedPlayers.value.length} player${namedPlayers.value.length === 1 ? '' : 's'}`;
+  return duplicateNames.value ? `${count} · duplicate names` : count;
+});
+const teamsMobileSummary = computed(() => {
+  const base = `${form.teamNames.team1}: ${team1.value.length} · ${form.teamNames.team2}: ${team2.value.length}`;
+  if (!showPairMatches.value) return base;
+  return `${base} · ${cleanedPairMatches.value.length} match${cleanedPairMatches.value.length === 1 ? '' : 'es'}`;
+});
+const playingGroupsReady = computed(() => (
+  displayPlayingGroups.value.length > 0
+  && displayPlayingGroups.value.every((group) => group.players.length > 0)
+));
+const playingGroupsMobileSummary = computed(() => {
+  if (!displayPlayingGroups.value.length) return 'Auto-assigns after players are added';
+  return displayPlayingGroups.value
+    .map((group, index) => {
+      const name = form.playingGroupNames[index] || group.name;
+      return `${name}: ${group.players.join(' / ')}`;
+    })
+    .join(' · ');
+});
+
+// --- Pair-match builder (Side A vs Side B) ------------------------------
+
+const TEAM_GAMES = [
+  { key: 'bestBallAggy', label: 'Best Ball + Aggy', hasBasis: true },
+  { key: 'highBallLowBall', label: 'High / Low Ball', hasBasis: true },
+  { key: 'twoManScramble', label: 'Two-Man Scramble', hasBasis: false },
+] as const;
+
+const enabledTeamGames = computed(() => TEAM_GAMES.filter((g) => form.games[g.key].enabled));
+const showPairMatches = computed(() => enabledTeamGames.value.length > 0);
+const rotationSixesPlayers = computed(() => namedPlayers.value.map((player) => player.name.trim()).slice(0, 4));
+const rotationSixesIncompatibleGames = computed(() => [
+  form.games.bestBall.enabled ? 'Best Ball' : '',
+  form.games.bestBallAggy.enabled ? 'Best Ball + Aggy' : '',
+  form.games.highBallLowBall.enabled ? 'High Ball / Low Ball' : '',
+  form.games.twoManScramble.enabled ? 'Two-Man Scramble' : '',
+  form.games.scramble4.enabled ? '4-Man Scramble' : '',
+  form.games.wolf.enabled ? 'Wolf' : '',
+].filter(Boolean));
+const rotationSixesPreview = computed(() => {
+  if (rotationSixesPlayers.value.length !== 4) return [];
+  return defaultRotationSixesMatches(rotationSixesPlayers.value as [string, string, string, string])
+    .map((match) => `${match.label}: ${match.sideA.join(' + ')} vs ${match.sideB.join(' + ')}`);
+});
+
+function buildDefaultPairMatches(): PairMatch[] {
+  const matches: PairMatch[] = [];
+  const count = Math.max(team1.value.length, team2.value.length);
+  for (let index = 0; index < count; index += 2) {
+    const a = team1.value.slice(index, index + 2);
+    const b = team2.value.slice(index, index + 2);
+    if (a.length || b.length) matches.push({ a, b });
+  }
+  return matches;
+}
+
+function addPairMatch() {
+  form.pairMatches.push({ a: [], b: [] });
+}
+
+function removePairMatch(index: number) {
+  const ok = confirmAction('Remove match?\n\nThis removes the matchup from this round setup.');
+  if (!ok) return;
+  form.pairMatches.splice(index, 1);
+}
+
+function setPairSlot(matchIndex: number, side: 'a' | 'b', slot: 0 | 1, value: string) {
+  const match = form.pairMatches[matchIndex];
+  if (!match) return;
+  const next = [...match[side]];
+  next[slot] = value;
+  match[side] = next.filter(Boolean);
+  if (value) {
+    const otherSlot = slot === 0 ? 1 : 0;
+    if (match[side][otherSlot] === value) match[side].splice(otherSlot, 1);
+  }
+}
+
+// Seed default 2v2 matches the first time a team game is enabled.
+watch(showPairMatches, (show) => {
+  if (show && form.pairMatches.length === 0 && team1.value.length && team2.value.length) {
+    form.pairMatches = buildDefaultPairMatches();
+  }
+});
+
+const cleanedPairMatches = computed<PairMatch[]>(() => {
+  const valid = new Set(namedPlayers.value.map((p) => p.name.trim()));
+  return form.pairMatches
+    .map((m) => ({
+      a: m.a.filter((p) => valid.has(p)),
+      b: m.b.filter((p) => valid.has(p)),
+    }))
+    .filter((m) => m.a.length && m.b.length);
+});
+
+const matchSummaries = computed(() =>
+  cleanedPairMatches.value.map((m, i) => ({
+    index: i,
+    a: m.a.join(' / '),
+    b: m.b.join(' / '),
+    group: previewPlayingGroups.value[i]?.name ?? `Group ${i + 1}`,
+    games: enabledTeamGames.value.map((g) => {
+      const cfg = form.games[g.key] as { scoringMode: 'stroke' | 'match'; scoreBasis?: ScoreType; stake: { front: number; back: number; overall: number } };
+      return {
+        label: g.label,
+        basis: g.hasBasis ? capitalize(cfg.scoreBasis ?? 'net') : 'Gross',
+        mode: cfg.scoringMode === 'match' ? 'match play' : 'stroke play',
+        bet: `Front $${cfg.stake.front} · Back $${cfg.stake.back} · Overall $${cfg.stake.overall}`,
+      };
+    }),
+  })),
+);
+
+// Prompt before clobbering manually-edited playing groups when matches change.
+watch(
+  () => JSON.stringify(form.pairMatches),
+  () => {
+    if (form.playingGroupCustom) {
+      const ok = confirmAction('Matches changed. Regenerate playing groups from matches? Cancel keeps your manual groups.');
+      if (ok) form.playingGroupCustom = null;
+    }
+  },
+);
+
+const previewPlayingGroups = computed(() =>
+  cleanedPairMatches.value.length
+    ? autoPlayingGroupsFromPairMatches(
+        cleanedPairMatches.value,
+        [...team1.value, ...team2.value],
+        team1.value,
+        team2.value,
+      )
+    : autoPlayingGroupsForTeams(team1.value, team2.value),
+);
+
+const displayPlayingGroups = computed(() => {
+  if (form.playingGroupCustom) {
+    return form.playingGroupCustom.map((players, i) => ({
+      name: previewPlayingGroups.value[i]?.name ?? `Group ${i + 1}`,
+      players,
+    }));
+  }
+  return previewPlayingGroups.value;
+});
+
+function movePlayerToGroup(player: string, toGroupIndex: number) {
+  if (!form.playingGroupCustom) {
+    form.playingGroupCustom = previewPlayingGroups.value.map((g) => [...g.players]);
+  }
+  form.playingGroupCustom = form.playingGroupCustom.map((players) => players.filter((p) => p !== player));
+  form.playingGroupCustom[toGroupIndex]?.push(player);
+}
+
+function resetCustomGroups() {
+  form.playingGroupCustom = null;
+}
+
+const courseParTotal = computed(() => form.par.reduce((total, value) => total + Number(value || 0), 0));
+const courseYardsTotal = computed(() => Number(form.teeYards) || form.yds.reduce((total, value) => total + Number(value || 0), 0));
+const frontPar = computed(() => form.par.slice(0, 9).reduce((total, value) => total + Number(value || 0), 0));
+const backPar = computed(() => form.par.slice(9).reduce((total, value) => total + Number(value || 0), 0));
+const frontYards = computed(() => form.yds.slice(0, 9).reduce((total, value) => total + Number(value || 0), 0));
+const backYards = computed(() => form.yds.slice(9).reduce((total, value) => total + Number(value || 0), 0));
+
+const courseSummaryName = computed(() => (
+  [form.clubName, form.courseName && form.courseName !== form.clubName ? form.courseName : '']
+    .filter(Boolean)
+    .join(' — ') || form.courseName || form.clubName || 'Course'
+));
+
+const teeMarkerStyle = computed(() => {
+  const name = form.teeName.toLowerCase();
+  if (name.includes('black')) return { background: '#20252a' };
+  if (name.includes('blue')) return { background: '#2d5f9f' };
+  if (name.includes('white')) return { background: '#f8f7f1', borderColor: '#d7d0c1' };
+  if (name.includes('gold')) return { background: '#c89b31' };
+  if (name.includes('red')) return { background: '#b84a3d' };
+  if (name.includes('green')) return { background: '#3f7b54' };
+  return { background: '#7a8a7f' };
+});
+
+const courseBadges = computed(() => [
+  form.teeGender || '',
+  `Par ${courseParTotal.value}`,
+  courseYardsTotal.value ? `${Number(courseYardsTotal.value).toLocaleString()} yards` : '',
+  `Rating ${Number(form.rating || 0).toFixed(1).replace('.0', '')}`,
+  `Slope ${Number(form.slope || 0)}`,
+].filter(Boolean));
+
+function capitalize(value: string) {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
+function strokeSummary(row: { strokes: number }) {
+  if (row.strokes <= 0) return 'Low / no strokes';
+  return `Gets +${row.strokes}`;
+}
+
+function assignmentLabel(team: 'team1' | 'team2') {
+  return team === 'team1' ? form.teamNames.team1 : form.teamNames.team2;
+}
+
+function setPlayerTeam(player: PlayerRow, team: 'team1' | 'team2') {
+  player.team = team;
+}
+
+function toggleGameSettings(key: string) {
+  mobileGameSettingsOpen[key] = !mobileGameSettingsOpen[key];
+}
+
+function groupMatchup(players: string[]) {
+  const set = new Set(players);
+  const match = matchSummaries.value.find((m) =>
+    [...m.a.split(' / '), ...m.b.split(' / ')].filter(Boolean).some((player) => set.has(player)),
+  );
+  return match ? `${match.a || 'TBD'} vs ${match.b || 'TBD'}` : '';
+}
+
+const formCourse = computed<Course>(() => ({
+  id: form.courseId || undefined,
+  clubName: form.clubName.trim() || undefined,
+  courseName: form.courseName.trim() || 'Course',
+  location: form.location.trim() || undefined,
+  tee: {
+    name: form.teeName.trim() || 'Tee',
+    gender: form.teeGender || undefined,
+    rating: Number(form.rating) || 72,
+    slope: Number(form.slope) || 113,
+    parTotal: courseParTotal.value,
+    yards: Number(form.teeYards) || form.yds.reduce((a, b) => a + Number(b || 0), 0),
+  },
+  par: form.par.map((v) => Number(v) || 0),
+  si: form.si.map((v) => Number(v) || 0),
+  yds: form.yds.map((v) => Number(v) || 0),
+}));
+
+const previewCourseHandicaps = computed(() => Object.fromEntries(
+  namedPlayers.value.map((player) => [
+    player.name.trim(),
+    computeWHSCourseHcp(player.handicapIndex, form.slope, form.rating, courseParTotal.value),
+  ]),
+));
+
+const previewStrokes = computed(() => allocateNetStrokes(previewCourseHandicaps.value));
+
+const handicapPreviewRows = computed(() => namedPlayers.value.map((player) => {
+  const name = player.name.trim();
+  const strokes = previewStrokes.value[name] ?? 0;
+  return {
+    name,
+    index: Number(player.handicapIndex || 0),
+    courseHandicap: previewCourseHandicaps.value[name] ?? 0,
+    strokes,
+    holes: strokeHoleSummary(strokes),
+  };
+}));
+
+function strokeHoleSummary(strokes: number) {
+  if (strokes <= 0) return 'No strokes';
+  const holes = form.si
+    .map((si, index) => ({ hole: index + 1, si: Number(si) }))
+    .filter(({ si }) => getsStroke(strokes, si))
+    .sort((a, b) => a.si - b.si)
+    .map(({ hole }) => hole);
+
+  if (!holes.length) return 'No strokes';
+  if (holes.length === 18) return 'All 18 holes';
+  return `Holes ${holes.join(', ')}`;
+}
+
+function buildRound(): { round: RoundState; players: PlayerMap } {
+  const course: Course = {
+    id: form.courseId || undefined,
+    clubName: form.clubName.trim() || undefined,
+    courseName: form.courseName.trim() || 'Course',
+    location: form.location.trim() || undefined,
+    tee: {
+      name: form.teeName.trim() || 'Tee',
+      gender: form.teeGender || undefined,
+      rating: Number(form.rating) || 72,
+      slope: Number(form.slope) || 113,
+      parTotal: form.par.reduce((a, b) => a + Number(b || 0), 0),
+      yards: Number(form.teeYards) || form.yds.reduce((a, b) => a + Number(b || 0), 0),
+    },
+    par: form.par.map((value) => Number(value) || 0),
+    si: form.si.map((value) => Number(value) || 0),
+    yds: form.yds.map((value) => Number(value) || 0),
+  };
+
+  const players: PlayerMap = {};
+  namedPlayers.value.forEach((p) => {
+    players[p.name.trim()] = { name: p.name.trim(), handicapIndex: Number(p.handicapIndex) || 0 };
+  });
+
+  // Pair team1[i] vs team2[i] for head-to-head, matching the legacy setup.
+  const matchups = team1.value
+    .map((t1, index) => ({ t1, t2: team2.value[index] }))
+    .filter((m) => m.t1 && m.t2);
+
+  const playingGroups = normalizePlayingGroups(
+    displayPlayingGroups.value.map((g, i) => ({
+      name: form.playingGroupNames[i] || g.name,
+      players: g.players,
+    })),
+    [...team1.value, ...team2.value],
+  );
+
+  const round: RoundState = {
+    ...emptyRound(),
+    course,
+    team1: team1.value,
+    team2: team2.value,
+    teamNames: { team1: form.teamNames.team1, team2: form.teamNames.team2 },
+    matchups,
+    pairMatches: showPairMatches.value ? cleanedPairMatches.value : [],
+    playingGroups,
+    games: normalizeGames(form.games),
+  };
+
+  return { round, players };
+}
+
+async function startRound() {
+  if (!canStart.value) return;
+  const { round, players } = buildRound();
+  if (editMode.value && store.round?.id) {
+    await store.updateRound(round, players);
+    void router.push('/scorecard');
+    return;
+  }
+  const created = await store.startRound(round, players, group.group?.id ?? null);
+  if (!created) return;
+  if (event.pendingRoundLink != null && created.id) {
+    const { roundIndex } = event.pendingRoundLink;
+    if (event.event?.config.rounds[roundIndex]) {
+      const rounds = [...event.event.config.rounds];
+      rounds[roundIndex] = { ...rounds[roundIndex], playingGroups: round.playingGroups };
+      event.event.config = { ...event.event.config, rounds };
+    }
+    await event.linkRound(created.id);
+  }
+  void router.push('/scorecard');
+}
+
+function goGroup() {
+  void router.push({ path: '/group', query: { view: 'groups' } });
+}
+</script>
+
+<template>
+  <main class="setup-shell">
+    <header class="setup-topbar">
+      <div>
+        <p class="eyebrow">{{ editMode ? 'Edit Round' : 'New Round' }}</p>
+        <h1 class="setup-title">Round Setup</h1>
+        <p class="setup-lede">Configure the course, players, games, and teams before starting.</p>
+      </div>
+      <button class="btn-ghost" type="button" @click="goGroup">← Back to groups</button>
+    </header>
+
+    <section
+      class="setup-card checklist-card"
+      :class="{
+        'is-mobile-collapsible': courseReady,
+        'is-mobile-collapsed': courseReady && !mobileSetupOpen.course,
+      }"
+    >
+      <div class="setup-section-head">
+        <div>
+          <span class="step-pill">{{ courseStepLabel }}</span>
+          <h2 class="setup-hdr">Course</h2>
+          <p class="mobile-section-summary">{{ courseMobileSummary }}</p>
+        </div>
+        <button
+          v-if="courseReady"
+          class="btn-ghost sm section-mobile-toggle"
+          type="button"
+          :aria-expanded="mobileSetupOpen.course"
+          @click="mobileSetupOpen.course = !mobileSetupOpen.course"
+        >
+          {{ mobileSetupOpen.course ? 'Hide' : 'Edit' }}
+        </button>
+      </div>
+
+      <div class="mobile-collapsible-body">
+        <!-- A course is set (prefilled from edit/event or picked from search):
+             show the read-only scorecard with a Change action available in every mode. -->
+        <template v-if="courseSet">
+          <div class="course-summary-card">
+            <div>
+              <h3 class="course-summary-name">{{ courseSummaryName }}</h3>
+              <div class="course-summary-tee">
+                <span class="tee-marker-dot" :style="teeMarkerStyle" aria-hidden="true"></span>
+                <span>{{ form.teeName || 'Tee' }} tees</span>
+              </div>
+              <div class="course-badge-row" aria-label="Selected course details">
+                <span v-for="badge in courseBadges" :key="badge" class="course-detail-badge">{{ badge }}</span>
+              </div>
+              <div class="course-nine-grid">
+                <div>
+                  <strong>Front 9</strong>
+                  <span>Par {{ frontPar }} · {{ Number(frontYards).toLocaleString() }} yds</span>
+                </div>
+                <div>
+                  <strong>Back 9</strong>
+                  <span>Par {{ backPar }} · {{ Number(backYards).toLocaleString() }} yds</span>
+                </div>
+              </div>
+            </div>
+            <div class="course-summary-actions">
+              <button class="btn-ghost sm" type="button" @click="clearCourse">Change course</button>
+              <button class="btn-ghost sm" type="button" @click="showCourseScorecard = !showCourseScorecard">
+                {{ showCourseScorecard ? 'Hide scorecard' : 'View scorecard' }}
+              </button>
+            </div>
+          </div>
+          <div v-if="showCourseScorecard" class="contained-scorecard">
+            <CourseScorecard :course="formCourse" />
+          </div>
+        </template>
+
+        <!-- No course yet: show search (works for new, edit, and event rounds). -->
+        <template v-else>
+          <div class="course-search">
+            <input
+              v-model="form.courseQuery"
+              class="form-input course-search-input"
+              type="search"
+              placeholder="Search course name"
+              @keydown.enter.prevent="runCourseSearch"
+            />
+            <button class="btn-ghost course-search-btn" type="button" :disabled="!canSearchCourses" @click="runCourseSearch">
+              {{ courseSearching ? 'Searching...' : 'Search' }}
+            </button>
+          </div>
+
+          <div v-if="courseResults.length" class="course-results">
+            <button v-for="course in courseResults" :key="course.id || courseLabel(course)" class="course-result" type="button" @click="chooseCourse(course)">
+              <span>
+                <strong>{{ courseLabel(course) }}</strong>
+                <small>{{ courseSubLabel(course) }}</small>
+              </span>
+              <span class="course-result-meta">{{ selectableCourseTees(course).length }} tees</span>
+            </button>
+          </div>
+
+          <div v-if="selectedCourse" class="tee-results">
+            <button
+              v-for="tee in selectableCourseTees(selectedCourse)"
+              :key="courseTeeKey(tee)"
+              class="tee-result"
+              type="button"
+              @click="applyCourse(selectedCourse, tee)"
+            >
+              <div>
+                <strong>{{ tee.name || 'Tee' }}</strong>
+                <small>{{ teeLabel(tee) }}</small>
+              </div>
+            </button>
+          </div>
+
+          <p v-if="courseSearchError" class="course-search-error">{{ courseSearchError }}</p>
+          <p class="course-default-note">{{ courseStepStatus }}. Search only if you want a specific tee/rating.</p>
+        </template>
+      </div>
+    </section>
+
+    <section
+      class="setup-card checklist-card"
+      :class="{
+        'is-mobile-collapsible': playersEntered,
+        'is-mobile-collapsed': playersEntered && !mobileSetupOpen.players,
+      }"
+    >
+      <div class="setup-section-head">
+        <div>
+          <span class="step-pill">{{ namedPlayers.length ? `${namedPlayers.length} players` : 'Needed' }}</span>
+          <h2 class="setup-hdr">Players</h2>
+          <p class="mobile-section-summary">{{ playersMobileSummary }}</p>
+        </div>
+        <button
+          v-if="playersEntered"
+          class="btn-ghost sm section-mobile-toggle"
+          type="button"
+          :aria-expanded="mobileSetupOpen.players"
+          @click="mobileSetupOpen.players = !mobileSetupOpen.players"
+        >
+          {{ mobileSetupOpen.players ? 'Hide' : 'Edit' }}
+        </button>
+      </div>
+      <div class="mobile-collapsible-body">
+        <div v-if="rosterReadOnly" class="event-roster-preview">
+          <div class="event-roster-team">
+            <div class="event-roster-team-name">{{ form.teamNames.team1 }}</div>
+            <div v-for="row in handicapPreviewRows.filter((p) => team1.includes(p.name))" :key="row.name" class="event-roster-player">
+              <strong>{{ row.name }}</strong>
+              <span>Idx {{ row.index.toFixed(1).replace('.0', '') }}</span>
+              <span>Course {{ row.courseHandicap }}</span>
+            </div>
+          </div>
+          <div class="event-roster-team">
+            <div class="event-roster-team-name">{{ form.teamNames.team2 }}</div>
+            <div v-for="row in handicapPreviewRows.filter((p) => team2.includes(p.name))" :key="row.name" class="event-roster-player">
+              <strong>{{ row.name }}</strong>
+              <span>Idx {{ row.index.toFixed(1).replace('.0', '') }}</span>
+              <span>Course {{ row.courseHandicap }}</span>
+            </div>
+          </div>
+        </div>
+        <template v-else>
+          <div class="player-list">
+            <div v-for="(player, index) in form.players" :key="index" class="player-row">
+              <div class="player-fields">
+                <input v-model="player.name" class="form-input" placeholder="Player name" />
+                <input
+                  v-model="player.handicapIndex"
+                  class="form-input idx-input"
+                  type="number"
+                  step="0.1"
+                  inputmode="decimal"
+                  placeholder="Handicap index"
+                />
+              </div>
+              <div class="player-row-actions">
+                <span class="team-chip">{{ player.name ? assignmentLabel(player.team) : 'Team later' }}</span>
+                <button class="btn-text-danger" type="button" @click="removePlayer(index)">Remove</button>
+              </div>
+            </div>
+          </div>
+          <button class="btn-ghost" type="button" @click="addPlayer">+ Add player</button>
+        </template>
+
+        <div v-if="handicapPreviewRows.length" class="hcp-preview">
+          <h3 class="sub-hdr">Course handicaps</h3>
+          <div class="hcp-preview-list">
+            <div v-for="row in handicapPreviewRows" :key="row.name" class="hcp-preview-row">
+              <div>
+                <strong>{{ row.name }}</strong>
+                <small>Index {{ row.index.toFixed(1).replace('.0', '') }} → Course {{ row.courseHandicap }}</small>
+              </div>
+              <div class="hcp-preview-strokes">
+                <strong>{{ strokeSummary(row) }}</strong>
+                <small>{{ row.strokes > 0 ? `Stroke holes: ${row.holes.replace('Holes ', '')}` : row.holes }}</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section v-if="!hasEventContext" class="setup-card checklist-card">
+      <div class="setup-section-head">
+        <div>
+          <span class="step-pill">{{ selectedGameCount ? `${selectedGameCount} selected` : 'Needed' }}</span>
+          <h2 class="setup-hdr">Games</h2>
+          <p class="mobile-section-summary">
+            {{ selectedGameSummaries.length ? selectedGameSummaries.join(' · ') : 'Pick the games for this round' }}
+          </p>
+        </div>
+      </div>
+      <div v-if="selectedGameSummaries.length" class="selected-games-strip" aria-label="Selected games">
+        <span v-for="game in selectedGameSummaries" :key="game" class="selected-game-chip">{{ game }}</span>
+      </div>
+      <div class="games-list">
+        <div class="game-row game-card" :class="{ active: form.games.skins.enabled, 'is-settings-collapsed': form.games.skins.enabled && !mobileGameSettingsOpen.skins }">
+          <label class="game-toggle"><input v-model="form.games.skins.enabled" type="checkbox" /> <span><strong>Skins</strong><small>Optional individual skins game.</small></span></label>
+          <button v-if="form.games.skins.enabled" class="btn-ghost sm game-settings-toggle" type="button" :aria-expanded="!!mobileGameSettingsOpen.skins" @click="toggleGameSettings('skins')">
+            {{ mobileGameSettingsOpen.skins ? 'Hide settings' : 'Settings' }}
+          </button>
+          <div v-if="form.games.skins.enabled" class="game-inline-settings game-settings-panel">
+            <label class="bet-field">Buy-in $ / player<input v-model.number="form.games.skins.pot" class="form-input sm" type="number" min="0" /></label>
+            <select v-model="form.games.skins.type" class="form-input sm"><option>net</option><option>gross</option></select>
+          </div>
+        </div>
+
+        <div class="game-row game-card" :class="{ active: form.games.bestBall.enabled, 'is-settings-collapsed': form.games.bestBall.enabled && !mobileGameSettingsOpen.bestBall }">
+          <label class="game-toggle"><input v-model="form.games.bestBall.enabled" type="checkbox" /> <span><strong>Best Ball</strong><small>Team game using each side’s best ball.</small></span></label>
+          <button v-if="form.games.bestBall.enabled" class="btn-ghost sm game-settings-toggle" type="button" :aria-expanded="!!mobileGameSettingsOpen.bestBall" @click="toggleGameSettings('bestBall')">
+            {{ mobileGameSettingsOpen.bestBall ? 'Hide settings' : 'Settings' }}
+          </button>
+          <div v-if="form.games.bestBall.enabled" class="game-inline-settings game-settings-panel">
+            <label class="bet-field">Front 9 $ / player<input v-model.number="form.games.bestBall.front" class="form-input sm" type="number" min="0" /></label>
+            <label class="bet-field">Back 9 $ / player<input v-model.number="form.games.bestBall.back" class="form-input sm" type="number" min="0" /></label>
+            <label class="bet-field">Overall $ / player<input v-model.number="form.games.bestBall.total" class="form-input sm" type="number" min="0" /></label>
+            <select v-model="form.games.bestBall.type" class="form-input sm"><option>net</option><option>gross</option></select>
+            <select v-model="form.games.bestBall.scoringMode" class="form-input sm">
+              <option value="stroke">stroke</option>
+              <option value="match">match</option>
+            </select>
+            <p v-if="!form.games.bestBall.front && !form.games.bestBall.back && !form.games.bestBall.total" class="game-helper">This game will be tracked with no money attached.</p>
+          </div>
+        </div>
+
+        <div class="game-row game-card" :class="{ active: form.games.bestBallAggy.enabled, 'is-settings-collapsed': form.games.bestBallAggy.enabled && !mobileGameSettingsOpen.bestBallAggy }">
+          <label class="game-toggle"><input v-model="form.games.bestBallAggy.enabled" type="checkbox" /> <span><strong>Best Ball + Aggy</strong><small>Scores both the team’s best ball and combined aggregate score.</small></span></label>
+          <button v-if="form.games.bestBallAggy.enabled" class="btn-ghost sm game-settings-toggle" type="button" :aria-expanded="!!mobileGameSettingsOpen.bestBallAggy" @click="toggleGameSettings('bestBallAggy')">
+            {{ mobileGameSettingsOpen.bestBallAggy ? 'Hide settings' : 'Settings' }}
+          </button>
+        <div v-if="form.games.bestBallAggy.enabled" class="game-subconfig game-settings-panel">
+          <div class="sub-row">
+            <span class="sub-label">Score basis</span>
+            <div class="seg-ctrl">
+              <button class="seg-btn" :class="{ active: form.games.bestBallAggy.scoreBasis === 'net' }" type="button" @click="form.games.bestBallAggy.scoreBasis = 'net'">Net</button>
+              <button class="seg-btn" :class="{ active: form.games.bestBallAggy.scoreBasis === 'gross' }" type="button" @click="form.games.bestBallAggy.scoreBasis = 'gross'">Gross</button>
+            </div>
+          </div>
+          <div class="sub-row">
+            <span class="sub-label">Scoring mode</span>
+            <div class="seg-ctrl">
+              <button class="seg-btn" :class="{ active: form.games.bestBallAggy.scoringMode === 'match' }" type="button" @click="form.games.bestBallAggy.scoringMode = 'match'">Match Play</button>
+              <button class="seg-btn" :class="{ active: form.games.bestBallAggy.scoringMode === 'stroke' }" type="button" @click="form.games.bestBallAggy.scoringMode = 'stroke'">Stroke Play</button>
+            </div>
+          </div>
+          <div class="sub-row">
+            <span class="sub-label">Stakes</span>
+            <label class="bet-field">Front 9 ($/person)<input v-model.number="form.games.bestBallAggy.stake.front" class="form-input sm" type="number" min="0" /></label>
+            <label class="bet-field">Back 9 ($/person)<input v-model.number="form.games.bestBallAggy.stake.back" class="form-input sm" type="number" min="0" /></label>
+            <label class="bet-field">Overall ($/person)<input v-model.number="form.games.bestBallAggy.stake.overall" class="form-input sm" type="number" min="0" /></label>
+          </div>
+          <p v-if="!form.games.bestBallAggy.stake.front && !form.games.bestBallAggy.stake.back && !form.games.bestBallAggy.stake.overall" class="game-helper">This game will be tracked with no money attached.</p>
+        </div>
+        </div>
+
+        <div class="game-row game-card" :class="{ active: form.games.twoManScramble.enabled, 'is-settings-collapsed': form.games.twoManScramble.enabled && !mobileGameSettingsOpen.twoManScramble }">
+          <label class="game-toggle"><input v-model="form.games.twoManScramble.enabled" type="checkbox" /> <span><strong>Two-Man Scramble</strong><small>Two-player teams post one gross scramble score.</small></span></label>
+          <button v-if="form.games.twoManScramble.enabled" class="btn-ghost sm game-settings-toggle" type="button" :aria-expanded="!!mobileGameSettingsOpen.twoManScramble" @click="toggleGameSettings('twoManScramble')">
+            {{ mobileGameSettingsOpen.twoManScramble ? 'Hide settings' : 'Settings' }}
+          </button>
+        <div v-if="form.games.twoManScramble.enabled" class="game-subconfig game-settings-panel">
+          <div class="sub-row">
+            <span class="sub-label">Scoring mode</span>
+            <div class="seg-ctrl">
+              <button class="seg-btn" :class="{ active: form.games.twoManScramble.scoringMode === 'match' }" type="button" @click="form.games.twoManScramble.scoringMode = 'match'">Match Play</button>
+              <button class="seg-btn" :class="{ active: form.games.twoManScramble.scoringMode === 'stroke' }" type="button" @click="form.games.twoManScramble.scoringMode = 'stroke'">Stroke Play</button>
+            </div>
+          </div>
+          <div class="sub-row">
+            <span class="sub-label">Stakes</span>
+            <label class="bet-field">Front 9 ($/person)<input v-model.number="form.games.twoManScramble.stake.front" class="form-input sm" type="number" min="0" /></label>
+            <label class="bet-field">Back 9 ($/person)<input v-model.number="form.games.twoManScramble.stake.back" class="form-input sm" type="number" min="0" /></label>
+            <label class="bet-field">Overall ($/person)<input v-model.number="form.games.twoManScramble.stake.overall" class="form-input sm" type="number" min="0" /></label>
+          </div>
+        </div>
+        </div>
+
+        <div class="game-row game-card" :class="{ active: form.games.highBallLowBall.enabled, 'is-settings-collapsed': form.games.highBallLowBall.enabled && !mobileGameSettingsOpen.highBallLowBall }">
+          <label class="game-toggle"><input v-model="form.games.highBallLowBall.enabled" type="checkbox" /> <span><strong>High Ball / Low Ball</strong><small>Scores both low-ball and high-ball team contests.</small></span></label>
+          <button v-if="form.games.highBallLowBall.enabled" class="btn-ghost sm game-settings-toggle" type="button" :aria-expanded="!!mobileGameSettingsOpen.highBallLowBall" @click="toggleGameSettings('highBallLowBall')">
+            {{ mobileGameSettingsOpen.highBallLowBall ? 'Hide settings' : 'Settings' }}
+          </button>
+        <div v-if="form.games.highBallLowBall.enabled" class="game-subconfig game-settings-panel">
+          <div class="sub-row">
+            <span class="sub-label">Score basis</span>
+            <div class="seg-ctrl">
+              <button class="seg-btn" :class="{ active: form.games.highBallLowBall.scoreBasis === 'net' }" type="button" @click="form.games.highBallLowBall.scoreBasis = 'net'">Net</button>
+              <button class="seg-btn" :class="{ active: form.games.highBallLowBall.scoreBasis === 'gross' }" type="button" @click="form.games.highBallLowBall.scoreBasis = 'gross'">Gross</button>
+            </div>
+          </div>
+          <div class="sub-row">
+            <span class="sub-label">Scoring mode</span>
+            <div class="seg-ctrl">
+              <button class="seg-btn" :class="{ active: form.games.highBallLowBall.scoringMode === 'match' }" type="button" @click="form.games.highBallLowBall.scoringMode = 'match'">Match Play</button>
+              <button class="seg-btn" :class="{ active: form.games.highBallLowBall.scoringMode === 'stroke' }" type="button" @click="form.games.highBallLowBall.scoringMode = 'stroke'">Stroke Play</button>
+            </div>
+          </div>
+          <div class="sub-row">
+            <span class="sub-label">Stakes</span>
+            <label class="bet-field">Front 9 ($/person)<input v-model.number="form.games.highBallLowBall.stake.front" class="form-input sm" type="number" min="0" /></label>
+            <label class="bet-field">Back 9 ($/person)<input v-model.number="form.games.highBallLowBall.stake.back" class="form-input sm" type="number" min="0" /></label>
+            <label class="bet-field">Overall ($/person)<input v-model.number="form.games.highBallLowBall.stake.overall" class="form-input sm" type="number" min="0" /></label>
+          </div>
+        </div>
+        </div>
+
+        <div class="game-row game-card" :class="{ active: form.games.rotationSixes.enabled, 'is-settings-collapsed': form.games.rotationSixes.enabled && !mobileGameSettingsOpen.rotationSixes }">
+          <label class="game-toggle"><input v-model="form.games.rotationSixes.enabled" type="checkbox" /> <span><strong>Rotation Sixes</strong><small>Round Robin / Sixes for exactly four players.</small></span></label>
+          <button v-if="form.games.rotationSixes.enabled" class="btn-ghost sm game-settings-toggle" type="button" :aria-expanded="!!mobileGameSettingsOpen.rotationSixes" @click="toggleGameSettings('rotationSixes')">
+            {{ mobileGameSettingsOpen.rotationSixes ? 'Hide settings' : 'Settings' }}
+          </button>
+          <div v-if="form.games.rotationSixes.enabled" class="game-subconfig game-settings-panel rotation-six-settings">
+            <div class="rotation-field rotation-field-wide">
+              <span class="sub-label">Variant</span>
+              <div class="seg-ctrl rotation-variant-control">
+                <button class="seg-btn" :class="{ active: form.games.rotationSixes.variant === 'best_ball' }" type="button" @click="form.games.rotationSixes.variant = 'best_ball'">Best Ball</button>
+                <button class="seg-btn" :class="{ active: form.games.rotationSixes.variant === 'high_low' }" type="button" @click="form.games.rotationSixes.variant = 'high_low'">High / Low</button>
+                <button class="seg-btn" :class="{ active: form.games.rotationSixes.variant === 'best_ball_aggy' }" type="button" @click="form.games.rotationSixes.variant = 'best_ball_aggy'">Best Ball + Aggy</button>
+              </div>
+            </div>
+            <div class="rotation-field">
+              <span class="sub-label">Score basis</span>
+              <div class="seg-ctrl">
+                <button class="seg-btn" :class="{ active: form.games.rotationSixes.scoreBasis === 'net' }" type="button" @click="form.games.rotationSixes.scoreBasis = 'net'">Net</button>
+                <button class="seg-btn" :class="{ active: form.games.rotationSixes.scoreBasis === 'gross' }" type="button" @click="form.games.rotationSixes.scoreBasis = 'gross'">Gross</button>
+              </div>
+            </div>
+            <div class="rotation-field rotation-stake-field">
+              <span class="sub-label">Stake</span>
+              <label class="bet-field">$ / player / match<input v-model.number="form.games.rotationSixes.stakePerPlayer" class="form-input sm" type="number" min="0" /></label>
+            </div>
+            <p class="game-helper">$5 means each player risks $5 in each six-hole match.</p>
+            <div v-if="rotationSixesPreview.length" class="rotation-preview" aria-label="Rotation Sixes matches">
+              <span v-for="line in rotationSixesPreview" :key="line">{{ line }}</span>
+            </div>
+            <p v-else class="game-helper">Add exactly four players to preview the three six-hole matches.</p>
+          </div>
+        </div>
+
+        <div class="game-row game-card" :class="{ active: form.games.scramble4.enabled, 'is-settings-collapsed': form.games.scramble4.enabled && !mobileGameSettingsOpen.scramble4 }">
+          <label class="game-toggle"><input v-model="form.games.scramble4.enabled" type="checkbox" /> <span><strong>4-Man Scramble</strong><small>Team scramble scored as gross stroke play.</small></span></label>
+          <button v-if="form.games.scramble4.enabled" class="btn-ghost sm game-settings-toggle" type="button" :aria-expanded="!!mobileGameSettingsOpen.scramble4" @click="toggleGameSettings('scramble4')">
+            {{ mobileGameSettingsOpen.scramble4 ? 'Hide settings' : 'Settings' }}
+          </button>
+          <div v-if="form.games.scramble4.enabled" class="game-inline-settings game-settings-panel">
+            <label class="bet-field">Front 9 $ / player<input v-model.number="form.games.scramble4.front" class="form-input sm" type="number" min="0" /></label>
+            <label class="bet-field">Back 9 $ / player<input v-model.number="form.games.scramble4.back" class="form-input sm" type="number" min="0" /></label>
+            <label class="bet-field">Overall $ / player<input v-model.number="form.games.scramble4.total" class="form-input sm" type="number" min="0" /></label>
+            <span class="game-note">Gross stroke play</span>
+          </div>
+        </div>
+
+        <div class="game-row game-card" :class="{ active: form.games.wolf.enabled, 'is-settings-collapsed': form.games.wolf.enabled && !mobileGameSettingsOpen.wolf }">
+          <label class="game-toggle"><input v-model="form.games.wolf.enabled" type="checkbox" /> <span><strong>Wolf</strong><small>Rotating individual/team side game.</small></span></label>
+          <button v-if="form.games.wolf.enabled" class="btn-ghost sm game-settings-toggle" type="button" :aria-expanded="!!mobileGameSettingsOpen.wolf" @click="toggleGameSettings('wolf')">
+            {{ mobileGameSettingsOpen.wolf ? 'Hide settings' : 'Settings' }}
+          </button>
+          <div v-if="form.games.wolf.enabled" class="game-inline-settings game-settings-panel">
+            <label class="bet-field">{{ form.games.wolf.nassau ? 'Overall $ / player' : 'Full round $ / player' }}<input v-model.number="form.games.wolf.amount" class="form-input sm" type="number" min="0" /></label>
+            <select v-model="form.games.wolf.type" class="form-input sm"><option>net</option><option>gross</option></select>
+            <label class="game-toggle sm"><input v-model="form.games.wolf.nassau" type="checkbox" /> Nassau</label>
+          </div>
+        </div>
+
+        <div class="game-row game-card" :class="{ active: form.games.puttPoker.enabled, 'is-settings-collapsed': form.games.puttPoker.enabled && !mobileGameSettingsOpen.puttPoker }">
+          <label class="game-toggle"><input v-model="form.games.puttPoker.enabled" type="checkbox" /> <span><strong>Putt Poker</strong><small>Putting-card side pot by playing group.</small></span></label>
+          <button v-if="form.games.puttPoker.enabled" class="btn-ghost sm game-settings-toggle" type="button" :aria-expanded="!!mobileGameSettingsOpen.puttPoker" @click="toggleGameSettings('puttPoker')">
+            {{ mobileGameSettingsOpen.puttPoker ? 'Hide settings' : 'Settings' }}
+          </button>
+          <div v-if="form.games.puttPoker.enabled" class="game-inline-settings game-settings-panel">
+            <label class="bet-field">Buy-in $ / player<input v-model.number="form.games.puttPoker.pot" class="form-input sm" type="number" min="0" /></label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section
+      v-if="!hasEventContext && namedPlayers.length"
+      class="setup-card checklist-card"
+      :class="{
+        'is-mobile-collapsible': teamsReady,
+        'is-mobile-collapsed': teamsReady && !mobileSetupOpen.teams,
+      }"
+    >
+      <div class="pg-header">
+        <div>
+          <span class="step-pill">{{ team1.length }} vs {{ team2.length }}</span>
+          <h2 class="setup-hdr">Teams &amp; matchups</h2>
+          <p class="mobile-section-summary">{{ teamsMobileSummary }}</p>
+        </div>
+        <div class="section-head-actions">
+          <button
+            v-if="teamsReady"
+            class="btn-ghost sm section-mobile-toggle"
+            type="button"
+            :aria-expanded="mobileSetupOpen.teams"
+            @click="mobileSetupOpen.teams = !mobileSetupOpen.teams"
+          >
+            {{ mobileSetupOpen.teams ? 'Hide' : 'Edit' }}
+          </button>
+          <button v-if="showPairMatches" class="btn-ghost sm" type="button" @click="addPairMatch">+ Add match</button>
+        </div>
+      </div>
+      <div class="mobile-collapsible-body">
+        <p class="pg-hint">Assign round teams first. Pair matches appear when a selected game needs a specific 2v2 matchup.</p>
+
+        <div class="team-name-grid">
+          <label>Team 1 name<input v-model="form.teamNames.team1" class="form-input" /></label>
+          <label>Team 2 name<input v-model="form.teamNames.team2" class="form-input" /></label>
+        </div>
+
+        <div class="team-assignment-list">
+          <div v-for="player in namedPlayers" :key="`assign-${player.name}`" class="team-assignment-row">
+            <strong>{{ player.name }}</strong>
+            <div class="team-toggle">
+              <button class="seg-btn" :class="{ active: player.team === 'team1' }" type="button" @click="setPlayerTeam(player, 'team1')">{{ form.teamNames.team1 }}</button>
+              <button class="seg-btn" :class="{ active: player.team === 'team2' }" type="button" @click="setPlayerTeam(player, 'team2')">{{ form.teamNames.team2 }}</button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="showPairMatches" class="pm-list">
+          <div v-for="(match, mi) in form.pairMatches" :key="mi" class="pair-match-builder">
+            <div class="pm-builder-head">
+              <strong>Match {{ mi + 1 }}</strong>
+              <button class="btn-remove" type="button" title="Remove match" @click="removePairMatch(mi)">✕</button>
+            </div>
+            <div class="pair-match-sides">
+              <div class="pair-match-side">
+                <label>{{ form.teamNames.team1 || 'Team 1' }} pair</label>
+                <select
+                  class="form-input pair-select"
+                  :value="match.a[0] ?? ''"
+                  @change="setPairSlot(mi, 'a', 0, ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">—</option>
+                  <option
+                    v-for="p in team1"
+                    :key="p"
+                    :value="p"
+                    :disabled="p !== match.a[0] && match.a[1] === p"
+                  >{{ p }}</option>
+                </select>
+                <select
+                  class="form-input pair-select"
+                  :value="match.a[1] ?? ''"
+                  @change="setPairSlot(mi, 'a', 1, ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">—</option>
+                  <option
+                    v-for="p in team1"
+                    :key="p"
+                    :value="p"
+                    :disabled="p !== match.a[1] && match.a[0] === p"
+                  >{{ p }}</option>
+                </select>
+              </div>
+              <span class="pair-match-vs">vs</span>
+              <div class="pair-match-side">
+                <label>{{ form.teamNames.team2 || 'Team 2' }} pair</label>
+                <select
+                  class="form-input pair-select"
+                  :value="match.b[0] ?? ''"
+                  @change="setPairSlot(mi, 'b', 0, ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">—</option>
+                  <option
+                    v-for="p in team2"
+                    :key="p"
+                    :value="p"
+                    :disabled="p !== match.b[0] && match.b[1] === p"
+                  >{{ p }}</option>
+                </select>
+                <select
+                  class="form-input pair-select"
+                  :value="match.b[1] ?? ''"
+                  @change="setPairSlot(mi, 'b', 1, ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">—</option>
+                  <option
+                    v-for="p in team2"
+                    :key="p"
+                    :value="p"
+                    :disabled="p !== match.b[1] && match.b[0] === p"
+                  >{{ p }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="matchSummaries.length" class="pm-summaries">
+          <h3 class="sub-hdr">Team Summary</h3>
+          <div v-for="m in matchSummaries" :key="m.index" class="pm-summary">
+            <div class="pm-summary-head">
+              <strong>Match {{ m.index + 1 }}</strong>
+              <span class="pm-summary-group">{{ m.group }}</span>
+            </div>
+            <div class="pm-summary-vs">
+              <span>{{ m.a }}</span>
+              <em>vs</em>
+              <span>{{ m.b }}</span>
+            </div>
+            <ul class="pm-summary-games">
+              <li v-for="(g, gi) in m.games" :key="gi">
+                {{ g.label }} · {{ g.basis }} {{ g.mode }} · {{ g.bet }}
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section
+      v-if="namedPlayers.length >= 2"
+      class="setup-card checklist-card"
+      :class="{
+        'is-mobile-collapsible': playingGroupsReady,
+        'is-mobile-collapsed': playingGroupsReady && !mobileSetupOpen.groups,
+      }"
+    >
+      <div class="pg-header">
+        <div>
+          <span class="step-pill">{{ displayPlayingGroups.length }} group{{ displayPlayingGroups.length === 1 ? '' : 's' }}</span>
+          <h2 class="setup-hdr">Playing groups</h2>
+          <p class="mobile-section-summary">{{ playingGroupsMobileSummary }}</p>
+        </div>
+        <div class="section-head-actions">
+          <button
+            v-if="playingGroupsReady"
+            class="btn-ghost sm section-mobile-toggle"
+            type="button"
+            :aria-expanded="mobileSetupOpen.groups"
+            @click="mobileSetupOpen.groups = !mobileSetupOpen.groups"
+          >
+            {{ mobileSetupOpen.groups ? 'Hide' : 'Edit' }}
+          </button>
+          <button v-if="form.playingGroupCustom" class="btn-ghost sm" type="button" @click="resetCustomGroups">Reset to auto</button>
+        </div>
+      </div>
+      <div class="mobile-collapsible-body">
+        <p class="pg-hint">Set who is playing together on the course. {{ form.playingGroupCustom ? 'Manually assigned.' : 'Auto-assigned from matches or team order.' }}</p>
+        <div class="pg-list">
+          <div v-for="(group, gi) in displayPlayingGroups" :key="gi" class="pg-group">
+            <input
+              class="form-input pg-name-input"
+              :placeholder="group.name"
+              :value="form.playingGroupNames[gi] || ''"
+              @input="form.playingGroupNames[gi] = ($event.target as HTMLInputElement).value"
+            />
+            <div class="pg-players">
+              <span v-for="player in group.players" :key="player" class="pg-player-chip">
+                <span>{{ player }}</span>
+                <select
+                  v-if="displayPlayingGroups.length > 1"
+                  class="pg-move-select"
+                  :value="gi"
+                  @change="movePlayerToGroup(player, Number(($event.target as HTMLSelectElement).value))"
+                >
+                  <option v-for="(g, i) in displayPlayingGroups" :key="i" :value="i" :disabled="i === gi">
+                    {{ form.playingGroupNames[i] || g.name }}
+                  </option>
+                </select>
+              </span>
+            </div>
+            <p v-if="groupMatchup(group.players)" class="pg-matchup">Matchup: {{ groupMatchup(group.players) }}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <ul v-if="errors.length" class="setup-errors">
+      <li v-for="(err, i) in errors" :key="i">{{ err }}</li>
+    </ul>
+
+    <div class="setup-actions sticky-actions">
+      <div class="setup-action-status">
+        <strong>{{ setupProgressLabel }}</strong>
+        <span v-if="store.syncError" class="sync-error">{{ store.syncError }}</span>
+        <span v-else-if="firstBlockingIssue" class="sync-error">{{ firstBlockingIssue }}</span>
+        <span v-else>{{ nextSetupStep === 'Ready' ? 'Ready to start' : `Next: ${nextSetupStep}` }}</span>
+      </div>
+      <button class="btn-ghost" type="button" @click="goGroup">Back to groups</button>
+      <button class="btn-primary" type="button" :disabled="!canStart || store.starting" @click="startRound">
+        {{ store.starting ? (editMode ? 'Saving...' : 'Starting...') : (editMode ? 'Save changes →' : 'Start round →') }}
+      </button>
+    </div>
+  </main>
+</template>
+
+<style scoped>
+.setup-shell {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px 16px 132px;
+}
+
+.setup-topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: #8a672f;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.setup-title {
+  margin: 0;
+  font-size: 1.6rem;
+  color: #24362c;
+}
+
+.setup-lede {
+  margin: 8px 0 0;
+  color: #607067;
+  line-height: 1.45;
+}
+
+.setup-card {
+  border: 1px solid #d7cebd;
+  border-radius: 8px;
+  background: #f8f4ea;
+  padding: 18px 20px;
+  margin-bottom: 18px;
+}
+
+.checklist-card {
+  box-shadow: 0 8px 22px rgb(31 42 36 / 6%);
+}
+
+.setup-section-head,
+.pg-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.step-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border: 1px solid #d7cebd;
+  border-radius: 999px;
+  background: #fdfbf4;
+  color: #7c693d;
+  padding: 3px 9px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.setup-hdr {
+  margin: 5px 0 0;
+  font-size: 1rem;
+  color: #2f5d43;
+}
+
+.mobile-section-summary,
+.section-mobile-toggle {
+  display: none;
+}
+
+.section-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.sub-hdr {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  color: #2f5d43;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.course-readonly {
+  padding: 10px 0 4px;
+}
+
+.course-readonly-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #24362c;
+}
+
+.course-readonly-meta {
+  font-size: 0.82rem;
+  color: #7a8a7f;
+  margin-top: 2px;
+}
+
+.course-summary-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 14px;
+}
+
+.course-summary-name {
+  margin: 0;
+  color: #24362c;
+  font-size: 1.12rem;
+}
+
+.course-summary-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.course-summary-tee {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 6px;
+  color: #2f5d43;
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
+.tee-marker-dot {
+  width: 11px;
+  height: 11px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px #fbf7ed;
+}
+
+.course-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.course-detail-badge {
+  border: 1px solid #e7ddcb;
+  border-radius: 999px;
+  background: #fffdf7;
+  color: #607067;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 6px 8px;
+}
+
+.course-nine-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.course-nine-grid div {
+  border: 1px solid #ece3d2;
+  border-radius: 6px;
+  padding: 9px 10px;
+  background: #fbf7ed;
+}
+
+.course-nine-grid strong,
+.course-nine-grid span {
+  display: block;
+}
+
+.course-nine-grid strong {
+  color: #2f5d43;
+  font-size: 0.8rem;
+}
+
+.course-nine-grid span {
+  margin-top: 2px;
+  color: #607067;
+  font-size: 0.8rem;
+}
+
+.contained-scorecard {
+  margin-top: 12px;
+  overflow-x: auto;
+}
+
+.course-search {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.course-search-input {
+  flex: 1;
+}
+
+.course-search-btn {
+  min-width: 104px;
+  padding: 7px 14px;
+}
+
+.course-results,
+.tee-results {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.course-result,
+.tee-result {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #d7cebd;
+  border-radius: 6px;
+  background: #fdfbf4;
+  padding: 10px 12px;
+  color: #283b30;
+  text-align: left;
+  cursor: pointer;
+}
+
+.course-result:hover,
+.tee-result:hover,
+.tee-result.selected {
+  border-color: #b88a3b;
+  background: #fff8e8;
+}
+
+.course-result small,
+.tee-result small {
+  display: block;
+  margin-top: 2px;
+  color: #6a7a6f;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.course-result-meta {
+  color: #8a672f;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.course-search-error {
+  margin: 0 0 12px;
+  color: #b4473a;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.course-default-note {
+  margin: 2px 0 0;
+  color: #607067;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.field-grid,
+.team-name-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #4a5a4f;
+}
+
+.form-input {
+  border: 1px solid #cdbf9f;
+  border-radius: 6px;
+  padding: 7px 9px;
+  background: #fdfbf4;
+  color: #283b30;
+}
+
+.form-input:focus {
+  outline: 2px solid #2f8f58;
+  outline-offset: -1px;
+}
+
+.hole-grid {
+  margin-top: 16px;
+  overflow-x: auto;
+}
+
+.hole-grid-row {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 3px;
+  align-items: center;
+}
+
+.hole-grid-label {
+  min-width: 34px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #8a9489;
+}
+
+.hole-grid-head {
+  width: 34px;
+  text-align: center;
+  font-size: 0.7rem;
+  color: #8a9489;
+}
+
+.hole-input {
+  width: 34px;
+  text-align: center;
+  border: 1px solid #cdbf9f;
+  border-radius: 4px;
+  padding: 4px 0;
+  background: #fdfbf4;
+  color: #283b30;
+}
+
+.hole-cell {
+  width: 34px;
+  text-align: center;
+  font-size: 0.82rem;
+  color: #283b30;
+  flex-shrink: 0;
+}
+
+.hole-grid-readonly {
+  margin-top: 10px;
+}
+
+.player-list {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.player-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 10px;
+}
+
+.player-fields {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(130px, 180px);
+  gap: 8px;
+}
+
+.player-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.idx-input {
+  max-width: none;
+}
+
+.team-select {
+  max-width: 140px;
+}
+
+.team-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  border-radius: 999px;
+  background: #eef2ec;
+  color: #4d6255;
+  padding: 3px 10px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.btn-text-danger {
+  border: 0;
+  background: transparent;
+  color: #b1462f;
+  padding: 6px 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.event-roster-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.event-roster-team {
+  border: 1px solid #e0d7c4;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 12px;
+}
+
+.event-roster-team-name {
+  font-weight: 800;
+  color: #2f5d43;
+  margin-bottom: 8px;
+}
+
+.event-roster-player {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  border-top: 1px solid #ece3d2;
+  padding: 7px 0;
+  color: #4a5a4f;
+  font-size: 0.82rem;
+}
+
+.event-roster-player:first-of-type {
+  border-top: 0;
+}
+
+.btn-remove {
+  border: 1px solid #d8c4c4;
+  background: #f7ecec;
+  color: #b1462f;
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+}
+
+.hcp-preview {
+  margin-top: 16px;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 12px;
+}
+
+.hcp-preview-list {
+  display: grid;
+  gap: 8px;
+}
+
+.hcp-preview-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(150px, 1.1fr);
+  gap: 12px;
+  align-items: center;
+  border-top: 1px solid #ece3d2;
+  padding-top: 8px;
+}
+
+.hcp-preview-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.hcp-preview-row strong {
+  color: #283b30;
+}
+
+.hcp-preview-row small {
+  display: block;
+  margin-top: 2px;
+  color: #6a7a6f;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.hcp-preview-strokes {
+  text-align: right;
+}
+
+.games-list {
+  display: grid;
+  gap: 10px;
+}
+
+.selected-games-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.selected-game-chip {
+  border: 1px solid #bfd5c4;
+  border-radius: 999px;
+  background: #edf5ed;
+  color: #2f5d43;
+  padding: 5px 9px;
+  font-size: 0.72rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.game-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 12px;
+}
+
+.game-card.active {
+  border-color: #9fb5a7;
+  background: #f3f8f1;
+  box-shadow: 0 0 0 1px rgb(47 93 67 / 12%) inset;
+}
+
+.game-toggle {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.game-toggle input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.game-toggle span {
+  display: grid;
+  gap: 2px;
+}
+
+.game-toggle strong {
+  color: #24362c;
+  font-size: 0.95rem;
+}
+
+.game-toggle small {
+  color: #65756a;
+  font-size: 0.78rem;
+}
+
+.game-settings-toggle {
+  align-self: center;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
+.game-inline-settings,
+.game-subconfig {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+  border-top: 1px solid #dfe6dc;
+  padding-top: 12px;
+}
+
+.game-subconfig .sub-row {
+  display: contents;
+}
+
+.game-helper {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #607067;
+  font-size: 0.78rem;
+}
+
+.rotation-preview {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 6px;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fffdf7;
+  padding: 8px 10px;
+}
+
+.rotation-preview span {
+  color: #30483a;
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.team-assignment-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.team-assignment-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(220px, 1.4fr);
+  gap: 12px;
+  align-items: center;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 10px;
+}
+
+.team-assignment-row strong {
+  color: #24362c;
+}
+
+.team-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.team-toggle.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.game-toggle {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-weight: 700;
+  color: #283b30;
+  min-height: 34px;
+}
+
+.game-toggle.sm {
+  min-width: auto;
+  font-weight: 600;
+}
+
+.game-note {
+  font-weight: 500;
+  color: #7a8a7e;
+  font-size: 0.85rem;
+}
+
+.game-subconfig {
+  display: grid;
+  gap: 8px;
+  margin: -4px 0 4px;
+  padding: 10px 12px 12px;
+  border: 1px solid #d3e0d3;
+  border-radius: 8px;
+  background: #f7faf6;
+}
+
+.sub-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.sub-label {
+  min-width: 120px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #4a6050;
+}
+
+.seg-ctrl {
+  display: flex;
+  border: 1px solid #c8d8c8;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.seg-btn {
+  padding: 5px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: #f5f8f5;
+  border: none;
+  cursor: pointer;
+  color: #4a6050;
+  transition: background 0.15s, color 0.15s;
+}
+
+.seg-btn + .seg-btn {
+  border-left: 1px solid #c8d8c8;
+}
+
+.seg-btn.active {
+  background: #2f5d43;
+  color: #fff;
+}
+
+.form-input.sm {
+  width: 96px;
+  max-width: 100%;
+  padding: 5px 8px;
+  font-size: 0.82rem;
+}
+
+.bet-field {
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #6a7a6f;
+  justify-content: end;
+}
+
+.pair-match-builder {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 10px;
+}
+
+.pair-match-sides {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.pair-match-side {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(110px, 1fr));
+  gap: 8px;
+  flex: 1;
+}
+
+.pair-match-side label {
+  grid-column: 1 / -1;
+  color: #4a5a4f;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.pair-match-vs {
+  color: #8a9489;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.pair-select {
+  width: 100%;
+}
+
+.pair-add {
+  justify-self: start;
+  padding: 7px 12px;
+}
+
+.pg-hint {
+  margin: 0 0 12px;
+  color: #6a7a6f;
+  font-size: 0.78rem;
+}
+
+.pm-list {
+  display: grid;
+  gap: 10px;
+}
+
+.pm-builder-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.pm-sides {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.pm-side {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+  flex: 1;
+  border: 1px solid #eee5d5;
+  border-radius: 8px;
+  background: #fffdf7;
+  padding: 8px 10px;
+}
+
+.pm-side-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #8a672f;
+}
+
+.pm-chk {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: #283b30;
+}
+
+.pm-summaries {
+  margin-top: 14px;
+}
+
+.pm-summary {
+  border-top: 1px solid #ece3d2;
+  padding: 10px 0;
+}
+
+.pm-summary-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.pm-summary-group {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #2f5d43;
+}
+
+.pm-summary-vs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+  color: #283b30;
+  font-weight: 800;
+}
+
+.pm-summary-vs em {
+  color: #8a9489;
+  font-style: normal;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.pm-summary-games {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: #4a5a4f;
+  font-size: 0.8rem;
+}
+
+.pg-list {
+  display: grid;
+  gap: 10px;
+}
+
+.pg-group {
+  display: grid;
+  grid-template-columns: minmax(130px, 160px) 1fr;
+  align-items: start;
+  gap: 10px;
+}
+
+.pg-name-input {
+  max-width: 160px;
+  flex-shrink: 0;
+}
+
+.pg-players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.pg-header .setup-hdr {
+  margin-bottom: 0;
+}
+
+.pg-player-chip {
+  display: inline-flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 3px;
+  background: #e8f0e8;
+  border: 1px solid #b8d4c0;
+  border-radius: 8px;
+  padding: 7px 9px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #2f5d43;
+  min-width: 132px;
+  align-items: flex-start;
+}
+
+.pg-partner-label {
+  color: #6a7a6f;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.2;
+  max-width: 180px;
+}
+
+.pg-move-select {
+  background: transparent;
+  border: 1px solid #b8d4c0;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  color: #7a8a7f;
+  cursor: pointer;
+  padding: 2px 4px;
+  max-width: 100%;
+  margin-top: 3px;
+}
+
+.pg-move-select:focus {
+  outline: none;
+  border-color: #2f5d43;
+  color: #2f5d43;
+}
+
+.setup-errors {
+  margin: 0 0 14px;
+  padding: 12px 16px 12px 32px;
+  border: 1px solid #e0c4c0;
+  background: #f9eeec;
+  border-radius: 8px;
+  color: #a23b28;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 620px) {
+  .game-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .game-toggle {
+    grid-column: 1 / -1;
+  }
+
+  .pg-group {
+    grid-template-columns: 1fr;
+  }
+}
+
+.setup-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.sticky-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  margin: 22px -16px -132px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid #d7cebd;
+  background: rgb(238 240 232 / 94%);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 -12px 28px rgb(31 42 36 / 10%);
+}
+
+.sync-error {
+  margin: 0;
+  color: #b4473a;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.setup-action-status {
+  display: grid;
+  gap: 2px;
+  margin-right: auto;
+  min-width: 180px;
+}
+
+.setup-action-status strong {
+  color: #24362c;
+  font-size: 0.82rem;
+}
+
+.setup-action-status span {
+  color: #607067;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.btn-primary,
+.btn-ghost {
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-primary {
+  border: 1px solid #2f5d43;
+  background: #2f5d43;
+  color: #f3efe2;
+}
+
+.btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  border: 1px solid #cdbf9f;
+  background: transparent;
+  color: #4a5a4f;
+}
+
+.btn-ghost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .setup-shell {
+    padding: 16px 12px 124px;
+  }
+
+  .setup-topbar,
+  .course-summary-card,
+  .player-row,
+  .team-assignment-row {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pair-match-sides {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pair-match-side {
+    grid-template-columns: 1fr;
+  }
+
+  .setup-card {
+    padding: 16px;
+  }
+
+  .setup-section-head,
+  .pg-header {
+    align-items: flex-start;
+  }
+
+  .is-mobile-collapsible {
+    padding-bottom: 12px;
+  }
+
+  .is-mobile-collapsed .setup-section-head {
+    margin-bottom: 0;
+  }
+
+  .is-mobile-collapsed .mobile-collapsible-body {
+    display: none;
+  }
+
+  .mobile-section-summary {
+    display: block;
+    margin: 5px 0 0;
+    color: #607067;
+    font-size: 0.84rem;
+    font-weight: 750;
+    line-height: 1.3;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .section-mobile-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 74px;
+    min-height: 40px;
+    padding: 7px 12px;
+  }
+
+  .section-head-actions {
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 74px;
+  }
+
+  .section-head-actions .btn-ghost {
+    min-height: 40px;
+    padding: 7px 10px;
+  }
+
+  .course-summary-actions,
+  .player-row-actions {
+    justify-content: stretch;
+  }
+
+  .course-summary-actions .btn-ghost,
+  .btn-primary,
+  .btn-ghost,
+  .seg-btn,
+  .game-toggle {
+    min-height: 44px;
+  }
+
+  .course-summary-actions .btn-ghost {
+    width: 100%;
+  }
+
+  .course-nine-grid,
+  .player-fields,
+  .team-name-grid,
+  .game-inline-settings,
+  .game-subconfig {
+    grid-template-columns: 1fr;
+  }
+
+  .course-search {
+    flex-direction: column;
+  }
+
+  .course-search-btn {
+    width: 100%;
+  }
+
+  .selected-games-strip {
+    margin-top: -4px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
+  }
+
+  .selected-game-chip {
+    flex: 0 0 auto;
+  }
+
+  .game-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .game-card.active {
+    background: #f8fbf6;
+  }
+
+  .game-settings-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 6px 10px;
+    font-size: 0.78rem;
+  }
+
+  .is-settings-collapsed .game-settings-panel {
+    display: none;
+  }
+
+  .hcp-preview-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .hcp-preview-strokes {
+    text-align: left;
+  }
+
+  .team-toggle,
+  .team-toggle.three {
+    grid-template-columns: 1fr;
+  }
+
+  .pg-player-chip {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .sticky-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(118px, 0.9fr);
+    gap: 8px;
+    margin: 22px -12px -124px;
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+    align-items: end;
+  }
+
+  .setup-action-status {
+    grid-column: 1 / -1;
+    margin-right: 0;
+    min-width: 0;
+  }
+
+  .setup-actions .btn-primary,
+  .setup-actions .btn-ghost {
+    width: 100%;
+    min-height: 44px;
+    padding: 9px 10px;
+  }
+
+  .form-input,
+  .form-input.sm {
+    min-height: 44px;
+    font-size: 1rem;
+  }
+
+  .btn-text-danger {
+    min-height: 40px;
+    padding: 6px 8px;
+  }
+
+  .game-toggle {
+    align-items: center;
+    padding: 5px 0;
+  }
+
+  .game-toggle input {
+    min-width: 22px;
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* Final overrides for the guided setup card pattern. */
+.game-subconfig {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid #dfe6dc;
+  border-radius: 0;
+  background: transparent;
+}
+
+.game-subconfig .sub-row {
+  display: contents;
+}
+
+.rotation-six-settings {
+  grid-template-columns: minmax(280px, 1.35fr) minmax(170px, 0.65fr) minmax(140px, 0.5fr);
+  align-items: start;
+}
+
+.rotation-six-settings .rotation-field,
+.rotation-six-settings .game-helper,
+.rotation-six-settings .rotation-preview {
+  min-width: 0;
+}
+
+.rotation-field {
+  display: grid;
+  gap: 7px;
+  align-content: start;
+}
+
+.rotation-field .sub-label {
+  min-width: 0;
+  color: #4a6050;
+  font-size: 0.8rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rotation-six-settings .seg-ctrl {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.rotation-variant-control {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(92px, 1fr));
+  width: 100%;
+}
+
+.rotation-variant-control .seg-btn {
+  min-width: 0;
+  padding: 8px 10px;
+  white-space: normal;
+}
+
+.rotation-stake-field .bet-field {
+  align-items: flex-start;
+  width: 100%;
+}
+
+.rotation-stake-field .form-input {
+  width: 118px;
+}
+
+.rotation-six-settings .game-helper {
+  grid-column: 1 / -1;
+  color: #5f7066;
+  font-size: 0.76rem;
+}
+
+.rotation-six-settings .rotation-preview {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 760px) {
+  .rotation-six-settings {
+    grid-template-columns: 1fr;
+  }
+
+  .rotation-variant-control {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .rotation-six-settings .seg-ctrl {
+    width: 100%;
+  }
+}
+
+.pg-header {
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.pg-group {
+  grid-template-columns: minmax(130px, 160px) 1fr;
+  border: 1px solid #e4ddcd;
+  border-radius: 8px;
+  background: #fdfbf4;
+  padding: 10px;
+}
+
+.pg-player-chip {
+  flex-direction: row;
+  min-width: auto;
+}
+
+.pg-matchup {
+  grid-column: 2;
+  margin: 4px 0 0;
+  color: #607067;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .pg-group,
+  .pg-matchup {
+    grid-template-columns: 1fr;
+    grid-column: 1;
+  }
+}
+</style>

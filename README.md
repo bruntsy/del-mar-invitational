@@ -17,21 +17,37 @@ The current product model is:
 
 ## Stack
 
-- `index.html`: all frontend HTML, CSS, and JavaScript.
+- Vue 3, TypeScript, Pinia, Vue Router, and Vite for the rewrite UI.
+- `src/scoring`: pure scoring modules ported from the legacy app.
+- `src/stores/round.ts`: local round state, derived scoring getters, and
+  persistence.
+- `legacy/index.html`: preserved monolith used as the parity oracle during the
+  migration.
 - Supabase Postgres: `groups`, `events`, `rounds`, and `courses_cache`.
 - Supabase Realtime: live sync for active rounds.
 - Supabase Edge Functions: course search proxy/cache.
 - GolfCourseAPI: course/tee data source.
 - GitHub Pages: static production hosting from `main`.
 
-There is no frontend build step and no runtime package install required for the static app.
+The `rewrite` branch is now a Vite app. The old static app remains in
+`legacy/index.html` until rewrite parity is complete.
 
 ## Repository Layout
 
 ```text
 .
-├── index.html
+├── index.html              # Vite entry
+├── legacy/index.html       # old static app / parity oracle
+├── src
+│   ├── components/screens
+│   ├── domain
+│   ├── fixtures
+│   ├── scoring
+│   ├── stores
+│   └── types
+├── tests
 ├── README.md
+├── CHECKPOINTS.md
 └── supabase
     ├── config.toml
     └── functions
@@ -45,14 +61,35 @@ Notes:
 
 - `course-search` is the active Edge Function.
 - `ghin-lookup` is disabled for production. It returns HTTP 410 and makes no GHIN/API calls, so players are added manually.
-- `package-lock.json` is not required for the app.
+- `CHECKPOINTS.md` is the rewrite handoff trail and should be updated before
+  each pushed checkpoint.
 
 ## Local Development
 
-Run a local static server from the repo root:
+Install dependencies once:
 
 ```bash
-python3 -m http.server 5173
+npm install
+```
+
+Configure Supabase credentials. Copy the example env file and fill in the
+project URL and publishable anon key (read by the rewrite via
+`import.meta.env`):
+
+```bash
+cp .env.example .env
+```
+
+The committed `.env.example` lists the required `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_ANON_KEY` keys. `.env` is gitignored. With both vars set,
+`src/services/supabase.ts` constructs the client; when either is missing the
+client is `null` and `hasSupabase()` returns `false`, so callers fall back to
+local-only behavior.
+
+Run the Vite dev server:
+
+```bash
+npm run dev
 ```
 
 Open:
@@ -61,21 +98,25 @@ Open:
 http://localhost:5173/
 ```
 
-You can also open `index.html` directly, but a local HTTP server is closer to production behavior.
-
-Run event format regression tests:
+Run regression and build checks:
 
 ```bash
 node scripts/event-format-tests.js
+npm run test:run
+npm run build
+```
+
+The legacy static app can still be served directly for parity checks:
+
+```bash
+python3 -m http.server 5174
 ```
 
 ## Dependencies
 
 ### Browser
 
-The app loads Supabase JS from CDN in `index.html`.
-
-No npm dependencies are required for the frontend.
+The rewrite frontend uses the packages listed in `package.json`.
 
 ### Supabase Edge Function
 
@@ -294,7 +335,7 @@ ROUND = {
     aggy: { enabled, front, back, total, type },
     h2h: { enabled, perMatchup, type },
     stableford: { enabled, buyIn, type, points },
-    wolf: { enabled, amount, type },
+    wolf: { enabled, amount, type, nassau },
     puttPoker: { enabled, pot }
   },
   scores: {
@@ -457,7 +498,13 @@ Current settlement model is winner-take-pot among highest Stableford points, spl
 
 ### Wolf
 
-Wolf scoring support exists in state/results and can be enabled, with per-hole choices on scorecard. Larger Wolf UX improvements are intentionally deferred.
+- Per-hole wolf, partner/solo choice, and partner state are persisted under `round.wolf.holes`.
+- Pure scoring helpers compute hole results, segment points, segment winners, and settlement.
+- Winning solo players receive 2 points; winning two-player sides receive 1 point per player.
+- Pushes award no points and do not carry.
+- Settlement is winner-take-pot by segment, split on ties.
+- `nassau` switches settlement/results from overall only to front/back/overall.
+- Larger Wolf UX improvements are intentionally deferred.
 
 ### Putt Poker
 
@@ -467,22 +514,292 @@ Wolf scoring support exists in state/results and can be enabled, with per-hole c
 - 1-putt adds 1 card.
 - 3-putt moves the coin and adds $1 to the pot.
 - 4+ putt moves the coin and adds $2 to the pot.
+- Pure scoring helpers compute card counts, coin holder, pot, and per-player
+  3-putt/4+ putt penalty counts.
+- The coin follows the most recent penalty putt in hole order, then player order.
+- Putt poker is a standalone pot and does not feed the settlement P&L ledger.
+
+### Settlement
+
+- Pure helpers aggregate every money game into a per-player profit/loss map and
+  reduce it to a minimal "who pays who" transfer list.
+- `computePlayerPnL()` composes skins, best ball, scramble, two-ball, aggy,
+  Rotation Sixes, head-to-head, Stableford, three-man Nassau, and Wolf results.
+- `computeSettlement()` greedily matches the largest debtor to the largest
+  creditor until everyone is square.
+- Putt poker is not part of the P&L, matching the legacy monolith.
+  `gamesHaveBets()` still counts putt poker when deciding whether to show the
+  settlement section.
+
+### Round Store (rewrite)
+
+- `src/stores/round.ts` is the Pinia store that the rewrite UI builds on.
+- It holds the active `RoundState` plus the player handicap-index map and
+  persists both to `localStorage` under `dmi_round`.
+- Derived getters mirror the legacy globals: `playerNames` (team1 then team2),
+  `courseHandicaps` (`computeWHSCourseHcp`), `strokes` (`allocateNetStrokes`),
+  and a `scoreContext` consumed by every pure scoring module.
+- Scoring/results getters (`skins`, `settlement`, `playerTotals`,
+  `leaderboard`, `teamNetTotals`, `teamGameResults`, `rotationSixesResult`,
+  `wolfResult`, `stablefordResult`, `threeManNassauResult`, `puttPokerGroups`,
+  `puttPokerFor`, `hasBets`) wire the pure modules to the live round.
+- Score, putt, and team-score mutations write timestamped cells via
+  `writeCell()` so concurrent edits stay sync-friendly.
+- `setCompleted()` marks a round complete or reopens it locally, then schedules
+  the same debounced Supabase round-state sync as score edits.
+
+### Scorecard Screen (rewrite)
+
+- `src/components/screens/ScorecardScreen.vue` is the first real rewrite screen,
+  routed at `/scorecard`.
+- It renders the player rows, par/stroke-index rows, per-hole score inputs with
+  birdie/bogey color coding and net-stroke dots, OUT/IN/TOT/NET/SKN columns, and
+  a live settlement panel.
+- When 4-man scramble is enabled, it renders one gross team-score row per side
+  and writes those scores to `round.teamScores`.
+- When Best Ball or 2-Ball are enabled, it renders read-only derived team rows
+  from the player score matrix.
+- When Pair Match Play is enabled, it renders live match cards backed by
+  `store.pairMatchResult`.
+- When Wolf is enabled, it renders an editable per-hole Wolf panel backed by
+  `store.wolfResult` and `store.setWolfHole`.
+- When Rotation Sixes is enabled, it renders a live `Rotation Sixes` match panel
+  with three six-hole rotating-partner matches and the selected scoring variant
+  (`Best Ball`, `High / Low`, or `Best Ball + Aggy`) on the chosen gross/net
+  basis.
+- All scoring is read from the round store getters; the component does no
+  scoring math of its own beyond display formatting.
+- `src/fixtures/demoRound.ts` seeds a ready-to-score sample round so the screen
+  is reachable from the home screen before the full setup flow exists.
+- Each player row has a collapsible putt-tracking row (green for 0-1 putts,
+  neutral for 2, red for 3+), and a putt poker panel renders per playing group
+  with coin holder, card counts, penalty notes, and the running pot — all read
+  from `store.puttPokerFor`.
+- A **group filter bar** appears when the round has more than one playing group.
+  Clicking a group name limits the main table to that group's players; "All"
+  restores the full view. The filter also constrains the mobile player list.
+- A **Mobile mode** toggle swaps the 18-column table for a per-hole card:
+  hole number/par/SI header, per-player score and putt steppers (−/input/+),
+  and an 18-button hole strip for quick navigation. The current hole is persisted
+  to `dmi_mobile_hole_<roundId|local>` in localStorage.
+- On mobile, viewed holes save missing player scores as par and missing player
+  putts as 2 immediately, so the displayed score/putt steppers and stored round
+  state stay in sync. Existing values are preserved.
+- Mobile score and putt controls sit in a compact paired row per player with a
+  shared Score/Putts header, even when Putt Poker is off, so putt entry remains
+  available from the hole card without repeating labels on every row.
+- The mobile card keeps View full scorecard and Results actions in a compact
+  in-flow row after the hole strip, so navigation stays close without covering
+  score entry controls.
+- The mobile hole card shows a compact `Missing N` / `Hole complete` status
+  chip with entered-count detail, and its forward action jumps to the next
+  incomplete hole when possible.
+- The mobile card shows `Fill missing par N` only when there are blank scores on
+  the active hole; the shortcut fills only blanks, including two-man scramble
+  team-score rows.
+- For event/team match formats, the mobile card keeps current-hole match context
+  beside score entry with shorter contest labels, side-vs-side labels, hole
+  match standing, labeled current-hole score, and an Open button that launches a
+  focused match scorecard dialog. Event team context is a compact strip that
+  separates the active playing group from the labeled `Round total`, so the
+  score rows remain close to the active-hole controls without implying the
+  total belongs only to that group.
+- The match scorecard dialog shows Front, Back, and Overall bet status cards
+  above the hole table, including live match-play standings such as `1 up thru
+  3`, and uses readable pair initials in the Match row instead of A/B codes.
+
+### Setup Screen (rewrite)
+
+- `src/components/screens/SetupScreen.vue`, routed at `/setup`, creates a round
+  without the demo fixture.
+- Sections: course search/manual course fields (club/course/location, tee
+  rating/slope, editable par + SI + yardage grids), teams and players (name +
+  handicap index + team per row), and a games config covering skins, best ball,
+  pair match play, 4-man scramble, Rotation Sixes, Wolf, and putt poker.
+- Rotation Sixes is available only for ad hoc setup. It requires exactly four
+  named players, previews the three six-hole partner rotations, supports
+  gross/net Best Ball, High / Low, or Best Ball + Aggy, and blocks V1
+  coexistence with fixed-team/pair-match games while allowing Skins and Putt
+  Poker. Its setup settings use a dedicated compact layout so the three variant
+  choices, score basis, stake, helper text, and rotation preview stay readable
+  on desktop and stack cleanly on mobile.
+- On the scorecard, Rotation Sixes suppresses fixed Team A/Team B grouping:
+  score entry shows the four golfers together, mobile does not auto-filter to a
+  setup team, and the visible match context comes from the active six-hole
+  rotation.
+- Course search calls the public `course-search` Edge Function through
+  `src/services/courseSearch.ts`. `src/domain/courseSearch.ts` filters usable
+  18-hole tees, collapses duplicate tee sets, repairs invalid stroke indexes,
+  and maps selected tees into the round `Course` shape. Selecting a tee fills
+  rating, slope, par, SI/stroke index, and yardage before handicap/stroke
+  getters run. Selected courses render a compact tee marker plus par, yardage,
+  rating, and slope badges before the front/back-nine summary.
+- The player section previews each named player's handicap index, WHS course
+  handicap, relative strokes, and SI-based stroke-hole list using the shared
+  handicap helpers. The preview updates immediately when course rating, slope,
+  par, SI, player indexes, or a searched tee changes.
+- On mobile, the sticky setup action bar shows checklist progress such as
+  `3 of 5 ready`, the current blocking issue, and compact side-by-side actions
+  with larger tap targets for inputs, toggles, and buttons.
+- On mobile, the default course now counts as ready when the built-in par values
+  are usable, so the footer points at real blockers instead of implying course
+  search is mandatory.
+- On mobile, completed Course and Players cards collapse to compact summary
+  headers with an explicit Edit/Hide control, reducing setup-scroll distance
+  while keeping desktop setup fully expanded.
+- On mobile, the Games card shows selected games as compact chips and keeps
+  each selected game's money/settings fields behind a Settings toggle, so the
+  game list stays scannable while settings remain editable.
+- For ad hoc pair games, setup uses Pair matches with two-player selects per
+  team side, labeled with the current round team names. Default pair matches
+  are seeded in 2v2 chunks, so eight-player rounds create two foursomes instead
+  of one oversized playing group.
+- On mobile, completed Teams & matchups and Playing groups cards collapse to
+  summary headers with Edit/Hide controls, preserving quick access to team
+  assignment and group movement without forcing every control to stay visible.
+- When an active group has roster players, setup pre-fills player rows from
+  that roster, split evenly across the two teams. The setup roster remains
+  round-local after prefill, so one-off edits do not mutate the group roster.
+- "Start round" validates (par present, both teams populated, unique names),
+  builds the `RoundState` + player handicap map, generates head-to-head matchups
+  by zipping `team1[i]` vs `team2[i]` (as legacy did), writes through
+  `store.startRound`, and routes to the scorecard.
+- When an online Supabase-backed group is active, `store.startRound` inserts a
+  `rounds` row and keeps the returned DB id on the active round so realtime sync
+  can push score edits. Without a remote group id or Supabase credentials, setup
+  keeps the existing local-only behavior.
+- Manual course entry remains available when Supabase is unconfigured or course
+  search fails.
+- A **Playing Groups** section previews the auto-assigned groups (derived from
+  pair-match pairings when Pair Match Play is enabled, otherwise interleaved
+  team order) and allows renaming each group before the round starts. Group names
+  and assignments are written into `round.playingGroups` and drive the scorecard
+  group filter and putt poker per-group panel.
+
+### Event Configuration (rewrite)
+
+- Event config can be saved as a draft while future rounds still need courses
+  or pair-match assignments. The group screen blocks launching an incomplete
+  round, but the editor no longer forces every future round to be fully built
+  before saving the event.
+
+### Results Screen (rewrite)
+
+- `src/components/screens/ResultsScreen.vue`, routed at `/results`, renders the
+  first rewrite results view.
+- It shows team net scores, an individual leaderboard sorted by net score,
+  a share-ready story-of-round summary, settlement P&L and transfer rows,
+  enabled team-game front/back/total breakdowns, Rotation Sixes raw match
+  payments and game-native P&L, pair-match results, Wolf standings/detail tables,
+  a Stableford points table (best-first, leader
+  highlighted), a 3-Man Nassau segment table (solo vs best-ball of side,
+  Front/Back/Overall, with invalid-roster note when the round has ≠ 3 players),
+  a per-group Putt Poker summary (coin holder, card counts, penalties, final
+  pot), and a skins breakdown.
+- High Ball / Low Ball results use prominent Front 9 / Back 9 / Overall cards
+  that show the segment score and winner before the compact hole-by-hole detail.
+- The screen uses round-store getters for all scoring and formatting inputs; it
+  does not recompute game math in the component.
+- Rounds can be marked complete or reopened locally from the results screen.
+- Home and scorecard screens now link to results.
+- All legacy per-game detail panels have now been ported. Completed-round
+  history persistence is wired via the group/history stores (Checkpoint 29).
+
+### Group Membership (rewrite)
+
+- `src/stores/group.ts` is the Pinia group store, porting the legacy
+  create/join/leave/rename and recent-group helpers. It holds the active
+  `Group`, the per-browser recent-groups list, and a status/busy state, and
+  persists to `localStorage` under `dmi_group` / `dmi_recent_groups`.
+- `src/domain/group.ts` holds the pure mappers `normalizeGroup` (DB row →
+  camelCase `Group`), `groupForDb` (`Group` → DB columns), and `generateCode()`
+  (4-char room code).
+- The store is local-first with a graceful no-credentials fallback via
+  `hasSupabase()`: when Supabase is unconfigured, `createGroup` makes an offline
+  group (null DB id) and `joinGroup` reports that remote join is unavailable
+  instead of throwing. With credentials, create inserts a `groups` row (retrying
+  on code collision), join selects by `room_code`, and group saves sync the
+  name plus roster.
+- The group store exposes roster actions to add, update, and remove players.
+  Roster changes persist locally and update `groups.players` when the active
+  group has a Supabase id.
+- `src/components/screens/GroupScreen.vue`, routed at `/group` and linked from
+  the home screen, renders create / join-by-code / recent-groups when there is
+  no active group, and the group code, editable name, roster editor, Leave, and
+  a "Past rounds" history section when there is one.
+
+### Round History (rewrite)
+
+- `src/domain/round.ts` holds the DB↔domain mappers: `normalizeRoundRow` parses
+  a `rounds` row (handling JSON string or object `state`, letting the row's
+  `id`/`group_id`/`completed` win over stale copies in the blob), and
+  `summarizeRound` reduces a completed round to per-player net + skins sorted by
+  net. `normalizeRoundState` (moved here from the round store) is the shared
+  repair helper used by both the local load path and the DB row mapper.
+- `src/stores/round.ts` has a new `loadActiveRound(groupId)` action that fetches
+  the group's latest incomplete round from Supabase and makes it active. It fires
+  automatically on every `joinGroup` call (legacy `loadActiveRound`).
+- `src/stores/history.ts` is the Pinia history store: `loadHistory(groupId)`
+  selects all completed rounds for a group (newest first) and maps each through
+  `normalizeRoundRow` → `summarizeRound` into a `RoundSummary[]`. Clears rather
+  than throwing when offline.
+- `GroupScreen.vue` loads history on mount and after join/switch, and renders a
+  per-round card (course name, completed date, player net/skins table) when a
+  group is active and Supabase is configured.
+- `src/stores/stats.ts` is the Pinia all-time stats store: `loadStats(groupId)`
+  queries the same completed rounds as history and aggregates per-player metrics
+  (rounds played, avg gross, avg net, total skins) from `rounds.state.players`
+  snapshots — stable even if the live roster changes. `GroupScreen.vue` renders
+  the stats panel below history when Supabase is configured and data exists.
+- `src/stores/event.ts` is the Pinia event store. It fetches the active `events`
+  row for a group (`loadEvent`), creates events with `defaultEventConfig`
+  (`createEvent`), saves/archives, and owns the round-launch link flow:
+  `setPendingRoundLink(index)` before navigating to /setup; `linkRound(roundId)`
+  after `startRound` writes the new round ID into `config.rounds[N].roundId`.
+  `loadLinkedRounds()` fetches round states for all linked IDs into `cachedRounds`.
+  `subscribeToEvent(groupId)` subscribes to Postgres `events` changes and refreshes
+  the local config + cache on any remote update. `standings` getter sums
+  `pointsResult` across rounds.
+- `src/composables/useEventLeaderboard.ts` is a reactive composable that computes
+  per-round `EventRoundResult` values from live round store context (when the active
+  round ID matches a linked round) or from `cachedRounds` (for completed rounds).
+  Totals prefer stored `pointsResult` when set. `GroupScreen.vue` renders the full
+  leaderboard: live standings with leading-team highlight, per-round breakdown cards
+  with Front/Back/Overall match tables, Launch buttons for unlinked rounds, and
+  event leader cards for contributed points, closing points, skins won, holes
+  won, best pair record, most valuable match, and best net average. Event team
+  games use team-colored match scoreboard cards for Best Ball, Best Ball +
+  Aggy, High Ball / Low Ball, and scramble formats so segment winners are
+  named directly instead of encoded as ambiguous score chips. The scorecard
+  live-event chip view also names the winning pair inside the same colored chip
+  as the segment score.
 
 ## Realtime Sync
 
-Sync target:
-
-```text
-rounds.state
-```
-
-Mechanics:
-
-- Local edits write immediately to localStorage.
-- Remote push is debounced by about 600ms.
-- Supabase Realtime listens for `rounds` changes filtered by `group_id`.
-- A 10-second polling fallback also refreshes active round state.
-- Score and putt merge logic avoids remote nulls wiping out local non-null values.
+- `src/domain/round.ts` exposes `roundForDb()` and `mergeRoundData()` so
+  Supabase round-state writes and realtime reads use the same pure mapping and
+  legacy cell-level merge behavior.
+- `src/stores/round.ts` owns the sync lifecycle: local edits still persist to
+  `localStorage` immediately, then `scheduleSync()` debounces `pushToSupabase()`
+  by about 600ms for active rounds that have a DB id.
+- `startRound(round, players, groupId)` inserts a new `rounds` row when a
+  Supabase-backed group is active, then normalizes the returned row into the
+  active store state. Insert failures fall back to a local round with a visible
+  sync error.
+- `pushToSupabase()` first reads the current `rounds` row, merges any remote
+  non-null score/putt/team-score cells, then updates `rounds.state` and
+  `rounds.completed`.
+- `subscribeToGroup(groupId)` opens a Supabase Realtime channel filtered by
+  `group_id`; updates for the active round are merged into the store, inserts of
+  incomplete rounds become the active round, and local echo payloads are ignored
+  with a last-pushed guard.
+- `startPolling()` keeps a 10-second active-round polling fallback while a group
+  subscription is open. `stopGroupSubscription()` clears the channel, debounce
+  timer, and polling timer on leave/reset.
+- Group create/join starts the subscription when Supabase is configured; leaving
+  a group stops it. Offline/no-credential mode remains a no-op.
+- Score, putt, and team-score merge logic avoids remote nulls wiping out local
+  non-null values.
 
 For multi-device testing, use two browsers/devices joined to the same group code.
 
@@ -490,7 +807,15 @@ For multi-device testing, use two browsers/devices joined to the same group code
 
 ### App
 
-Commit and push to `main`:
+Production is currently the old static app on `main`. The rewrite branch is
+also configured as the Vercel production-tracked branch during migration, so
+push rewrite checkpoints frequently:
+
+```bash
+git push origin rewrite
+```
+
+For the legacy GitHub Pages app, commit and push to `main`:
 
 ```bash
 git add index.html README.md
@@ -519,6 +844,79 @@ Set/update GolfCourseAPI key:
 ```bash
 supabase secrets set GOLF_COURSE_API_KEY=...
 ```
+
+## Production / Event Day
+
+### Hosting
+
+The rewrite is deployed to Vercel. The production URL is the same domain as the
+Vercel project linked to the `rewrite` branch. Push the branch to trigger a new
+deployment:
+
+```bash
+git push origin rewrite
+```
+
+`vercel.json` contains an SPA rewrite rule so all client-side routes
+(`/group`, `/setup`, `/scorecard`, `/results`) respond with `index.html`
+when hit directly or refreshed.
+
+The legacy static app remains live at https://bruntsy.github.io/del-mar-invitational/
+served from the `main` branch via GitHub Pages. Once the rewrite is confirmed
+primary, redirect or remove the legacy URL.
+
+### Schema Migration (fresh Supabase project)
+
+Run these SQL statements in the Supabase SQL editor in order:
+
+1. Create the tables and enable RLS (copy the full schema from the **Database Schema** section above).
+2. Add the realtime publication:
+
+```sql
+alter publication supabase_realtime add table rounds;
+alter publication supabase_realtime add table events;
+```
+
+3. Deploy the course-search edge function:
+
+```bash
+supabase functions deploy course-search --no-verify-jwt
+supabase secrets set GOLF_COURSE_API_KEY=<key>
+```
+
+4. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` and
+   `VITE_SUPABASE_ANON_KEY` with the new project's values.
+
+### Security Notes
+
+All four tables use broad anonymous RLS (`using (true) with check (true)`).
+This is intentional for a closed invite-style event — group codes provide
+lightweight access control. Do **not** store sensitive personal data in group
+or round state. If the app expands beyond a private event group, tighten RLS
+by adding authentication and scoping policies to authenticated users.
+
+The migration in
+`supabase/migrations/20260730000000_remove_anonymous_delete_access.sql`
+revokes table-level `DELETE` privileges from browser-facing `anon` and
+`authenticated` roles. The app does not delete database rows; event archival
+is an `UPDATE` to `events.status`. Trusted `service_role` maintenance retains
+delete access.
+
+### Event Day Flow
+
+1. **Before the event**: create the group, add the full roster, and create the
+   event (set team names and assign players to teams).
+2. **Round launch**: from the group hub, click **Launch** next to a round slot.
+   The setup screen pre-fills the event roster split across the two teams.
+   Select the course, configure games, and start the round. The new round ID
+   is automatically linked back into the event.
+3. **Live scoring**: all players join the same group code on their devices.
+   Scores sync in realtime; the event leaderboard in the group hub updates
+   as each round completes.
+4. **After each round**: mark the round complete from the results screen.
+   Recorded event points flow into the leaderboard standings.
+5. **End of event**: archive the event from the group hub to close it out.
+   Completed rounds remain in group history and all-time stats.
 
 ## Testing Checklist
 
