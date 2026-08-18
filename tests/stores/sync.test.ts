@@ -83,6 +83,61 @@ describe('round realtime sync', () => {
     expect(store.syncError).toContain('retry');
   });
 
+  it('recovers the exact round when an insert commits but its response is lost', async () => {
+    let releaseInsert!: (result: { data: unknown; error: unknown }) => void;
+    const lostResponse = new Promise<{ data: unknown; error: unknown }>((resolve) => {
+      releaseInsert = resolve;
+    });
+    mockDb.enqueue('rounds', [lostResponse]);
+    const store = useRoundStore();
+
+    const starting = store.startRound(draftRound(), players, 'g1');
+    const insert = mockDb.operations.find((op) => op.table === 'rounds' && op.method === 'insert');
+    const startId = (insert?.args[0] as { id: string }).id;
+    expect(startId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+
+    mockDb.enqueue('rounds', [{ data: { ...activeRoundRow({ players }), id: startId }, error: null }]);
+    releaseInsert({ data: null, error: { message: 'response lost' } });
+
+    const created = await starting;
+    expect(created?.id).toBe(startId);
+    expect(store.syncError).toBe('');
+    expect(store.pendingStartId).toBeNull();
+    const recoveryFilters = mockDb.operations.filter((op) => op.method === 'eq');
+    expect(recoveryFilters).toContainEqual(expect.objectContaining({ args: ['id', startId] }));
+    expect(mockDb.operations.filter((op) => op.method === 'insert')).toHaveLength(1);
+  });
+
+  it('reuses the same client round id when the scorer retries setup', async () => {
+    mockDb.set('rounds', { data: null, error: { message: 'offline' } });
+    const store = useRoundStore();
+
+    expect(await store.startRound(draftRound(), players, 'g1')).toBeNull();
+    const firstInsert = mockDb.operations.find((op) => op.method === 'insert');
+    const firstId = (firstInsert?.args[0] as { id: string }).id;
+
+    mockDb.set('rounds', { data: activeRoundRow({ players }), error: null });
+    expect(await store.startRound(draftRound(), players, 'g1')).not.toBeNull();
+    const inserts = mockDb.operations.filter((op) => op.method === 'insert');
+    const secondId = (inserts[1].args[0] as { id: string }).id;
+
+    expect(secondId).toBe(firstId);
+    expect(store.pendingStartId).toBeNull();
+  });
+
+  it('uses a new id for a fresh setup session after an abandoned failure', async () => {
+    mockDb.set('rounds', { data: null, error: { message: 'offline' } });
+    const store = useRoundStore();
+
+    await store.startRound(draftRound(), players, 'g1');
+    const firstId = store.pendingStartId;
+    store.beginRoundSetup();
+    await store.startRound(draftRound(), players, 'g1');
+
+    expect(firstId).not.toBeNull();
+    expect(store.pendingStartId).not.toBe(firstId);
+  });
+
   it('starts locally without Supabase when there is no online group id', async () => {
     const store = useRoundStore();
 

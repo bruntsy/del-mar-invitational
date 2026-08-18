@@ -170,6 +170,22 @@ function hasLocalStorage(): boolean {
   return typeof localStorage !== 'undefined';
 }
 
+function generateRoundId(): string {
+  if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  if (typeof globalThis.crypto?.getRandomValues === 'function') {
+    globalThis.crypto.getRandomValues(bytes);
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) {
+      bytes[index] = Math.floor(Math.random() * 256);
+    }
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 /**
  * A fresh, empty round matching the legacy default shape created in
  * `index.html` (`ROUND={ id:null, ... games:cloneDefaultGames() ... }`).
@@ -210,6 +226,8 @@ export const useRoundStore = defineStore('round', {
     syncError: '',
     starting: false,
     completionSaving: false,
+    pendingStartId: null as string | null,
+    pendingStartGroupId: null as string | null,
   }),
 
   getters: {
@@ -763,6 +781,12 @@ export const useRoundStore = defineStore('round', {
       this.persist();
     },
 
+    beginRoundSetup() {
+      this.pendingStartId = null;
+      this.pendingStartGroupId = null;
+      this.syncError = '';
+    },
+
     async startRound(round: RoundState, players: PlayerMap, groupId: string | null = null): Promise<RoundState | null> {
       const localRound = normalizeRoundState({
         ...round,
@@ -773,23 +797,44 @@ export const useRoundStore = defineStore('round', {
       this.syncError = '';
       try {
         if (!groupId || !hasSupabase() || !supabase) {
+          this.pendingStartId = null;
+          this.pendingStartGroupId = null;
           this.setRound(localRound, players);
           return this.round as RoundState;
         }
 
-        const state = roundForDb(localRound, players);
-        const { data, error } = await supabase
+        if (!this.pendingStartId || this.pendingStartGroupId !== groupId) {
+          this.pendingStartId = generateRoundId();
+          this.pendingStartGroupId = groupId;
+        }
+        const startId = this.pendingStartId;
+        const state = roundForDb({ ...localRound, id: startId }, players);
+        const inserted = await supabase
           .from('rounds')
-          .insert({ group_id: groupId, code: generateCode(), state, completed: false })
+          .insert({ id: startId, group_id: groupId, code: generateCode(), state, completed: false })
           .select(ACTIVE_ROUND_COLUMNS)
           .single();
 
-        if (error || !data) {
-          this.syncError = 'Could not create the online round. Check your connection and retry.';
-          return null;
+        let data = inserted.data;
+        if (inserted.error || !data) {
+          // The insert may have committed even if its HTTP response was lost.
+          // Recover only this client-generated row; never upsert over live state.
+          const recovered = await supabase
+            .from('rounds')
+            .select(ACTIVE_ROUND_COLUMNS)
+            .eq('id', startId)
+            .eq('group_id', groupId)
+            .maybeSingle();
+          data = recovered.error ? null : recovered.data;
+          if (!data) {
+            this.syncError = 'Could not create the online round. Check your connection and retry.';
+            return null;
+          }
         }
 
         const { round: createdRound, players: embeddedPlayers } = normalizeRoundRow(data as RoundRow);
+        this.pendingStartId = null;
+        this.pendingStartGroupId = null;
         this.setRound(createdRound, { ...players, ...embeddedPlayers });
         this.subscribeToGroup(groupId);
         return this.round as RoundState;

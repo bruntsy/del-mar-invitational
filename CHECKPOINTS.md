@@ -3554,3 +3554,41 @@ round.
   retry can still create a duplicate. Add an idempotency key before treating
   that failure mode as fully resolved.
 - Run a controlled two-device Supabase rehearsal after deployment.
+
+---
+
+## Checkpoint 79 — Idempotent round launch (2026-08-18)
+
+### Summary
+
+Closed the final duplicate-round launch window without adding a migration or
+allowing a retry to overwrite live round state.
+
+### Changes
+
+- Each online setup session now generates one client-side UUID for its round
+  insert and reuses that UUID for retries.
+- When an insert response is missing or reports an error, the app queries only
+  that UUID and group. If the original insert committed, the existing row is
+  adopted; otherwise setup remains open for retry.
+- Recovery never uses `upsert`, so scores entered from another device cannot be
+  replaced by a launch retry.
+- A fresh setup visit clears an abandoned launch UUID, while repeated Start
+  attempts in the same mounted setup retain it.
+- Updated patch-level transitive dependencies: `postcss`, `nanoid`,
+  `form-data`, and `brace-expansion`. Breaking Vite/Vitest upgrades were
+  intentionally deferred.
+
+### Verification
+
+- Clean `npm ci` completed from the updated lockfile.
+- `npm run test:run` passed: 38 files, 382 tests.
+- `npm run build` passed.
+- `node scripts/event-format-tests.js` passed.
+- Local desktop and 390x844 mobile Chrome smoke checks passed without
+  production credentials.
+
+### Next likely tasks
+
+- Run the controlled two-device live Supabase rehearsal.
+- Merge the rewrite PR into `main` after the rehearsal passes.

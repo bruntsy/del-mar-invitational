@@ -72,6 +72,7 @@ const form = reactive({
 
 onMounted(() => {
   group.load();
+  if (!editMode.value) store.beginRoundSetup();
   // In edit mode, recover the round from storage if it isn't already in memory
   // (e.g. a refresh or deep-link to /setup?edit=1) before prefilling the form.
   if (editMode.value && !store.round) store.load();
