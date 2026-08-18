@@ -72,16 +72,15 @@ describe('round realtime sync', () => {
     expect(mockDb.hasChannel('group-g1')).toBe(true);
   });
 
-  it('starts locally when online round insert fails', async () => {
+  it('keeps the scorer in setup when online round insert fails', async () => {
     mockDb.set('rounds', { data: null, error: { message: 'insert failed' } });
     const store = useRoundStore();
 
-    await store.startRound(draftRound(), players, 'g1');
+    const created = await store.startRound(draftRound(), players, 'g1');
 
-    expect(store.round?.id).toBeNull();
-    expect(store.round?.groupId).toBe('g1');
-    expect(store.players).toEqual(players);
-    expect(store.syncError).toContain('Started locally');
+    expect(created).toBeNull();
+    expect(store.round).toBeNull();
+    expect(store.syncError).toContain('retry');
   });
 
   it('starts locally without Supabase when there is no online group id', async () => {
@@ -110,6 +109,104 @@ describe('round realtime sync', () => {
     const payload = update?.args[0] as { state: { scores: ScoreMatrix; players: unknown } };
     expect(scoreAt(payload.state.scores, 'Amy', 0)).toBe(4);
     expect(payload.state.players).toEqual({ Amy: { name: 'Amy', handicapIndex: 7 } });
+  });
+
+  it('retries a failed score sync and clears the error after recovery', async () => {
+    vi.useFakeTimers();
+    const store = useRoundStore();
+    store.setRound(activeRoundRow().state, players);
+    mockDb.set('rounds', { data: null, error: { message: 'network down' } });
+
+    store.setScore('Amy', 0, 4);
+    await vi.advanceTimersByTimeAsync(600);
+    expect(store.syncError).toContain('network down');
+    expect(store.syncPending).toBe(true);
+
+    mockDb.set('rounds', { data: activeRoundRow(), error: null });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(store.syncError).toBe('');
+    expect(store.lastSyncedAt).not.toBe('');
+  });
+
+  it('stops automatic retries after the bounded retry limit', async () => {
+    vi.useFakeTimers();
+    const store = useRoundStore();
+    store.setRound(activeRoundRow().state, players);
+    mockDb.set('rounds', { data: null, error: { message: 'network down' } });
+
+    store.setScore('Amy', 0, 4);
+    await vi.advanceTimersByTimeAsync(40_000);
+
+    const reads = mockDb.operations.filter((op) => op.table === 'rounds' && op.method === 'select');
+    expect(reads).toHaveLength(6); // initial attempt plus five retries
+    expect(store.retryAttempt).toBe(5);
+    expect(store.syncPending).toBe(false);
+    expect(store.syncStatusLabel).toBe('Sync failed — saved on this device');
+  });
+
+  it('queues an edit made during an in-flight sync instead of overlapping writes', async () => {
+    vi.useFakeTimers();
+    let releaseRead!: (result: { data: unknown; error: unknown }) => void;
+    const delayedRead = new Promise<{ data: unknown; error: unknown }>((resolve) => { releaseRead = resolve; });
+    const success = { data: activeRoundRow(), error: null };
+    mockDb.enqueue('rounds', [delayedRead, success, success, success]);
+    const store = useRoundStore();
+    store.setRound(activeRoundRow().state, players);
+
+    store.setScore('Amy', 0, 4);
+    await vi.advanceTimersByTimeAsync(600);
+    expect(store.syncing).toBe(true);
+
+    store.setScore('Amy', 1, 5);
+    expect(store.syncPending).toBe(true);
+    expect(mockDb.operations.filter((op) => op.method === 'update')).toHaveLength(0);
+
+    releaseRead(success);
+    await Promise.resolve();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    const updates = mockDb.operations.filter((op) => op.table === 'rounds' && op.method === 'update');
+    expect(updates).toHaveLength(2);
+    const finalState = updates[1].args[0] as { state: { scores: ScoreMatrix } };
+    expect(scoreAt(finalState.state.scores, 'Amy', 0)).toBe(4);
+    expect(scoreAt(finalState.state.scores, 'Amy', 1)).toBe(5);
+  });
+
+  it('flushes a pending score in the confirmed completion write', async () => {
+    vi.useFakeTimers();
+    mockDb.set('rounds', { data: activeRoundRow(), error: null });
+    const store = useRoundStore();
+    store.setRound(activeRoundRow().state, players);
+
+    store.setScore('Amy', 0, 4);
+    expect(await store.setCompleted(true)).toBe(true);
+
+    const updates = mockDb.operations.filter((op) => op.table === 'rounds' && op.method === 'update');
+    expect(updates).toHaveLength(1);
+    const payload = updates[0].args[0] as { completed: boolean; state: { scores: ScoreMatrix } };
+    expect(payload.completed).toBe(true);
+    expect(scoreAt(payload.state.scores, 'Amy', 0)).toBe(4);
+  });
+
+  it('reverts completion when the server does not confirm it', async () => {
+    const store = useRoundStore();
+    store.setRound(activeRoundRow().state, players);
+    mockDb.set('rounds', { data: null, error: { message: 'network down' } });
+
+    expect(await store.setCompleted(true)).toBe(false);
+    expect(store.round?.completed).toBe(false);
+    expect(store.syncError).toContain('network down');
+  });
+
+  it('refuses to reset a server-backed round', () => {
+    const store = useRoundStore();
+    store.setRound(activeRoundRow().state, players);
+
+    expect(store.reset()).toBe(false);
+    expect(store.round?.id).toBe('r1');
+    expect(store.syncError).toContain('cannot be reset');
   });
 
   it('applies realtime updates for the active round without erasing local extra cells', () => {

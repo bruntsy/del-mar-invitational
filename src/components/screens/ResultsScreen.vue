@@ -696,12 +696,12 @@ function skinDetailLabel(hole: SkinHoleResult): string {
   return parts.join(' · ');
 }
 
-function toggleComplete() {
+async function toggleComplete() {
   if (!completed.value) {
     const ok = confirmAction('Complete this round?\n\nThis will save the final results to the event and group history.');
     if (!ok) return;
   }
-  store.setCompleted(!completed.value);
+  await store.setCompleted(!completed.value);
 }
 
 function resetRound() {
@@ -755,6 +755,10 @@ function goGroup() {
           <p v-if="eventRoundSummary" class="rs-event-round">{{ eventRoundSummary.name }}</p>
           <p class="rs-course-title">{{ courseTitle }}</p>
           <p v-if="courseMeta" class="rs-course-meta">{{ courseMeta }}</p>
+          <div class="sync-status" :class="{ error: store.syncError }" role="status">
+            <span>{{ store.syncStatusLabel }}</span>
+            <button v-if="store.syncError && store.round?.id" type="button" @click="store.retrySync()">Retry</button>
+          </div>
         </div>
         <div v-if="eventRoundSummary" class="round-points-card" aria-label="Round points">
           <span>Round points</span>
@@ -769,10 +773,10 @@ function goGroup() {
         </div>
         <div class="rs-actions">
           <button class="btn-ghost" type="button" @click="goScorecard">Back to scorecard</button>
-          <button class="btn-complete" type="button" @click="toggleComplete">
-            {{ completed ? 'Reopen round' : 'Complete round' }}
+          <button class="btn-complete" type="button" :disabled="store.completionSaving" @click="toggleComplete">
+            {{ store.completionSaving ? 'Saving…' : (completed ? 'Reopen round' : 'Complete round') }}
           </button>
-          <button class="btn-reset-secondary" type="button" @click="resetRound">Reset round</button>
+          <button v-if="!store.round?.id" class="btn-reset-secondary" type="button" @click="resetRound">Reset round</button>
         </div>
       </header>
 
@@ -1219,6 +1223,27 @@ function goGroup() {
   margin: 4px 0 0;
   font-size: 1.4rem;
   color: #24362c;
+}
+
+.sync-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 7px;
+  color: #4f6658;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.sync-status.error { color: #a33b32; }
+.sync-status button {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  padding: 2px 8px;
+  font: inherit;
+  cursor: pointer;
 }
 
 .rs-course-title {

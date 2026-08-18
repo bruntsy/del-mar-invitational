@@ -3512,3 +3512,45 @@ supported front-end behavior.
   the cutover has been stable.
 - Decide whether to upgrade Supabase for scheduled backups or add a recurring
   off-platform logical backup.
+
+---
+
+## Checkpoint 78 — Tournament sync hardening (2026-08-17)
+
+### Summary
+
+Hardened the online round lifecycle so transient connectivity failures cannot
+silently create an unsynchronized scorecard or falsely report a completed
+round.
+
+### Changes
+
+- Online round creation now stays in setup with a retryable error when the
+  Supabase insert is not confirmed.
+- Round-state writes use a single in-flight request, bounded exponential
+  retries, local persistence, and visible sync status with a manual retry.
+- Completion and reopening flush pending scores and wait for server
+  confirmation; failures restore the prior completion state.
+- Server-backed rounds can no longer be reset from one browser. Local and demo
+  rounds retain the reset workflow.
+- Scorecard and results screens show whether data is local, pending, saved
+  online, or awaiting retry.
+- Expanded the Supabase mock and regression suite to cover retry recovery,
+  retry exhaustion, edits during an in-flight write, completion failures, and
+  pending-score completion.
+
+### Verification
+
+- `npm run test:run` passed: 38 files, 379 tests.
+- `npm run build` passed.
+- `node scripts/event-format-tests.js` passed.
+- Desktop and 390x844 / 320x568 mobile browser flows passed locally without
+  production credentials.
+- All Vercel SPA routes and the legacy GitHub Pages fallback returned HTTP 200.
+
+### Remaining risks
+
+- If a round insert succeeds server-side but its response is lost, a manual
+  retry can still create a duplicate. Add an idempotency key before treating
+  that failure mode as fully resolved.
+- Run a controlled two-device Supabase rehearsal after deployment.

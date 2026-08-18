@@ -721,6 +721,7 @@ async function startRound() {
     return;
   }
   const created = await store.startRound(round, players, group.group?.id ?? null);
+  if (!created) return;
   if (event.pendingRoundLink != null && created.id) {
     const { roundIndex } = event.pendingRoundLink;
     if (event.event?.config.rounds[roundIndex]) {

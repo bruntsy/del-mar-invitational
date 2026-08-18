@@ -1177,6 +1177,10 @@ watch(
           <p v-if="activeEventRound" class="sc-kicker">Team event scorecard</p>
           <h1 class="sc-title">{{ scorecardTitle }}</h1>
           <p class="sc-sub">{{ scorecardSub }}</p>
+          <div class="sync-status" :class="{ error: store.syncError }" role="status">
+            <span>{{ store.syncStatusLabel }}</span>
+            <button v-if="store.syncError && store.round?.id" type="button" @click="store.retrySync()">Retry</button>
+          </div>
           <div v-if="eventRoundScore" class="event-score-banner" aria-label="Event round score">
             <span>{{ eventRoundScore.label }}</span>
             <strong>{{ eventRoundScore.team1Name }} {{ eventRoundScore.team1 }} - {{ eventRoundScore.team2 }} {{ eventRoundScore.team2Name }}</strong>
@@ -1999,6 +2003,27 @@ watch(
   margin: 4px 0 0;
   color: #6a7a6f;
   font-size: 0.85rem;
+}
+
+.sync-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 7px;
+  color: #4f6658;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.sync-status.error { color: #a33b32; }
+.sync-status button {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  padding: 2px 8px;
+  font: inherit;
+  cursor: pointer;
 }
 
 .event-score-banner {

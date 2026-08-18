@@ -191,6 +191,26 @@ describe('SetupScreen', () => {
     expect(push).toHaveBeenCalledWith('/scorecard');
   });
 
+  it('stays in setup when online round creation is not confirmed', async () => {
+    persistGroup({
+      Ann: { name: 'Ann', handicapIndex: 10 },
+      Bea: { name: 'Bea', handicapIndex: 12 },
+      Cal: { name: 'Cal', handicapIndex: 6 },
+      Dan: { name: 'Dan', handicapIndex: 20 },
+    });
+    const store = useRoundStore();
+    vi.spyOn(store, 'startRound').mockResolvedValue(null);
+    const wrapper = mountSetup();
+    await flushPromises();
+    const skinsRow = wrapper.findAll('.game-row').find((row) => row.text().includes('Skins'))!;
+    await skinsRow.find('input[type="checkbox"]').setValue(true);
+
+    await wrapper.find('.setup-actions .btn-primary').trigger('click');
+    await flushPromises();
+
+    expect(push).not.toHaveBeenCalledWith('/scorecard');
+  });
+
   it('configures ad hoc Rotation Sixes with rotation preview', async () => {
     const store = useRoundStore();
     const wrapper = mountSetup();

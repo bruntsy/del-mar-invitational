@@ -89,7 +89,7 @@ function resume() {
 
 async function loadGroupData(groupId: string) {
   const loaded = await roundStore.loadActiveRound(groupId);
-  if (!loaded && roundStore.round?.groupId && roundStore.round.groupId !== groupId) roundStore.reset();
+  if (!loaded && roundStore.round?.groupId && roundStore.round.groupId !== groupId) roundStore.discardLocalRound();
   void history.loadHistory(groupId);
   void stats.loadStats(groupId);
   await eventStore.loadEvent(groupId);

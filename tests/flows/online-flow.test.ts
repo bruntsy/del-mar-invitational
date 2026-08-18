@@ -146,8 +146,7 @@ describe('online flow: group create → roster → round start → score → com
     expect(scoreAt(payload.state.putts, 'Ann', 0)).toBe(3);
   });
 
-  it('syncs round completion to Supabase', async () => {
-    vi.useFakeTimers();
+  it('syncs round completion to Supabase before reporting success', async () => {
     mockState.online = true;
     mockDb.set('rounds', { data: roundRow('r1', 'g1'), error: null });
 
@@ -156,10 +155,8 @@ describe('online flow: group create → roster → round start → score → com
     mockDb.reset();
     mockDb.set('rounds', { data: roundRow('r1', 'g1'), error: null });
 
-    round.setCompleted(true);
+    expect(await round.setCompleted(true)).toBe(true);
     expect(round.round?.completed).toBe(true);
-
-    await vi.advanceTimersByTimeAsync(700);
 
     const update = mockDb.operations.find((op) => op.table === 'rounds' && op.method === 'update');
     expect(update).toBeTruthy();

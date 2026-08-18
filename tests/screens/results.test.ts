@@ -151,6 +151,18 @@ describe('ResultsScreen', () => {
     );
   });
 
+  it('does not offer reset for a server-backed round', () => {
+    const store = useRoundStore();
+    const { round, players } = demoRound();
+    round.id = 'r1';
+    round.groupId = 'g1';
+    store.setRound(round, players);
+
+    const wrapper = mountResults();
+
+    expect(wrapper.find('.btn-reset-secondary').exists()).toBe(false);
+  });
+
   it('highlights the winning team once both are complete', async () => {
     const store = useRoundStore();
     const { round, players } = demoRound();
@@ -375,6 +387,7 @@ describe('ResultsScreen', () => {
     expect(wrapper.find('.btn-complete').text()).toContain('Complete round');
 
     await wrapper.find('.btn-complete').trigger('click');
+    await nextTick();
     expect(store.round?.completed).toBe(true);
     expect(wrapper.find('.btn-complete').text()).toContain('Reopen round');
     expect(wrapper.text()).toContain('Round Complete');

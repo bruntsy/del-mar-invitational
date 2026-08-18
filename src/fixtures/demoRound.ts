@@ -34,8 +34,7 @@ export function demoRound(): { round: RoundState; players: PlayerMap } {
   games.puttPoker.pot = 2;
 
   const round: RoundState = {
-    ...emptyRound('demo-group'),
-    id: 'demo-round',
+    ...emptyRound(),
     course: demoCourse,
     team1: ['Wes', 'Aaron'],
     team2: ['Tito', 'Q'],

@@ -56,6 +56,8 @@ import {
 import type { PlayerMap, RoundState, ScoreMatrix, ScoreType } from '@/types';
 
 const STORAGE_KEY = 'dmi_round';
+const MAX_SYNC_RETRIES = 5;
+const MAX_RETRY_DELAY = 30_000;
 
 type RealtimeClient = {
   channel: (name: string) => {
@@ -199,9 +201,15 @@ export const useRoundStore = defineStore('round', {
     groupChannel: null as unknown,
     syncTimer: null as ReturnType<typeof setTimeout> | null,
     pollTimer: null as ReturnType<typeof setInterval> | null,
+    syncPromise: null as Promise<boolean> | null,
+    syncPending: false,
+    syncing: false,
+    retryAttempt: 0,
+    lastSyncedAt: '',
     lastPushed: '',
     syncError: '',
     starting: false,
+    completionSaving: false,
   }),
 
   getters: {
@@ -218,6 +226,19 @@ export const useRoundStore = defineStore('round', {
     /** Derived lifecycle status for resume affordances. */
     roundStatus(state): RoundStatus {
       return deriveRoundStatus(state.round);
+    },
+
+    syncStatusLabel(state): string {
+      if (!state.round?.id) return 'Saved on this device';
+      if (state.syncError) {
+        return state.retryAttempt < MAX_SYNC_RETRIES
+          ? 'Sync failed — saved on this device. Retrying…'
+          : 'Sync failed — saved on this device';
+      }
+      if (state.syncing) return 'Saving online…';
+      if (state.syncPending) return 'Waiting to sync…';
+      if (state.lastSyncedAt) return 'Saved online';
+      return 'Online sync ready';
     },
 
     /** Number of holes (0–18) with any score data. */
@@ -565,6 +586,9 @@ export const useRoundStore = defineStore('round', {
 
     scheduleSync(delay = 600) {
       if (!this.round?.id || !hasSupabase() || !supabase) return;
+      this.syncPending = true;
+      this.retryAttempt = 0;
+      if (this.syncing) return;
       if (this.syncTimer) clearTimeout(this.syncTimer);
       this.syncTimer = setTimeout(() => {
         this.syncTimer = null;
@@ -572,27 +596,79 @@ export const useRoundStore = defineStore('round', {
       }, delay);
     },
 
-    async pushToSupabase() {
-      if (!this.round?.id || !hasSupabase() || !supabase) return;
-      const { data } = await supabase
-        .from('rounds')
-        .select(ACTIVE_ROUND_COLUMNS)
-        .eq('id', this.round.id)
-        .single();
-      if (data && this.round) {
-        const { round: remote, players } = normalizeRoundRow(data as RoundRow);
-        this.players = { ...players, ...this.players };
-        this.round = mergeRoundData(this.round, remote, false);
-        this.persist();
+    scheduleRetry() {
+      if (!this.round?.id || this.retryAttempt >= MAX_SYNC_RETRIES) return;
+      const delay = Math.min(1000 * (2 ** this.retryAttempt), MAX_RETRY_DELAY);
+      this.retryAttempt += 1;
+      this.syncPending = true;
+      if (this.syncTimer) clearTimeout(this.syncTimer);
+      this.syncTimer = setTimeout(() => {
+        this.syncTimer = null;
+        void this.pushToSupabase();
+      }, delay);
+    },
+
+    async pushToSupabase(): Promise<boolean> {
+      if (!this.round?.id || !hasSupabase() || !supabase) return true;
+      if (this.syncPromise) {
+        const priorSucceeded = await this.syncPromise;
+        if (this.syncPending) return this.pushToSupabase();
+        return priorSucceeded;
       }
-      if (!this.round?.id) return;
-      const state = roundForDb(this.round, this.players);
-      this.lastPushed = JSON.stringify(state);
-      const { error } = await supabase
-        .from('rounds')
-        .update({ state, completed: this.round.completed || false })
-        .eq('id', this.round.id);
-      this.syncError = error ? String(error.message || 'Sync failed') : '';
+      if (this.syncTimer) {
+        clearTimeout(this.syncTimer);
+        this.syncTimer = null;
+      }
+      this.syncPending = false;
+      this.syncing = true;
+      const client = supabase;
+      const roundId = this.round.id;
+      const operation = (async () => {
+        try {
+          const { data, error: readError } = await client
+            .from('rounds')
+            .select(ACTIVE_ROUND_COLUMNS)
+            .eq('id', roundId)
+            .single();
+          if (readError) throw readError;
+          if (data && this.round?.id === roundId) {
+            const { round: remote, players } = normalizeRoundRow(data as RoundRow);
+            this.players = { ...players, ...this.players };
+            this.round = mergeRoundData(this.round, remote, false);
+            this.persist();
+          }
+          if (!this.round || this.round.id !== roundId) return false;
+          const state = roundForDb(this.round, this.players);
+          const { error } = await client
+            .from('rounds')
+            .update({ state, completed: this.round.completed || false })
+            .eq('id', roundId);
+          if (error) throw error;
+          this.lastPushed = JSON.stringify(state);
+          this.syncError = '';
+          this.retryAttempt = 0;
+          this.lastSyncedAt = new Date().toISOString();
+          return true;
+        } catch (error) {
+          this.syncError = String((error as { message?: string })?.message || 'Sync failed');
+          this.scheduleRetry();
+          return false;
+        } finally {
+          this.syncing = false;
+        }
+      })();
+      this.syncPromise = operation;
+      const succeeded = await operation;
+      this.syncPromise = null;
+      if (succeeded && this.syncPending && !this.syncTimer) this.scheduleSync(0);
+      return succeeded;
+    },
+
+    async retrySync(): Promise<boolean> {
+      if (!this.round?.id) return true;
+      this.retryAttempt = 0;
+      this.syncPending = true;
+      return this.pushToSupabase();
     },
 
     applyRemoteRound(remote: RoundState) {
@@ -653,6 +729,10 @@ export const useRoundStore = defineStore('round', {
       if (this.pollTimer) clearInterval(this.pollTimer);
       this.pollTimer = setInterval(async () => {
         if (!this.round?.id || !hasSupabase() || !supabase) return;
+        if (this.syncPending) {
+          await this.pushToSupabase();
+          return;
+        }
         const { data } = await supabase
           .from('rounds')
           .select(ACTIVE_ROUND_COLUMNS)
@@ -683,7 +763,7 @@ export const useRoundStore = defineStore('round', {
       this.persist();
     },
 
-    async startRound(round: RoundState, players: PlayerMap, groupId: string | null = null): Promise<RoundState> {
+    async startRound(round: RoundState, players: PlayerMap, groupId: string | null = null): Promise<RoundState | null> {
       const localRound = normalizeRoundState({
         ...round,
         groupId: groupId ?? round.groupId ?? null,
@@ -705,9 +785,8 @@ export const useRoundStore = defineStore('round', {
           .single();
 
         if (error || !data) {
-          this.syncError = 'Could not create an online round. Started locally instead.';
-          this.setRound(localRound, players);
-          return this.round as RoundState;
+          this.syncError = 'Could not create the online round. Check your connection and retry.';
+          return null;
         }
 
         const { round: createdRound, players: embeddedPlayers } = normalizeRoundRow(data as RoundRow);
@@ -818,15 +897,38 @@ export const useRoundStore = defineStore('round', {
       return computePuttPoker(putts, groupPlayers, this.games.puttPoker.pot || 0);
     },
 
-    /** Marks the round complete (or reopens it), matching legacy `completeRound()`. */
-    setCompleted(value: boolean) {
-      if (!this.round) return;
+    /** Marks the round complete only after the server confirms the write. */
+    async setCompleted(value: boolean): Promise<boolean> {
+      if (!this.round) return false;
+      const previous = this.round.completed;
       this.round.completed = value;
       this.persist();
-      this.scheduleSync();
+      if (!this.round.id || !hasSupabase() || !supabase) return true;
+      this.completionSaving = true;
+      this.syncPending = true;
+      try {
+        const saved = await this.pushToSupabase();
+        if (!saved && this.round) {
+          this.round.completed = previous;
+          this.persist();
+          this.scheduleSync();
+        }
+        return saved;
+      } finally {
+        this.completionSaving = false;
+      }
     },
 
-    reset() {
+    reset(): boolean {
+      if (this.round?.id) {
+        this.syncError = 'Online rounds cannot be reset from this device.';
+        return false;
+      }
+      this.discardLocalRound();
+      return true;
+    },
+
+    discardLocalRound() {
       this.stopGroupSubscription();
       this.round = null;
       this.persist();

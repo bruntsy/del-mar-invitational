@@ -13,11 +13,16 @@ export interface MockResult {
 
 export function createMockSupabase() {
   const results = new Map<string, MockResult>();
+  const queuedResults = new Map<string, Array<MockResult | Promise<MockResult>>>();
   const operations: Array<{ table: string; method: string; args: unknown[] }> = [];
   const channels = new Map<string, { callback?: (payload: unknown) => void; subscribed: boolean }>();
 
   function chain(table: string) {
-    const resolve = () => Promise.resolve(results.get(table) ?? { data: null, error: null });
+    const resolve = () => {
+      const queue = queuedResults.get(table);
+      const queued = queue?.shift();
+      return Promise.resolve(queued ?? results.get(table) ?? { data: null, error: null });
+    };
     const builder: Record<string, unknown> = {};
     for (const method of ['insert', 'update', 'select', 'eq', 'order', 'limit', 'in']) {
       builder[method] = (...args: unknown[]) => {
@@ -65,6 +70,10 @@ export function createMockSupabase() {
     set(table: string, result: MockResult) {
       results.set(table, result);
     },
+    /** Queue per-query responses, including deferred promises, for race testing. */
+    enqueue(table: string, responses: Array<MockResult | Promise<MockResult>>) {
+      queuedResults.set(table, [...responses]);
+    },
     operations,
     emit(channelName: string, payload: unknown) {
       channels.get(channelName)?.callback?.(payload);
@@ -74,6 +83,7 @@ export function createMockSupabase() {
     },
     reset() {
       results.clear();
+      queuedResults.clear();
       operations.splice(0);
       channels.clear();
     },
